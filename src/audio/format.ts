@@ -50,6 +50,28 @@ export const MODEL_AUDIO: { in: AudioFormat; out: AudioFormat } = {
  *
  * ⚠️ NO CALL SITE MAY HARDCODE 8000. Read it from here, so that when the guess is settled there
  * is exactly one line to change and a failing test to tell you that you missed one.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────────────────────
+ * UPDATE 2026-09-12 — the guess is now a MEASURED RANGE, and `bytesPerFrame` cannot survive a
+ * second carrier as a constant. Read from each vendor's own documentation:
+ *
+ *   Twilio   μ-law 8 kHz mono, and ONLY that. 20 ms = 160 bytes.
+ *   Telnyx   PCMU 8 kHz by default; also PCMA, G722, OPUS, AMR-WB and L16/16k. 20 ms of
+ *            L16/16k = 640 bytes. Telnyx recommends L16 for AI voice agents.
+ *   Plivo    μ-law 8 kHz, ~20 ms documented. 160 bytes.
+ *   Vonage   L16 only, 8/16/24 kHz, raw binary. 20 ms = 320 / 640 / 960 bytes.
+ *
+ * Three consequences worth writing down before anyone picks:
+ *
+ *   1. `bytesPerFrame` is a function of (encoding, sampleRate), not a constant. `AudioFormat`
+ *      above already has both fields; the constant is the shortcut, and it is on borrowed time.
+ *   2. On Telnyx L16/16 kHz the G.711 codec leaves the call path entirely and the model gets
+ *      16 kHz instead of 8. That is an argument about carriers, not an argument for deleting
+ *      `src/audio/mulaw.ts` — on Twilio it is mandatory and on the hot path.
+ *   3. 🔴 NO CARRIER TAKES 24 kHz. Twilio caps at 8, Telnyx and Plivo at 16, and Vonage's own
+ *      two pages disagree with each other about whether 24 exists. Gemini Live always returns
+ *      24 kHz. So the 24k → 8k decimation in `src/audio/resample.ts` is permanent infrastructure
+ *      rather than a stopgap, whichever carrier wins.
  */
 export const CARRIER_AUDIO: AudioFormat & { frameMs: number; bytesPerFrame: number } = {
     encoding: 'mulaw',

@@ -62,10 +62,21 @@ alternative for a notice-shaped call. Choose with §3.4, not from the adjectives
 | knob | default | ours | what it changes |
 |---|---|---|---|
 | `automaticActivityDetection.disabled` | false | false | manual signalling means we decide when a turn ended, from a jittery carrier stream. Harder, not safer |
-| `startOfSpeechSensitivity` | not documented | `LOW` | HIGH treats a dropped tray as the manager starting to speak, and the agent stops mid-sentence for nothing |
-| `endOfSpeechSensitivity` | not documented | `LOW` | HIGH treats a thinking pause as a finished turn |
+| `startOfSpeechSensitivity` | **`START_SENSITIVITY_LOW`, documented** | `LOW` | HIGH treats a dropped tray as the manager starting to speak, and the agent stops mid-sentence for nothing |
+| `endOfSpeechSensitivity` | **`END_SENSITIVITY_LOW`, documented** | `LOW` | HIGH treats a thinking pause as a finished turn |
 | `prefixPaddingMs` | not documented | 300 | how much audio before the detected start is kept. Too low clips first syllables: "…orty-five" |
-| `silenceDurationMs` | **~800 ms, documented** | 800 | how long a pause must be to end a turn. Up = dead air; down = talking over people |
+| `silenceDurationMs` | **~800 ms, documented; 500–800 ms recommended** | 800 | how long a pause must be to end a turn. Up = dead air; down = talking over people |
+
+🔴 **Corrected 2026-09-12. The two sensitivity rows previously said "not documented" and that was
+wrong — the Live API REST reference states flatly "The default is START_SENSITIVITY_LOW." and
+"The default is END_SENSITIVITY_LOW.", and Google's own Developer-API example sets both to LOW.
+So our LOW/LOW is not a cautious deviation from a hair-trigger default; it IS the documented
+stock setting, and §3 has one less thing to justify.
+
+One contradiction to know about before leaning on an *unset* default: the SDK's own docstrings
+attribute a HIGH default to a surface called "Gemini Live" that appears twice in 17,939 lines of
+type declarations and is defined nowhere. Three sources say LOW, one undefined carve-out says
+HIGH. Set them explicitly, as this repo does, and the disagreement cannot reach a call.**
 | `realtimeInputConfig.turnCoverage` | differs between 2.5 and 3.x | `TURN_INCLUDES_ALL_INPUT` | whether we keep sending audio while the model speaks. Barge-in depends on it. **Not** a top-level field |
 
 ### Session
@@ -89,11 +100,43 @@ four operations and `test/audio.test.ts` proves them against the standard's own 
 
 ### Not tunable, and it is the thing everyone asks about
 
-**Concurrency.** Google publishes no Live API concurrency limit, and staff have said publicly that
-there is no session-count guarantee — the real ceiling is tokens per minute. The "1,000 concurrent
-sessions" figure that circulates is unsourced; the page it is attributed to does not contain it.
-The only number that will ever be true for us is on our own signed-in quota page. Read that; do
-not quote the docs.
+**Concurrency.** 🔴 **This section said "the 1,000 concurrent sessions figure is unsourced; the
+page it is attributed to does not contain it." That was wrong, and it was wrong in the direction
+of dismissing a real limit.** Corrected 2026-09-12 after fetching both pages:
+
+- The **Vertex / Cloud** surface publishes it plainly, under the heading *Maximum concurrent
+  sessions*: "You can have up to 1,000 concurrent sessions per project on a pay-as-you-go (PayGo)
+  plan. This limit does not apply to customers using Provisioned Throughput."
+- The **Gemini Developer API** surface — `ai.google.dev`, the API-key path this repo's
+  `GEMINI_API_KEY` uses — publishes **no** Live API concurrency figure at all. Its rate-limits
+  page has no Live row; its only "concurrent" entry is the Batch API's.
+
+So the accurate statement is that **which limit binds depends on which credential the agent
+ships with**, and that is now a decision this feature has to make on purpose rather than dismiss.
+An API key gets you no published ceiling and no guarantee; a Vertex service account gets you a
+documented 1,000 per project. Either way the number that finally matters is on our own signed-in
+quota page — but "there is no published figure" is no longer a true sentence.
+
+**Barge-in, on the model's side.** The server signals an interruption with
+`serverContent.interrupted: true`, and the client must stop playback and discard whatever it has
+already buffered. That maps exactly onto `CallLeg.clear()` in `src/carrier/leg.ts`, which is what
+`npm run call` exercises against the fake leg. `LiveServerMessage` also carries
+`voiceActivityDetectionSignal` and `voiceActivity` — the server's own VAD, which is the channel
+worth logging while tuning the two sensitivities above.
+
+**The SDK, pinned.** `@google/genai`, latest **2.22.0** (published 2026-09-10, engines
+`node >= 20`). Pin `^2.22.0` **and below 3.0.0**: the 3.x line requires Node 22 — a non-event
+here — and removes `LiveConnectConfig.generation_config`, which is not.
+
+⚠️ **The Live API is PREVIEW on both ends.** Google labels it Preview in the docs and the SDK
+marks the whole Live surface `@experimental`, including `connect()`, `sendToolResponse()` and
+`close()`. There is no deprecation guarantee on any of it. See `docs/LIMITS.md`.
+
+💡 **One cheap guard worth taking on day one.** This page says putting `model` in the config
+object gets it "silently ignored". That is only true because `LIVE_DEFAULTS` is an untyped object
+literal. Annotate it `: LiveConnectConfig` once the SDK is a dependency and the same mistake
+becomes `error TS2353: 'model' does not exist in type 'LiveConnectConfig'` — the whole class of
+misplaced-field bug turns from silent into a failed build, for one line.
 
 ---
 
@@ -114,6 +157,15 @@ Run the same fixture on the pinned model and on `gemini-3.1-flash-live-preview`.
 (two posters, no Google reply, last post 2026-09-05) reports the newer one at 9–15 s TTFA against
 ~2 s for the 2.5 native-audio line. On a telephone nine seconds after "hello" is the call over. It
 is not our measurement, and it needs to be before anyone changes the pin in either direction.
+
+**Independent second signal, found 2026-09-12 and older than the latency thread.**
+`google-gemini/cookbook` issue **#1197** (opened 2026-04-16, still open, no Google response)
+reports four production voice-call defects on `gemini-3.1-flash-live-preview`, the first being
+**greeting stuttering when interrupted** — a barge-in defect, which is the exact mechanism this
+lane depends on and the one `npm run call` grades. Two unrelated reports, months apart, both
+against the newer model, both on things a telephone call cannot tolerate. That strengthens the
+2.5 pin beyond "we have not measured it yet" — but it is still two strangers' reports, and the
+measurement is still the deciding move.
 
 ### 3.3 Sweep silence duration around the documented default
 
@@ -141,11 +193,24 @@ answers half a question, and it talks over the rest of it. **Bracket 800 and do 
 — the pinned value has a margin over the knee, which is the right place to be when the pause
 length is a property of a stranger and not of us.
 
+**What Google says about the same knob**, fetched 2026-09-12 and worth putting beside our own
+numbers: *"Recommended (500ms–800ms): Provides a good balance… The server's internal default is
+approximately 800ms. Too low (e.g., 100ms–200ms): The system ends speech turns during natural
+pauses, splitting a single utterance into multiple small audio fragments… losing cross-fragment
+context and resulting in lower transcription and response quality. Too high (e.g., 2000ms+):
+increasing perceived latency."*
+
+Two things follow. Their "too low" is about **transcription quality**, not only politeness — a
+cost our sweep cannot see at all, because there is no recogniser in it. And their harm example is
+100–200 ms; they say nothing about 400. **So keep the 400 rung.** It is below the recommended
+band and above the documented harm example, which makes it the one rung that measures where the
+edge actually is rather than assuming the band's lower bound is a cliff.
+
 ⚠️ **What this sweep is NOT.** The detector it sweeps is ours, not Google's — same parameter
 names, same units, different algorithm, and theirs is unpublished. Read the header of
 `src/carrier/vad.ts` before quoting any of these numbers. What transfers is the SHAPE: a setting
 shorter than a human's thinking pause cuts through it, wherever the detector runs. What does not
-transfer is the knee's exact position.
+transfer is the knee's exact position, and nothing here sees transcription quality.
 
 And the knee is a property of the fixture's pause length, which is 500 ms and is chosen, not
 measured — `DEFAULT_INTERNAL_PAUSE_MS` in `src/carrier/fakeLeg.ts`. Change it and re-run to ask

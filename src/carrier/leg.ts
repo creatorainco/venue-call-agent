@@ -9,11 +9,29 @@
  *
  * So it knows exactly four things, and all four are true of a telephone rather than of a vendor:
  *
- *   1. frames of 8 kHz G.711 μ-law arrive, at a steady cadence, until they stop
- *   2. frames of 8 kHz G.711 μ-law can be written back
+ *   1. frames of telephone audio arrive, at a steady cadence, until they stop
+ *   2. frames of telephone audio can be written back
  *   3. anything written but not yet played can be thrown away — that is barge-in, and every
  *      carrier has some way to say it because a human interrupting is not a vendor feature
  *   4. either end can hang up
+ *
+ * 🔴 AND HERE IS WHERE IT LEAKS, checked against four carriers' documentation on 2026-09-12
+ * rather than assumed. `Frame` is a μ-law payload, and that is true of three of the four:
+ *
+ *   Twilio  — JSON frames, `media.payload` base64. "Value is always audio/x-mulaw", "always
+ *             8000", "always 1". No negotiation of any kind.
+ *   Telnyx  — JSON frames, base64. PCMU/8k by default, but SIX codecs are selectable and their
+ *             docs recommend L16/16k for AI voice agents specifically: "reduced latency and
+ *             eliminating transcoding overhead".
+ *   Plivo   — JSON frames, base64, mulaw/8000, ~20 ms chunks (and Plivo documents the cadence,
+ *             which Twilio does not).
+ *   Vonage  — RAW BINARY WebSocket frames, 16-bit signed little-endian PCM, NO μ-law option at
+ *             all, and control messages keyed `action` rather than `event`.
+ *
+ * So a Vonage adapter cannot accept this `Frame` as it stands. Either `Frame` grows a format —
+ * `AudioFormat` in `src/audio/format.ts` already models one — or a Vonage adapter silently
+ * transcodes on every frame in both directions, which is a quality and latency cost the
+ * interface would be hiding. Prefer the former, and do the refactor while there is one caller.
  *
  * 🔴 THE FRAME SHAPE IS STILL AN ASSUMPTION AND IT LIVES IN ONE PLACE. `CARRIER_AUDIO` in
  * `src/audio/format.ts` carries the reasoning and the warning. Nothing here restates 8000 or 160;
@@ -80,12 +98,26 @@ export interface CallLeg {
     hangup(reason: HangupReason): Promise<void>;
 }
 
-/** Every frame written or read must be exactly this long. Checked, not assumed. */
+/**
+ * Every frame written or read must be exactly this long.
+ *
+ * 🔴 THIS IS STRICTER THAN ANY CARRIER'S CONTRACT AND THAT IS DELIBERATE HERE — but a real
+ * adapter must NOT propagate the throw. Checked 2026-09-12: Twilio documents no inbound frame
+ * duration or byte size anywhere, and in the outbound direction says the opposite of this —
+ * "The audio can be of any size. The media messages are buffered and played in the order
+ * received." Telnyx allows 20 ms to 30 seconds per chunk. The 20 ms / 160-byte figure is
+ * de-facto observed behaviour on μ-law/8 kHz, not a promise anybody made.
+ *
+ * So: keep this assertion for the fake leg, where it catches real bugs and where we control both
+ * ends. A carrier adapter that receives a 240-byte payload must RE-CHUNK it, not throw — the
+ * carrier is within its rights and the call is live.
+ */
 export function assertFrame(frame: Frame, where: string): void {
     if (frame.length !== CARRIER_AUDIO.bytesPerFrame) {
         throw new Error(
             `${where}: frame is ${frame.length} bytes, must be exactly ${CARRIER_AUDIO.bytesPerFrame}. ` +
-            'A carrier paces playback per frame, so a short frame is a click, not less audio.',
+            'A carrier paces playback per frame, so a short frame is a click, not less audio. ' +
+            'If this fired inside a real carrier adapter, re-chunk instead: no carrier promises this size.',
         );
     }
 }
