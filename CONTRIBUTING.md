@@ -87,8 +87,8 @@ than four — an exemption list that grows quietly is the same as no guard.
 ## Before you open a pull request
 
 ```bash
-npm run verify        # guard + doctor control + typecheck + 144 tests
-npm run eval          # 14 conversations
+npm run verify        # guard + doctor control + typecheck + the whole suite
+npm run eval          # every recorded conversation
 npm run contract:derive -- ../platform-backend    # has the backend moved under us?
 ```
 

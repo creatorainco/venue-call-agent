@@ -1,8 +1,9 @@
 /**
  * `npm run call` — every recorded conversation, run as a telephone call, against nobody.
  *
- * No phone, no carrier, no cloud account, no credential. The clock is virtual, so fourteen calls
- * of several minutes each finish in about a second and come out bit-identical on every machine.
+ * No phone, no carrier, no cloud account, no credential. The clock is virtual, so every recorded
+ * conversation, each several minutes long, finishes in about a second and comes out
+ * bit-identical on every machine.
  *
  *     npm run call                          every fixture, with the pinned turn-detector settings
  *     npm run call -- --only=who            just the fixtures whose name contains "who"
@@ -64,7 +65,7 @@ function pad(s: string, n: number): string {
     return s.length >= n ? s.slice(0, n) : s + ' '.repeat(n - s.length);
 }
 
-function summarise(reports: readonly AudioReport[]) {
+export function summarise(reports: readonly AudioReport[]) {
     const all = reports.flatMap((r) => r.deadAirMs);
     return {
         calls: reports.length,

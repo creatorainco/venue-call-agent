@@ -6,12 +6,18 @@
  * call without knowing one happened. Everything the text harness checks still gets checked; what
  * is added is the layer the text harness is blind to.
  *
- * 🔴 EVERY TIMING NUMBER IS READ OFF THE WIRE, NOT OFF EITHER SIDE'S ACCOUNT OF ITSELF.
- * Dead air is measured from the frame the far end's last audible sound landed in to the frame our
- * next audible byte actually played — both taken from `FakeCallLeg.inbound` and `.outbound`,
- * which record what the leg did rather than what anybody intended. The bridge's own log of what
- * it queued is never used for a measurement, for the same reason the replay harness scores off
- * the mock's journal: a component's self-report is the one witness that cannot contradict it.
+ * 🔴 EVERY *TIMING* NUMBER IS READ OFF THE WIRE, NOT OFF EITHER SIDE'S ACCOUNT OF ITSELF.
+ * Dead air, talk-over, the opening delay and the frame counts all come from `FakeCallLeg.inbound`
+ * and `.outbound`, which record what the leg did rather than what anybody intended — the same
+ * reason the replay harness scores off the mock's journal rather than the agent's self-report.
+ *
+ * ⚠️ TWO FIELDS ARE THE EXCEPTION AND SAYING OTHERWISE WAS WRONG. `cutShortSentences` and
+ * `unheardSentences` come from `ScriptedBridge.spoken` — the bridge's own record of what it
+ * queued and when. There is no way around that: the wire carries frames, and frames do not know
+ * which sentence they belong to. It is sound arithmetic over an ordered queue rather than an
+ * opinion, but it IS the component reporting on itself, and an earlier version of this header
+ * claimed no measurement did that. Read those two as well-founded bookkeeping, not as evidence
+ * of the same kind as the timings above.
  *
  * WHAT A NUMBER FROM HERE MEANS, EXACTLY. It contains: the turn detector's `silenceDurationMs`,
  * whatever model latency you asked for, and the time the agent spent in the seam. It does NOT
@@ -242,7 +248,12 @@ export async function audioCall(
 
         // The call is over. Whatever was still queued never played, so charge it honestly rather
         // than crediting the agent with sentences the leg died holding.
-        bridge.settle(leg.elapsedFrames - leg.queuedFrames());
+        //
+        // `outbound.length` and not `elapsedFrames`: they are equal today, and only one of them
+        // is a count of frames that actually went out. The other is a clock, and a clock stays
+        // right by accident. Subtracting `queuedFrames()` here would be worse than redundant —
+        // hanging up empties the queue, so it is always zero by the time this runs.
+        bridge.settle(leg.outbound.length);
 
         const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
 

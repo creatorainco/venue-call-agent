@@ -190,20 +190,28 @@ export class ScriptedBridge implements SpeechBridge {
         const dropped = this.leg.queuedFrames();
         if (!dropped) return;
         this.leg.clear();
-        this.settle(this.frame);
+        // Frames 0..this.frame have gone out, so that is this.frame + 1 played.
+        this.settle(this.frame + 1);
         this.queuedUntilFrame = this.frame;
     }
 
     /**
-     * Freeze how much of each still-open sentence had played by `frame`.
+     * Freeze how much of each still-open sentence played, given how many frames went out in total.
      *
-     * A frame count alone cannot say which sentence was cut, but the queue was filled in order
-     * and every entry knows where it sat, so the arithmetic is exact rather than a guess.
+     * A frame count alone cannot say which sentence was cut, but the queue was filled in order and
+     * every entry knows where it sat, so the arithmetic is exact rather than a guess.
+     *
+     * 🔴 THE ARGUMENT IS A COUNT OF FRAMES PLAYED, NOT A FRAME INDEX, and that distinction is the
+     * fix for a real off-by-one. This took an index and added one to convert, which is right at a
+     * barge-in — the frame being handled has gone out — and wrong at the end of a call, where the
+     * frames still sitting in the queue were discarded and never played at all. A mid-sentence
+     * hangup therefore credited the far end with 20 ms it did not hear. Small, and the wrong
+     * direction: the whole point of this accounting is that it under-claims rather than over-.
      */
-    settle(frame: number): void {
+    settle(playedFrames: number): void {
         for (const entry of this.spoken) {
             if (entry.settled) continue;
-            entry.heardFrames = Math.min(entry.frames, Math.max(0, frame - entry.queuedAtFrame + 1));
+            entry.heardFrames = Math.min(entry.frames, Math.max(0, playedFrames - entry.queuedAtFrame));
             entry.settled = true;
         }
     }

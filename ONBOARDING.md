@@ -32,18 +32,21 @@ no-facts: N file(s) scanned; control tripped 4 rule(s) (...)
 no-facts: EXEMPT src/agent/scriptedStub.ts from [comp] — ...
 no-facts: EXEMPT src/eval/fabrication.ts from [comp, money, policy] — ...
 no-facts: clean.
-# tests 144
-# pass 144
+# fail 0
 ```
+
+⚠️ **`# fail 0` is the line to read, and this page deliberately does not print a test count.**
+A count in a document is false by the next contribution — that has already happened here twice —
+so `test/docs.test.ts` now fails the build if one reappears.
 
 Then the conversations, twice — once as transcripts, once as telephone calls:
 
 ```bash
 npm run eval
-# 14/14 conversations clean · 0 hard failure(s) · 0 soft failure(s)
+# 15/15 conversations clean · 0 hard failure(s) · 0 soft failure(s)
 
 npm run call
-# 14 call(s) · dead air p50 820ms · talk-over 0 frame(s) · 0 hard failure(s)
+# across 15 call(s) · dead air p50 820ms · 0 hard failure(s) · 2 soft failure(s)
 ```
 
 The second one is a real telephone call in every respect except the telephone: G.711 μ-law frames,
@@ -166,8 +169,8 @@ matters — and it is not our measurement yet.
 
 ### 3. Test the agent
 
-The harness, the rubric, the fabrication check and 14 conversations already exist and pass against
-the reference stub. Your job is to make the **real** agent pass the same ones, then add the
+The harness, the rubric, the fabrication check and every recorded conversation already exist and
+pass against the reference stub. Your job is to make the **real** agent pass the same ones, then add the
 branches the stub cannot reach.
 
 The rule for anything new: **it must be able to fail.** See CONTRIBUTING.md.

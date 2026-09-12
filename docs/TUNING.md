@@ -175,23 +175,37 @@ measurement is still the deciding move.
 npm run call -- --sweep=200,400,600,800,1000,1200
 ```
 
-It runs all fourteen conversations as telephone calls at each setting and prints, per setting: the
-dead-air percentiles, how many frames we spent talking over the far end, and how many utterances
-got split in two. The reading on 2026-09-12, against a 500 ms mid-utterance thinking pause:
+It runs every recorded conversation as a telephone call at each setting and prints, per setting:
+the dead-air percentiles, how many frames we spent talking over the far end, and how many
+utterances got split in two. Against a 500 ms mid-utterance thinking pause:
 
-| silence | p50 dead air | talk-over | over-segmented |
+<!-- SWEEP-TABLE:START -->
+| silence | p50 dead air | talk-over (frames) | over-segmented |
 |---|---|---|---|
-| 200 ms | 220 ms | 30 frames | 7 |
-| 400 ms | 420 ms | 30 frames | 7 |
-| **600 ms** | 620 ms | 0 | **0** |
-| 800 ms | 820 ms | 0 | 0 |
-| 1000 ms | 1020 ms | 0 | 0 |
-| 1200 ms | 1220 ms | 0 | 0 |
+| 200 ms | 220 ms | 39 | 8 |
+| 400 ms | 420 ms | 39 | 8 |
+| 600 ms | 620 ms | 3 | 0 |
+| 800 ms | 820 ms | 3 | 0 |
+| 1000 ms | 1020 ms | 3 | 0 |
+| 1200 ms | 1220 ms | 3 | 0 |
+<!-- SWEEP-TABLE:END -->
 
-So the trade is visible: below 600 ms the detector cuts through a thinking pause, the agent
-answers half a question, and it talks over the rest of it. **Bracket 800 and do not sit below it**
-— the pinned value has a margin over the knee, which is the right place to be when the pause
-length is a property of a stranger and not of us.
+🔴 **These cells are recomputed by `test/docs.test.ts` on every build and the build fails if they
+have drifted.** They are not a note somebody took. An earlier version of this table was taken
+with fourteen fixtures and published in the commit that added the fifteenth; eight of its twelve
+non-dead-air cells did not reproduce, including the zeros this paragraph draws its conclusion
+from. That is why the check exists.
+
+So the trade is visible: **below 600 ms the detector cuts through a thinking pause**, the agent
+answers half a question, and the talk-over column jumps thirteenfold because it then interrupts
+the rest of it. **Bracket 800 and do not sit below it** — the pinned value has a margin over the
+knee, which is the right place to be when the pause length is a property of a stranger.
+
+⚠️ The three residual talk-over frames at 600 ms and above are not noise and not a defect: they
+are the `they-interrupt` fixture, where the far end deliberately cuts in and the barge-in cannot
+be instantaneous. 60 ms is inside the grace in `src/carrier/checks.ts` and shorter than a
+syllable. If that column ever reads 0 at every rung, the interrupting fixture has been lost and
+the barge-in check is no longer being exercised by anything.
 
 **What Google says about the same knob**, fetched 2026-09-12 and worth putting beside our own
 numbers: *"Recommended (500ms–800ms): Provides a good balance… The server's internal default is

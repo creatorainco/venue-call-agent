@@ -20,8 +20,8 @@ Read this before asking for an account. Most of what looks like it needs one doe
 ```bash
 npm run doctor      # what YOUR machine can do, by doing it. Run this first.
 npm ci
-npm run verify      # the guard, the doctor's control, the typechecker, 146 tests
-npm run eval        # 15 recorded conversations, graded as transcripts
+npm run verify      # the guard, the doctor's control, the typechecker, the whole suite
+npm run eval        # every recorded conversation, graded as a transcript
 ```
 
 **What it proves.** Every refusal the backend can return and what the agent does with each. That
@@ -42,7 +42,7 @@ needs a signing literal, which is a string you invent rather than a credential a
 ## Tier 1 — the laptop, as a telephone
 
 ```bash
-npm run call                                        # 15 conversations, as calls
+npm run call                                        # every conversation, as a call
 npm run call -- --only=they-interrupt --verbose     # one of them, turn by turn
 npm run call -- --sweep=200,400,600,800,1000,1200   # the tuning sweep
 npm run call -- --latency=900                       # with a model that takes 900ms
@@ -111,7 +111,10 @@ missing thing on this page that will stop work rather than merely be wrong.
 **A carrier.** Nothing in this repository dials, and the frame shape it assumes — G.711 μ-law,
 8 kHz, 20 ms — is marked as an assumption in `src/audio/format.ts` rather than a decision.
 `CallLeg` in `src/carrier/leg.ts` exists so that picking one is a small adapter rather than a
-rewrite: it knows four things, and all four are true of a telephone rather than of a vendor.
+rewrite: it knows four things, and three of the four are true of a telephone rather than of a
+vendor. The fourth — that a frame is μ-law — holds for Twilio, Telnyx's default and Plivo, and
+breaks on Vonage, which sends raw binary linear PCM and offers no μ-law at all. That leak is
+written at the interface with its fix, rather than left for whoever picks Vonage to discover.
 
 What is worth knowing before that conversation, because it changes its shape:
 

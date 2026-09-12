@@ -69,7 +69,7 @@ jobs:
       - name: eval the recorded conversations
         run: npm run eval
 
-      # The same fourteen conversations, run as telephone calls over real μ-law frames on a
+      # The same recorded conversations, run as telephone calls over real μ-law frames on a
       # virtual clock. It grades what a transcript cannot show: dead air, talking over an
       # interruption, audio written after the line closed. Fails on HARD only, same rule as the
       # eval — and, like the eval, it runs its own positive control first and refuses to print a

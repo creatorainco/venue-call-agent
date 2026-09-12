@@ -17,9 +17,9 @@ New here? Read **[ONBOARDING.md](ONBOARDING.md)** — it is the thirty-minute ve
 nvm use             # or any Node >= 22.18; type stripping is unflagged from there
 npm run doctor      # what this laptop can and cannot do, and exactly why. Run it FIRST.
 npm ci
-npm run verify      # the guard, the doctor's control, the typechecker and 144 tests
-npm run eval        # 14 recorded conversations, scored
-npm run call        # the same 14, as telephone calls over real μ-law audio
+npm run verify      # the guard, the doctor's control, the typechecker, the whole suite
+npm run eval        # every recorded conversation, scored
+npm run call        # the same ones again, as telephone calls over real μ-law audio
 ```
 
 All of it should be green on a fresh clone. `npm run doctor` is the one to run before anything
@@ -83,7 +83,7 @@ scripts/
   check-no-facts.mjs    the build guard, with a positive control it runs every time
   derive-contract.mjs   re-reads the backend and diffs it against contract/seam4.json
   mint-token.mjs        produce a valid / expired / wrong-booking token locally
-test/fixtures/conversations/   14 recorded conversations
+test/fixtures/conversations/   the recorded conversations, one file per branch
 docs/                   TUNING.md · LIMITS.md · WHAT-CANNOT-BE-TESTED.md
 ```
 
@@ -104,9 +104,9 @@ spec to satisfy.
 | command | what it proves | needs |
 |---|---|---|
 | `npm run doctor` | what your machine can do: Node, type-stripping (by importing a real module), the mock (by booting it), and every credential by name — never by value | nothing |
-| `npm test` | 144 unit tests: the state machine, the seam client, every refusal, the codec, the config, the token, the telephone leg, the turn detector, and the sabotage controls for all of them | nothing |
-| `npm run eval` | 14 whole conversations scored against the rubric | nothing |
-| `npm run call` | the same 14 as telephone calls: dead air per turn, talking over an interrupt, audio after hangup | nothing |
+| `npm test` | the state machine, the seam client, every refusal, the codec, the config, the token, the telephone leg, the turn detector, the docs' own numbers, and the sabotage controls for all of them | nothing |
+| `npm run eval` | every recorded conversation, scored against the rubric | nothing |
+| `npm run call` | the same ones as telephone calls: dead air per turn, talking over an interrupt, audio after hangup | nothing |
 | `npm run call -- --sweep=200,400,600,800,1000,1200` | what each turn-detector setting costs — `docs/TUNING.md` §3.3, as a command | nothing |
 | `npm run mock` | a local Seam 4 on :8788 you can curl | nothing |
 | `npm run mint-token -- --all` | a valid, an expired and two wrong-scope tokens | a signing literal you invent — `VENUE_CALL_SECRET=anything npm run mint-token -- --all`. It exits 64 and tells you so if you forget |

@@ -28,8 +28,10 @@ endpoint with nothing to connect to it.
 
 ## 1. What must exist before the first deploy can succeed
 
-Executable in order, in a console. The ordering is not cosmetic — step 3 creates the account
-step 4 grants to.
+**This is the minimum for a HUMAN running `gcloud` locally.** The GitHub Actions path needs more
+on top of it — §5 — and calling this list "complete" would be wrong: it is complete for one of
+the two paths. Executable in order, in a console; the ordering is not cosmetic, because step 2
+creates the account step 4 grants to.
 
 1. **A project with billing enabled.** Which project is itself an open question: nobody has
    confirmed Cloud Run is enabled in the one that bills our AI usage. That is the approval-gated
@@ -41,9 +43,13 @@ step 4 grants to.
 4. **Grant `roles/run.builder`** to `PROJECT_NUMBER-compute@developer.gserviceaccount.com`.
    ⚠️ **This is the single most likely first-deploy failure**, and it surfaces as a Cloud *Build*
    permission error rather than a Cloud Run one, which sends people looking in the wrong place.
-   It is not automatic on organizations created on or after **2024-05-03**. Enabling
-   `run.googleapis.com` in step 2 is what creates that service account, so this step cannot come
-   first; give it a minute to propagate.
+   The documentation states it as an **unconditional** prerequisite on every project — an earlier
+   draft of this page said it was only needed on organizations created after 2024-05-03, and that
+   was wrong. (What changed on **2024-05-03** is separate and worth knowing anyway: the
+   `iam.automaticIamGrantsForDefaultServiceAccounts` constraint is enforced by default on newer
+   organizations, so the default service account no longer arrives with Editor.) Enabling
+   `run.googleapis.com` in step 2 is what creates that account, so this step cannot come first;
+   give it a couple of minutes to propagate.
 5. **Pick a region** supported by both Artifact Registry and Cloud Build. An Artifact Registry
    repository named `cloud-run-source-deploy` is created automatically on first deploy, so it is
    **not** a prerequisite — one of the few things you can skip.
@@ -73,7 +79,7 @@ gcloud run deploy venue-call-agent \
 |---|---|
 | `--timeout 3600` | A WebSocket on Cloud Run **is an HTTP request** and dies at the service request timeout. The default is **300 s — five minutes — and a venue call can outlive that.** 3600 s is the documented maximum. |
 | `--concurrency 1` | One call per connection per instance. Each open socket saturates its instance and Cloud Run starts another for the next call, so there is no queueing logic to write. |
-| `--max-instances 5` | With concurrency 1 this **is** the ceiling on simultaneous calls. It is also the blast radius if something ever loops, and a crude spend cap. Set it on purpose; the default is 100. |
+| `--max-instances 5` | With concurrency 1 this is the ceiling on simultaneous calls — a **soft** one; see below. Also the blast radius if something ever loops. Set it on purpose; the default is 100 per revision. |
 | `--min 0` | Accept cold starts and pay nothing between calls. `--min 1` costs roughly **$5–10/month** for a warm instance. Which is right depends on a cold-start figure nobody has measured, because no container exists yet. |
 | `--cpu-throttling` | Request-based billing — the default, stated explicitly so nobody "fixes" it. See §3. |
 | `GOOGLE_NODEJS_VERSION` | See §4. Without it the buildpack may run a different Node than CI does. |
@@ -102,10 +108,19 @@ up to 60 minutes (3600 seconds)", another says "must be less than 60 minutes", a
 says "1 to 3600". Write 3600; if the API refuses it, use 3599 and do not go looking for a bug in
 our configuration.
 
-⚠️ **`--concurrency 1` is the opposite of what Google's WebSockets page recommends**, and a future
-reader will "fix" it back to 80. It is written down here so they read this first. Their example is
-chat: many idle sockets on one instance. Ours is a call: continuous CPU-bound audio, one human on
-the line, and one bad neighbour is a restaurant hearing stutter.
+⚠️ **`--concurrency 1` is the opposite of what Google's WebSockets page recommends** — verbatim,
+*"Google recommends that you increase the maximum concurrency setting for your container to a
+higher value than the default"* — and a future reader will "fix" it back to 80. It is written
+down here so they read this first. Their example is chat: many idle sockets on one instance.
+Ours is a call: continuous CPU-bound audio, one human on the line, and one bad neighbour is a
+restaurant hearing stutter.
+
+🔴 **`--max-instances` is a SOFT ceiling, not a hard cap**, and an earlier draft of this page
+called it a hard one. The max-instances documentation says Cloud Run may briefly exceed it during
+traffic spikes. So it is a scaling limit and a cost damper — useful, and not a guarantee about
+the number of simultaneous calls or about spend. The documented mechanism for a genuine hard stop
+is a **Cloud Billing budget spend cap** (Preview), which pauses the workload. If "this can never
+cost more than $X" is ever a requirement, that is the lever, not this flag.
 
 ⚠️ Do not add an aggressive liveness probe alongside `--concurrency 1`. Probes always get CPU and
 are billed but carry no request charge; whether one **consumes the single concurrency slot** is
@@ -127,13 +142,24 @@ One warm 1 vCPU / 512 MiB instance for a month:
 
 | | gross | after free tier |
 |---|---|---|
-| request-based, `--min 1`, fully idle | $9.86 | **$4.64** |
+| request-based, `--min 1`, fully idle | $9.86 | **~$8.51** |
 | instance-based, always on | $49.93 | $44.71 |
 
-**The break-even duty cycle is ~71%.** Below that, request-based wins; above it, instance-based
-does. At this feature's expected load — say thirty five-minute calls a day, about a 10% duty
-cycle — request-based with a warm instance lands near **$16/month**, and `--min 0` makes it
-roughly nothing plus cold starts.
+🔴 **The net figure in the first row was $4.64 in an earlier draft and that was wrong.** The free
+tier is a quantity of vCPU-seconds and GiB-seconds, so what it is *worth* depends on the rate
+those seconds would have billed at. An idle min-instance bills at $0.0000025/vCPU-second, so the
+free tier is worth about **$1.35** there — not the $5.22 it is worth against active CPU. Valuing
+a free allowance at the wrong rate is an easy way to understate a bill by half, and it did.
+
+**The break-even duty cycle is ~71%** — below that request-based wins, above it instance-based
+does. ⚠️ That figure assumes busy time bills at the request-based *active* rate, which for a
+WebSocket service means the entire open-connection time, not just the moments the CPU is busy.
+Take it as the right order of magnitude and re-derive it against real call durations before
+quoting it at anyone.
+
+At this feature's expected load — say thirty five-minute calls a day, about a 10% duty cycle —
+request-based with a warm instance lands near **$16/month**, and `--min 0` makes it roughly
+nothing plus cold starts. Either way this is not where the money goes: the model is.
 
 🔴 **The usual intuition is wrong in the details.** Request-based CPU is **33% more expensive per
 active second** than instance-based. It wins on duty cycle, not on rate. Anyone who says
@@ -204,6 +230,11 @@ Google Cloud organization created on or after **2024-05-03**, service-account ke
 blocked by default by an enforced org policy. The "3-step fast path" may simply not be available,
 and planning around a key we may be unable to mint is how a deploy day gets lost. If the org turns
 out to predate that and the operator wants the fast path, the key variant is a three-line diff.
+
+**The CI path needs three things §1 does not list**, because §1 is the local-human minimum:
+`roles/run.admin` on the CI service account (not `run.sourceDeveloper`); `roles/iam.
+serviceAccountUser` granted to the CI service account **on the Compute Engine default service
+account**, per the action's own README; and the four WIF APIs below.
 
 WIF needs four **more** APIs on top of §1: `iam.googleapis.com`,
 `cloudresourcemanager.googleapis.com`, `iamcredentials.googleapis.com`, `sts.googleapis.com`. The
