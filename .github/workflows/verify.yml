@@ -1,0 +1,35 @@
+# Build gate for venue-call-agent.
+#
+# The no-facts check runs FIRST and is not advisory. This service may not author product facts;
+# that property is what makes an after-the-call check for invented claims possible at all, and it
+# can only be defended mechanically.
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # First, and on its own, so a failure here is unmistakable in the log.
+      # The script runs its own positive control and fails if the control does not trip —
+      # a guard that cannot detect a violation must not be allowed to report "clean".
+      - name: no product facts in this repository
+        run: node scripts/check-no-facts.mjs
+
+      - name: install
+        run: npm install --no-audit --no-fund
+
+      - name: typecheck
+        run: npm run typecheck --if-present
+
+      - name: test
+        run: node --test --test-timeout=60000 "test/**/*.test.ts"

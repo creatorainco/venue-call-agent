@@ -1,0 +1,15 @@
+{
+  "name": "venue-call-agent",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Layer E: the voice that telephones a restaurant before a creator's booking. Dials nobody.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test --test-timeout=60000 \"test/**/*.test.ts\"",
+    "harness": "node --experimental-strip-types src/harness/run.ts",
+    "check:no-facts": "node scripts/check-no-facts.mjs",
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run typecheck && npm run check:no-facts && npm test"
+  }
+}
