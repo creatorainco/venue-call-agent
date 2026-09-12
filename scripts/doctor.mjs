@@ -23,10 +23,15 @@
  *
  * 🔴 IT SHIPS WITH A POSITIVE CONTROL AND RUNS IT EVERY TIME.
  * Same argument as `scripts/check-no-facts.mjs`: a probe that reports "all good" is
- * indistinguishable from a probe whose detection is broken. Before printing anything, this runs
- * two synthetic checks that MUST come back broken and MUST come back absent. If either reports
- * healthy, the run fails and says so — a doctor that cannot see illness is worse than no doctor,
- * because somebody will believe it.
+ * indistinguishable from a probe whose detection is broken. Before printing anything, this hands
+ * EVERY REAL CHECK a subject it must reject — an unsupported Node version, a module that is not
+ * there, a directory with no lockfile — and fails if any of them reports health. A doctor that
+ * cannot see illness is worse than no doctor, because somebody will believe it.
+ *
+ * 🔴 THE CONTROL MUST SHARE CODE WITH THE CHECKS OR IT IS THEATRE. The first version called a
+ * function whose whole body was `return { state: 'broken' }`. Stubbing every real check to
+ * return `ok` left it printing "Detection works." That is why each check now takes its subject
+ * as an argument: blinding a check blinds its control with it.
  *
  * Runs with NO dependencies installed. It is the first thing to run on a fresh clone, before
  * `npm ci`, and it must work there or it is useless at the only moment it is needed.
@@ -126,17 +131,17 @@ function atLeast(actual, wanted) {
     return true;
 }
 
-async function checkNode() {
-    const actual = parseVersion(process.versions.node);
+async function checkNode(version = process.versions.node) {
+    const actual = parseVersion(version);
     const wanted = MIN_NODE.join('.');
     if (!atLeast(actual, MIN_NODE)) {
         return {
             state: 'broken',
-            detail: `Node ${process.versions.node}; this repository needs >= ${wanted}. `
+            detail: `Node ${version}; this repository needs >= ${wanted}. `
                 + 'Below it, importing a .ts file throws and nothing in here runs. `nvm use` reads .nvmrc.',
         };
     }
-    return { state: 'ok', detail: `Node ${process.versions.node} (>= ${wanted})` };
+    return { state: 'ok', detail: `Node ${version} (>= ${wanted})` };
 }
 
 /**
@@ -146,19 +151,19 @@ async function checkNode() {
  * construct Node cannot erase. `enum`, `namespace` and `constructor(public x)` all typecheck and
  * all throw ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX at runtime. That has already happened here once.
  */
-async function checkTypeStripping() {
+async function checkTypeStripping(target = '../src/config.ts') {
     try {
-        const mod = await import(new URL('../src/config.ts', import.meta.url).href);
+        const mod = await import(new URL(target, import.meta.url).href);
         const cfg = mod.loadConfig({});
         if (typeof cfg?.apiBaseUrl !== 'string') {
-            return { state: 'broken', detail: 'src/config.ts imported but loadConfig({}) returned something unexpected.' };
+            return { state: 'broken', detail: `${target} imported but loadConfig({}) returned something unexpected.` };
         }
         return { state: 'ok', detail: `type-stripping works; loadConfig({}) defaults to ${cfg.apiBaseUrl}` };
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         return {
             state: 'broken',
-            detail: `importing src/config.ts threw: ${msg.slice(0, 200)}`
+            detail: `importing ${target} threw: ${msg.slice(0, 200)}`
                 + (msg.includes('TYPESCRIPT') ? ' — that is an unerasable construct, not a Node version.' : ''),
         };
     }
@@ -168,10 +173,10 @@ async function checkTypeStripping() {
  * The strongest single check in here: the test environment is not a set of files, it is a server
  * that answers. So start it, ask it a real question, and read the answer.
  */
-async function checkMockBoots() {
+async function checkMockBoots(target = '../src/mock/server.ts') {
     let mock;
     try {
-        const mod = await import(new URL('../src/mock/server.ts', import.meta.url).href);
+        const mod = await import(new URL(target, import.meta.url).href);
         mock = await mod.startMockSeam({ port: 0 });
     } catch (err) {
         return { state: 'broken', detail: `the mock backend would not start: ${(err instanceof Error ? err.message : String(err)).slice(0, 200)}` };
@@ -194,9 +199,9 @@ async function checkMockBoots() {
 }
 
 /** Advisory. A fresh clone has no node_modules and that is the expected state, not a fault. */
-async function checkDependencies() {
-    const hasLock = existsSync(join(ROOT, 'package-lock.json'));
-    const hasModules = existsSync(join(ROOT, 'node_modules'));
+async function checkDependencies(root = ROOT) {
+    const hasLock = existsSync(join(root, 'package-lock.json'));
+    const hasModules = existsSync(join(root, 'node_modules'));
     if (!hasLock) {
         return { state: 'broken', detail: 'no package-lock.json. `npm ci` fails outright without one, and CI is red until it exists.' };
     }
@@ -206,9 +211,44 @@ async function checkDependencies() {
     return { state: 'ok', detail: 'package-lock.json and node_modules both present' };
 }
 
-/** A synthetic check that must always come back broken. If it does not, detection is broken. */
-async function controlCheckThatMustFail() {
-    return { state: 'broken', detail: 'CONTROL — this check exists to fail. Seeing it green means the doctor cannot see illness.' };
+/**
+ * The control, and the second version of it.
+ *
+ * 🔴 THE FIRST VERSION SHARED NO CODE WITH ANY REAL CHECK. It called a function whose entire
+ * body was `return { state: 'broken' }`, so its verdict was statistically independent of whether
+ * `checkNode`, `checkTypeStripping`, `checkMockBoots` or `checkDependencies` could still detect
+ * anything at all. Stub every real check to return `ok` unconditionally and the control still
+ * printed "Detection works." That is precisely the failure this file's own header describes.
+ *
+ * So each real check now takes its subject as an argument, and the control hands each one a
+ * subject it MUST reject: an ancient Node version, a module that is not there, a directory with
+ * no lockfile. Blinding a check now blinds its control with it, because they are the same code.
+ */
+async function controlEachRealCheck() {
+    const failures = [];
+
+    const cases = [
+        ['node', () => checkNode('v18.0.0'), 'an unsupported Node version'],
+        ['type-stripping', () => checkTypeStripping('../src/this-module-does-not-exist.ts'), 'a missing module'],
+        ['mock', () => checkMockBoots('../src/this-server-does-not-exist.ts'), 'a backend that cannot start'],
+        ['deps', () => checkDependencies(join(ROOT, 'src')), 'a directory with no lockfile'],
+    ];
+
+    for (const [id, run, what] of cases) {
+        const result = await run();
+        if (result.state !== 'broken') {
+            failures.push(`${id} reported "${result.state}" for ${what}; it can no longer see illness`);
+        }
+    }
+
+    // And the other direction, on the two checks that are cheap to run for real: a healthy
+    // subject must NOT report broken, or the doctor fails everything and is equally useless.
+    const healthyNode = await checkNode();
+    if (healthyNode.state === 'broken' && atLeast(parseVersion(process.versions.node), MIN_NODE)) {
+        failures.push('node reported broken on a supported runtime; the check fails everything');
+    }
+
+    return failures;
 }
 
 const CHECKS = [
@@ -221,9 +261,7 @@ const CHECKS = [
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 
 async function runControl() {
-    const failures = [];
-    const c = await controlCheckThatMustFail();
-    if (c.state !== 'broken') failures.push('the synthetic broken check did not report broken');
+    const failures = await controlEachRealCheck();
 
     const synthetic = '__VENUE_CALL_DOCTOR_CONTROL_NEVER_SET__';
     if (readEnvState(synthetic) !== 'absent') {
@@ -251,7 +289,8 @@ if (controlOnly) {
         for (const f of controlFailures) console.error(`  - ${f}`);
         process.exit(2);
     }
-    console.log('doctor: control tripped as designed (1 broken check, 2 environment reads). Detection works.');
+    console.log('doctor: control tripped as designed — all 4 real checks rejected a broken subject,');
+    console.log('and 2 environment reads went both ways. Detection works.');
     process.exit(0);
 }
 
@@ -301,7 +340,8 @@ if (asJson) {
 
 const MARK = { ok: '  ok  ', broken: ' FAIL ', absent: ' --   ' };
 
-console.log('doctor: control tripped as designed. This reading is a reading, not a guess.\n');
+console.log('doctor: control tripped as designed — every check below rejected a deliberately');
+console.log('broken subject before being trusted with a real one. This is a reading, not a guess.\n');
 
 console.log('THE LOCAL PATH — this must work, and nothing about it is optional');
 for (const r of results) console.log(`  [${MARK[r.state]}] ${r.title.padEnd(38)} ${r.detail}`);

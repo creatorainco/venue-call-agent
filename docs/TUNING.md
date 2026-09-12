@@ -182,8 +182,8 @@ utterances got split in two. Against a 500 ms mid-utterance thinking pause:
 <!-- SWEEP-TABLE:START -->
 | silence | p50 dead air | talk-over (frames) | over-segmented |
 |---|---|---|---|
-| 200 ms | 220 ms | 39 | 8 |
-| 400 ms | 420 ms | 39 | 8 |
+| 200 ms | 220 ms | 39 | 2 |
+| 400 ms | 420 ms | 39 | 2 |
 | 600 ms | 620 ms | 3 | 0 |
 | 800 ms | 820 ms | 3 | 0 |
 | 1000 ms | 1020 ms | 3 | 0 |
@@ -198,7 +198,8 @@ from. That is why the check exists.
 
 So the trade is visible: **below 600 ms the detector cuts through a thinking pause**, the agent
 answers half a question, and the talk-over column jumps thirteenfold because it then interrupts
-the rest of it. **Bracket 800 and do not sit below it** — the pinned value has a margin over the
+the rest of it. Both columns move together and both are zero above the knee, which is what makes
+600 ms the smallest defensible setting rather than merely the smallest one that looks calm. **Bracket 800 and do not sit below it** — the pinned value has a margin over the
 knee, which is the right place to be when the pause length is a property of a stranger.
 
 ⚠️ The three residual talk-over frames at 600 ms and above are not noise and not a defect: they
@@ -273,6 +274,18 @@ You can put a figure in and see the whole sum without a Google account:
 ```bash
 npm run call -- --latency=900     # assume 900ms to first audio byte
 ```
+
+🔴 **`--latency=900` EXITS 1 TODAY, AND THAT IS THE INSTRUMENT WORKING.** One of the fifteen
+calls — `phone-menu` — reaches 8,680 ms of dead air once the model is assumed to take 900 ms,
+and the hard budget is 4,000. Nothing is broken: the command is telling you that at that latency
+this feature has a call in it a person would think had dropped. Do not "fix" it by widening the
+budget; the budget is the requirement. Expected output, so nobody mistakes it for a setup fault:
+
+```
+  phone-menu   2/2   1720ms / 8680ms   0f   HARD: dead_air_within_hard_budget
+  1 hard failure(s) · 5 soft failure(s)
+```
+
 
 That is the number to walk into the model comparison (§3.2) holding, because it decides what
 "acceptable" means before anybody measures anything.

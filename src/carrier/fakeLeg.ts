@@ -269,6 +269,12 @@ export class FakeCallLeg implements CallLeg {
 
         const inbound = this.nextInboundFrame();
         if (inbound === null) {
+            // This tick never happens. Undo the dequeue above rather than leaving a phantom
+            // frame in the record: it made `framesOut` exactly one greater than `framesIn` on
+            // every call that ran its script out — 7 of 15 fixtures — and any arithmetic over
+            // the two would have been quietly wrong by one frame.
+            this.outbound.pop();
+            if (playing !== undefined) this.queue.unshift(playing);
             this.end('timeline_exhausted');
             return false;
         }

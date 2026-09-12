@@ -11,7 +11,11 @@ is a bug in the setup and not in you — say so rather than working around it.
 ## Part 1 — prove the environment (5 minutes)
 
 ```bash
-git clone git@github.com:creatorainco/venue-call-agent.git
+# The repository is PRIVATE. Use whichever transport you are set up for:
+gh repo clone creatorainco/venue-call-agent      # if `gh auth status` is happy — simplest
+# git clone https://github.com/creatorainco/venue-call-agent.git   # HTTPS + a token
+# git clone git@github.com:creatorainco/venue-call-agent.git       # SSH, needs a registered key
+
 cd venue-call-agent
 nvm use          # 22.18.0; any Node >= 22.18 works
 npm run doctor   # BEFORE npm ci. It works with nothing installed, on purpose.
@@ -157,6 +161,18 @@ One part of it no longer needs anybody's account. The turn-detector sweep is a c
 npm run call -- --sweep=200,400,600,800,1000,1200
 npm run call -- --latency=900     # and what the model's own delay adds on top
 ```
+
+🔴 **`--latency=900` EXITS 1 TODAY, AND THAT IS THE INSTRUMENT WORKING.** One of the fifteen
+calls — `phone-menu` — reaches 8,680 ms of dead air once the model is assumed to take 900 ms,
+and the hard budget is 4,000. Nothing is broken: the command is telling you that at that latency
+this feature has a call in it a person would think had dropped. Do not "fix" it by widening the
+budget; the budget is the requirement. Expected output, so nobody mistakes it for a setup fault:
+
+```
+  phone-menu   2/2   1720ms / 8680ms   0f   HARD: dead_air_within_hard_budget
+  1 hard failure(s) · 5 soft failure(s)
+```
+
 
 Do that first — it costs a second and it tells you what "acceptable" has to mean before you
 measure the model. Read the top of `src/carrier/vad.ts` before quoting a number from it: the

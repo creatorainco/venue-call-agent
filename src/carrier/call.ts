@@ -35,7 +35,7 @@ import { FakeCallLeg } from './fakeLeg.ts';
 import type { TimelineTurn } from './fakeLeg.ts';
 import { ScriptedBridge, sentenceDurationMs } from './bridge.ts';
 import type { VadSettings } from './vad.ts';
-import { framesToMs } from './leg.ts';
+import { framesToMs, msToFrames } from './leg.ts';
 import type { HangupReason } from './leg.ts';
 
 export interface AudioCallOptions {
@@ -76,8 +76,28 @@ export interface AudioReport {
     /** How many turns the detector found, against how many the fixture scripted. */
     detectedTurns: number;
     scriptedTurns: number;
-    /** Detected turns with no scripted line — the audio segmented differently than assumed. */
+    /** Detected turns with no scripted line — one utterance heard as two. */
     overSegmented: number;
+    /**
+     * Turns the far end really spoke that the detector never reported — one utterance heard as
+     * none, or three heard as one.
+     *
+     * 🔴 THIS IS THE DIRECTION THAT WAS UNMEASURABLE, and it is the one the rig was built for.
+     * `overSegmented` is `detected - consumed`, and `consumed` is incremented only where
+     * `detected` is, so the difference is provably non-negative: turn COLLAPSE — the exact
+     * failure that made the first version of the fake leg useless while looking like it worked —
+     * was arithmetically incapable of showing up. This compares against the leg's own record of
+     * what it actually played, which the detector never sees.
+     */
+    missedTurns: number;
+    /**
+     * Turns the far end finished that we never answered at all.
+     *
+     * Counted because the alternative was worse than silence: dead air was sampled only where a
+     * reply existed, so a call in which the agent never spoke produced an EMPTY sample, and an
+     * empty sample maxed to 0 ms — the best possible score. Total silence passed every check.
+     */
+    unansweredTurns: number;
     /**
      * Sentences the transcript records as spoken that the far end did not hear in full.
      *
@@ -168,14 +188,32 @@ export async function audioCall(
                 toolCalls.push(call);
                 lines.push({ who: 'system', text: `tool ${call.name} ${JSON.stringify(call.args)}` });
             }
-            if (turn.say.length) {
+
+            // 🔴 YOU CANNOT ANSWER A DIAL TONE, and this branch is a real bug fix rather than
+            // defensive coding. Measured 2026-09-12: sweeping a hang-up across every instant of
+            // every fixture found 85 points at which the agent went on generating audio after
+            // the leg had closed — up to 1,239 frames, nearly twenty-five seconds, into a dead
+            // socket. It was invisible because no fixture had ever hung up, so the
+            // `no_audio_after_hangup` check had never been observed acting on a real call loop.
+            //
+            // The transcript must not claim those sentences either. A record of what the agent
+            // WOULD have said, filed as what it said, is the same class of untruth as counting
+            // an interrupted sentence as delivered.
+            const speakable = turn.say.length > 0 && !leg.ended;
+            if (speakable) {
                 if (modelLatencyMs > 0) bridge.padSilence(modelLatencyMs);
                 bridge.speak(turn.say);
+                for (const sentence of turn.say) {
+                    spoken.push(sentence);
+                    lines.push({ who: 'agent', text: sentence });
+                }
+            } else if (turn.say.length) {
+                lines.push({
+                    who: 'system',
+                    text: `not spoken — the line was already closed: ${JSON.stringify(turn.say)}`,
+                });
             }
-            for (const sentence of turn.say) {
-                spoken.push(sentence);
-                lines.push({ who: 'agent', text: sentence });
-            }
+
             if (turn.note) lines.push({ who: 'system', text: `note: ${turn.note}` });
             if (turn.endCall) {
                 ended = true;
@@ -219,7 +257,10 @@ export async function audioCall(
 
             while (!leg.ended) {
                 const alive = leg.advance();
-                if (pending) {
+                // `!leg.ended` again: `advance()` may have closed the line during this very
+                // frame, and a turn detected on the frame before it is a turn there is now
+                // nobody left to answer.
+                if (pending && !leg.ended) {
                     const turn: { text: string; lastAudibleFrame: number } = pending;
                     pending = null;
                     lines.push({ who: 'venue', text: turn.text });
@@ -237,8 +278,11 @@ export async function audioCall(
                 if (!alive) break;
             }
 
-            // Anything the far end was still saying when the leg stopped.
-            const last = bridge.flush();
+            // Anything the far end was still saying when the leg stopped — but only if the
+            // line is still up. If they hung up mid-sentence there is no one to reply to, and
+            // this was the largest of the 85 leaks: it called the agent and spoke the answer
+            // into a closed socket.
+            const last = leg.ended ? null : bridge.flush();
             if (last && !ended) {
                 lines.push({ who: 'venue', text: last.text });
                 answeredAfterFrame.push(last.lastAudibleFrame);
@@ -274,6 +318,7 @@ export async function audioCall(
             },
             audio: measure(leg, bridge, {
                 answeredAfterFrame,
+                silenceDurationMs: vad.silenceDurationMs,
                 scriptedTurns: fixture.turns.length,
                 endedBecause: hangupReason,
                 vad: bridge.vadDescription,
@@ -285,11 +330,13 @@ export async function audioCall(
     }
 }
 
-function measure(
+export function measure(
     leg: FakeCallLeg,
     bridge: ScriptedBridge,
     ctx: {
         answeredAfterFrame: number[];
+        /** Needed to know which turns the detector even had time to report. */
+        silenceDurationMs: number;
         scriptedTurns: number;
         endedBecause: HangupReason;
         vad: string;
@@ -303,11 +350,21 @@ function measure(
     };
 
     const deadAirMs: number[] = [];
+    let unanswered = 0;
     for (const frame of ctx.answeredAfterFrame) {
         const next = firstAudibleAfter(frame);
-        if (next !== null) deadAirMs.push(framesToMs(next - frame));
+        if (next !== null) {
+            deadAirMs.push(framesToMs(next - frame));
+            continue;
+        }
+        // We never spoke again. The restaurant did not wait zero milliseconds; it waited until
+        // the call ended, and then it was still waiting. Charge the whole remainder.
+        unanswered += 1;
+        deadAirMs.push(framesToMs(Math.max(0, leg.outbound.length - frame)));
     }
 
+    const silenceFrames = msToFrames(ctx.silenceDurationMs);
+    const detectable = leg.truth.filter((turn) => leg.outbound.length - turn.endFrame >= silenceFrames);
     const heard = bridge.heard();
     const inboundAudible = new Set(leg.inbound.filter((f) => f.audible).map((f) => f.at));
     let talkOver = 0;
@@ -327,6 +384,16 @@ function measure(
         detectedTurns: bridge.detectedTurns,
         scriptedTurns: ctx.scriptedTurns,
         overSegmented: bridge.overSegmented,
+        // Against the leg's own truth, not against the fixture: a call the agent ended early
+        // legitimately has fewer turns SPOKEN, and comparing with the script would punish it.
+        //
+        // And only against turns the detector had TIME to report. A turn that finishes inside
+        // the last `silenceDurationMs` of the call was never detectable — the line closed while
+        // the detector was still counting silence — and charging that to the agent made a
+        // hang-up look like deafness. Measured: `they-hang-up` at 8000 ms reported a lost turn
+        // for a question nobody could have heard the end of.
+        missedTurns: Math.max(0, detectable.length - bridge.detectedTurns),
+        unansweredTurns: unanswered,
         cutShortSentences: heard.filter((h) => h.heardMs < h.fullMs).length,
         unheardSentences: heard.filter((h) => h.heardMs === 0).length,
         callMs: leg.elapsedMs,

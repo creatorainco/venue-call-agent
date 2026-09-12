@@ -174,8 +174,13 @@ export class ScriptedBridge implements SpeechBridge {
             this.spoken.push({ sentence, queuedAtFrame: startFrame, frames, heardFrames: 0, settled: false });
             for (let i = 0; i < frames; i += 1) this.leg.write(spokenFrame(startFrame + i));
             // A short gap between sentences, as a person leaves.
-            for (let i = 0; i < msToFrames(INTER_SENTENCE_GAP_MS); i += 1) this.leg.write(silentCarrierFrame());
-            this.queuedUntilFrame = startFrame + frames + msToFrames(INTER_SENTENCE_GAP_MS);
+            const gap = msToFrames(INTER_SENTENCE_GAP_MS);
+            for (let i = 0; i < gap; i += 1) this.leg.write(silentCarrierFrame());
+            // INCLUSIVE index of the last frame queued. Both read sites use `+ 1` to get the
+            // next free frame, and `bargeIn` sets it to `this.frame`, which has already gone
+            // out — so "last queued", not "one past". Writing the exclusive end here drifted
+            // every sentence's recorded start one frame later than its audio, cumulatively.
+            this.queuedUntilFrame = startFrame + frames + gap - 1;
         }
     }
 
@@ -183,7 +188,7 @@ export class ScriptedBridge implements SpeechBridge {
         const frames = msToFrames(ms);
         const startFrame = Math.max(this.frame + 1, this.queuedUntilFrame + 1);
         for (let i = 0; i < frames; i += 1) this.leg.write(silentCarrierFrame());
-        this.queuedUntilFrame = startFrame + frames;
+        this.queuedUntilFrame = startFrame + frames - 1;   // inclusive; see speak()
     }
 
     bargeIn(): void {

@@ -18,8 +18,8 @@ import type { TimelineTurn } from '../src/carrier/fakeLeg.ts';
 import { TurnDetector, frameEnergy } from '../src/carrier/vad.ts';
 import type { VadSettings } from '../src/carrier/vad.ts';
 import { ScriptedBridge, sentenceDurationMs, spokenFrame } from '../src/carrier/bridge.ts';
-import { audioCall, segmentsOf, timelineFrom, percentiles } from '../src/carrier/call.ts';
-import { audioChecks, audioControl, TALK_OVER_GRACE_FRAMES } from '../src/carrier/checks.ts';
+import { audioCall, measure, segmentsOf, timelineFrom, percentiles } from '../src/carrier/call.ts';
+import { audioChecks, audioControl, TALK_OVER_GRACE_FRAMES, DEAD_AIR_HARD_MS } from '../src/carrier/checks.ts';
 import { VAD } from '../src/tuning/liveDefaults.ts';
 import { loadFixtures } from '../src/harness/fixtures.ts';
 import { replay } from '../src/harness/replay.ts';
@@ -224,6 +224,7 @@ describe('barge-in', () => {
             talkOverFrames: overlap, clearedFrames: 0, writtenAfterHangup: 0,
             framesIn: leg.inbound.length, framesOut: leg.outbound.length, audibleOutFrames: 0,
             detectedTurns: 1, scriptedTurns: 1, overSegmented: 0,
+            missedTurns: 0, unansweredTurns: 0,
             cutShortSentences: 0, unheardSentences: 0, callMs: leg.elapsedMs,
             endedBecause: 'timeline_exhausted', vad: 'test', modelLatencyMs: 0,
         }).find((c) => c.id === 'stopped_when_interrupted');
@@ -256,6 +257,200 @@ describe('what was SENT versus what was HEARD', () => {
     });
 });
 
+describe('the line closing', () => {
+    /**
+     * 🔴 THE TEST THAT FOUND 85 LEAKS, kept because it is the only shape that could.
+     *
+     * `no_audio_after_hangup` existed from the first commit and had never been observed acting:
+     * no fixture hung up, so `writtenAfterHangup` was 0 on every graded run and the check was
+     * decoration. Sweeping a hang-up across every instant of every call found 85 points at
+     * which the agent went on generating audio into a closed socket — up to 1,239 frames, most
+     * of them through the post-loop flush, which called the agent and spoke the reply to nobody.
+     *
+     * A single hang-up fixture would not have found it: the leak is a WINDOW, and whether you
+     * land in it depends on where the hangup falls relative to a turn boundary.
+     */
+    it('never generates audio after the far end has gone, at ANY instant of ANY call', async () => {
+        const make = agentFactory('stub');
+        const leaks: string[] = [];
+        for (const fixture of loadFixtures()) {
+            for (let ms = 500; ms <= 20_000; ms += 500) {
+                const { audio } = await audioCall(fixture, make, { hangUpAtMs: ms });
+                if (audio.writtenAfterHangup > 0) {
+                    leaks.push(`${fixture.name} @${ms}ms → ${audio.writtenAfterHangup} frame(s)`);
+                }
+            }
+        }
+        assert.deepEqual(
+            leaks.slice(0, 10),
+            [],
+            `${leaks.length} instant(s) generate audio into a dead line. First few:\n  `
+            + leaks.slice(0, 10).join('\n  '),
+        );
+    });
+
+    it('CONTROL — the sweep can see a leak, so a clean result means something', () => {
+        // The leak is counted by the leg itself, so plant one there: write after it has ended.
+        const leg = new FakeCallLeg({ turns: [{ text: 'x', segmentsMs: [200] }], hangUpAtMs: 100 });
+        while (leg.advance()) { /* until they hang up */ }
+        assert.ok(leg.ended);
+        assert.equal(leg.writtenAfterHangup, 0);
+        leg.write(spokenFrame(0));
+        assert.equal(leg.writtenAfterHangup, 1, 'the leg cannot count a write into a dead line');
+    });
+
+    it('a transcript never claims a sentence that the closed line swallowed', async () => {
+        const fixture = loadFixtures('they-hang-up')[0]!;
+        assert.equal(fixture.audio?.hangUpAtMs, 12_000, 'they-hang-up no longer hangs up');
+        const { replay: r } = await audioCall(fixture, agentFactory('stub'));
+        const notSpoken = r.transcript.lines.filter((l) => l.text.startsWith('not spoken'));
+        for (const line of notSpoken) {
+            for (const said of r.transcript.spoken) {
+                assert.ok(!line.text.includes(said), `"${said}" is recorded as both spoken and not`);
+            }
+        }
+    });
+});
+
+describe('the turn detector, after the hysteresis fix', () => {
+    it('keeps its end threshold below its start threshold in ALL FOUR sensitivity pairs', () => {
+        // The invariant was documented and enforced in exactly one of the four legal
+        // combinations. It is now derived rather than tabulated, so it cannot come apart —
+        // and it throws if it ever does, which is what this asserts by not throwing.
+        for (const start of ['START_SENSITIVITY_LOW', 'START_SENSITIVITY_HIGH'] as const) {
+            for (const end of ['END_SENSITIVITY_LOW', 'END_SENSITIVITY_HIGH'] as const) {
+                assert.doesNotThrow(
+                    () => new TurnDetector({ ...VAD, startOfSpeechSensitivity: start, endOfSpeechSensitivity: end }),
+                    `${start} + ${end} breaks the hysteresis invariant`,
+                );
+            }
+        }
+    });
+
+    it('the pinned pair is numerically unchanged by the fix', () => {
+        // 1200 x 0.5 = 600, which is exactly what the old hand-written table said for LOW/LOW.
+        // If this moves, every measurement taken before today is no longer comparable.
+        const detector = new TurnDetector(VAD);
+        assert.match(detector.describe, /silence=800ms/);
+        const envelope = [{ silence: 20 }, { speech: 30 }, { silence: 80 }];
+        let ends = 0;
+        let frame = 0;
+        for (const r of envelope) {
+            const n = 'speech' in r ? r.speech : r.silence;
+            for (let i = 0; i < n; i += 1) {
+                const e = detector.push('speech' in r ? speechFrame(frame) : silentCarrierFrame());
+                frame += 1;
+                if (e?.kind === 'turn_ended') ends += 1;
+            }
+        }
+        assert.equal(ends, 1);
+    });
+});
+
+describe('turn COLLAPSE, the direction that used to be unmeasurable', () => {
+    /**
+     * Two utterances 600 ms apart, and a detector that waits 800 ms. It cannot tell them apart,
+     * so it reports ONE turn where the far end spoke TWO — and the agent answers half of what
+     * was asked with no sign anywhere that the other half happened.
+     *
+     * 🔴 `overSegmented` is structurally incapable of reporting this. It is
+     * `detected - consumed`, and `consumed` is only ever incremented where `detected` is, so
+     * the difference cannot go negative: a deficit is unrepresentable. That was the exact bug
+     * this whole rig was built to catch, and the rig could not catch it.
+     */
+    function collapsed(silenceDurationMs: number) {
+        const leg = new FakeCallLeg({
+            turns: [
+                { text: 'first', segmentsMs: [400], startWhen: { atMs: 500 } },
+                { text: 'second', segmentsMs: [400], startWhen: { atMs: 1_500 } },  // 600ms apart
+            ],
+            trailingSilenceMs: 4_000,
+        });
+        const bridge = new ScriptedBridge(leg, { vad: vadWith(silenceDurationMs), script: ['first', 'second'] });
+        leg.on('inbound', (f) => { bridge.push(f); });
+        while (leg.advance()) { /* run it out */ }
+        return measure(leg, bridge, {
+            answeredAfterFrame: [],
+            silenceDurationMs,
+            scriptedTurns: 2,
+            endedBecause: 'timeline_exhausted',
+            vad: 'test',
+            modelLatencyMs: 0,
+        });
+    }
+
+    it('a detector slower than the gap merges two turns into one, and it is REPORTED', () => {
+        const merged = collapsed(800);
+        assert.equal(merged.detectedTurns, 1, 'the setup no longer collapses; the gap or the window moved');
+        assert.equal(merged.overSegmented, 0, 'over-segmentation cannot express a deficit — that is the point');
+        assert.equal(merged.missedTurns, 1);
+
+        const failed = audioChecks(merged).filter((c) => c.severity === 'hard' && !c.passed);
+        assert.ok(
+            failed.some((c) => c.id === 'no_turn_lost'),
+            'the agent heard one of two questions and every hard check passed',
+        );
+    });
+
+    it('CONTROL — the same rig with a fast enough detector reports no loss', () => {
+        // Without this the test above could be passing because the rig is broken rather than
+        // because the detector is. 400 ms is shorter than the 600 ms gap, so both turns land.
+        const fine = collapsed(400);
+        assert.equal(fine.detectedTurns, 2);
+        assert.equal(fine.missedTurns, 0);
+        assert.deepEqual(audioChecks(fine).filter((c) => c.severity === 'hard' && !c.passed), []);
+    });
+
+    it('a turn the LINE closed on is not charged to the agent', () => {
+        // The other direction, and it was a real false positive: a turn that finishes inside the
+        // last silenceDurationMs of the call was never detectable, and charging it made a
+        // hang-up look like deafness.
+        const leg = new FakeCallLeg({
+            turns: [{ text: 'wait—', segmentsMs: [400], startWhen: { atMs: 200 } }],
+            trailingSilenceMs: 10_000,
+            hangUpAtMs: 900,   // 300ms after they stop, well inside an 800ms window
+        });
+        const bridge = new ScriptedBridge(leg, { vad: VAD, script: ['wait—'] });
+        leg.on('inbound', (f) => { bridge.push(f); });
+        while (leg.advance()) { /* until they hang up */ }
+        const r = measure(leg, bridge, {
+            answeredAfterFrame: [], silenceDurationMs: VAD.silenceDurationMs, scriptedTurns: 1,
+            endedBecause: 'far_end_hung_up', vad: 'test', modelLatencyMs: 0,
+        });
+        assert.equal(r.detectedTurns, 0, 'the detector should not have had time');
+        assert.equal(r.missedTurns, 0, 'a hangup inside the detector window was charged as deafness');
+    });
+});
+
+describe('silence must not score perfectly', () => {
+    it('a turn we never answer is charged to the end of the call, not to zero', () => {
+        // Dead air used to be sampled only where a reply existed, so a call in which the agent
+        // never spoke produced an EMPTY sample — and an empty sample maxed to 0 ms, the best
+        // possible number. Total silence passed every check including the hard dead-air one.
+        const leg = new FakeCallLeg({
+            turns: [{ text: 'hello?', segmentsMs: [400], startWhen: { atMs: 200 } }],
+            trailingSilenceMs: 10_000,
+        });
+        const bridge = new ScriptedBridge(leg, { vad: VAD, script: ['hello?'] });
+        leg.on('inbound', (f) => { bridge.push(f); });
+        while (leg.advance()) { /* say absolutely nothing */ }
+
+        const answeredAt = leg.truth[0]!.endFrame;
+        const r = measure(leg, bridge, {
+            answeredAfterFrame: [answeredAt], silenceDurationMs: VAD.silenceDurationMs,
+            scriptedTurns: 1, endedBecause: 'timeline_exhausted', vad: 'test', modelLatencyMs: 0,
+        });
+
+        assert.equal(r.audibleOutFrames, 0, 'the rig spoke; it is meant to be silent');
+        assert.equal(r.unansweredTurns, 1);
+        assert.ok(r.maxDeadAirMs > DEAD_AIR_HARD_MS, `silence measured as only ${r.maxDeadAirMs}ms`);
+        assert.ok(
+            audioChecks(r).some((c) => c.severity === 'hard' && !c.passed),
+            'a call with no audio in it passed every hard check',
+        );
+    });
+});
+
 describe('the audio grader', () => {
     it('catches every fault it is supposed to catch', () => {
         assert.equal(audioControl(), null);
@@ -273,11 +468,37 @@ describe('a whole call, over audio', () => {
         }
     });
 
-    it('says the same words over audio as it does over text', async () => {
+    it('says the same words over audio as it does over text, unless they hang up', async () => {
         const make = agentFactory('stub');
         for (const fixture of loadFixtures()) {
             const overAudio = await audioCall(fixture, make);
             const overText = await replay(fixture, make);
+
+            if (fixture.audio?.hangUpAtMs !== undefined) {
+                // 🔴 A DELIBERATE, DOCUMENTED DIVERGENCE, not an exemption of convenience.
+                // The text harness feeds every scripted turn regardless; a telephone does not.
+                //
+                // Two ways a hangup shows up, and the fixture must exhibit at least one, or it
+                // is a hangup that cost nothing and is testing nothing:
+                //   - fewer sentences REACH the agent, so the audio path says less; or
+                //   - the same sentences are said and some never PLAY, which the wire records.
+                const audioSpoke = overAudio.replay.transcript.spoken;
+                const textSpoke = overText.transcript.spoken;
+                assert.ok(audioSpoke.length <= textSpoke.length, `${fixture.name}: the audio path said MORE`);
+                assert.deepEqual(
+                    audioSpoke,
+                    textSpoke.slice(0, audioSpoke.length),
+                    `${fixture.name}: what was said before the hangup must be a PREFIX of the `
+                    + 'text run, or the two paths diverged on content rather than on length',
+                );
+                assert.ok(
+                    audioSpoke.length < textSpoke.length || overAudio.audio.unheardSentences > 0,
+                    `${fixture.name}: the hangup cost nothing — every sentence was both said and `
+                    + 'heard, so this fixture is not exercising a hangup at all',
+                );
+                continue;
+            }
+
             assert.deepEqual(
                 overAudio.replay.transcript.spoken,
                 overText.transcript.spoken,

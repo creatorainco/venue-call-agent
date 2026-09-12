@@ -62,14 +62,24 @@ const START_RUN_FRAMES: Record<StartSensitivity, number> = {
 };
 
 /**
- * A frame below this is silence for the purpose of ENDING a turn.
+ * How close to the START threshold a frame may be and still count as silence for ENDING a turn.
  *
- * Lower than the start threshold on purpose, and this hysteresis is not decoration: with one
- * threshold, a quiet syllable inside a sentence reads as silence and the turn ends mid-word.
+ * 🔴 A FRACTION, NOT AN ABSOLUTE, AND THAT IS A BUG FIX. This was two independent tables, and
+ * the file claimed hysteresis — "lower than the start threshold on purpose" — as a design
+ * property. It held for exactly ONE of the four legal sensitivity pairs. LOW/HIGH gave
+ * end=1500 against start=1200; HIGH/LOW gave 600 against 300; HIGH/HIGH gave 1500 against 300.
+ * In those three the detector ends a turn on audio it would have called speech, which is a
+ * turn ending mid-word — the precise failure the comment said the design prevented.
+ *
+ * Deriving it from the start threshold makes the invariant hold by construction rather than by
+ * a reader noticing. The pinned LOW/LOW pair is unchanged — 1200 x 0.5 = 600, exactly what the
+ * old table said — so nothing that has been measured moves.
  */
-const END_THRESHOLD: Record<EndSensitivity, number> = {
-    END_SENSITIVITY_LOW: 600,
-    END_SENSITIVITY_HIGH: 1_500,
+const END_FRACTION: Record<EndSensitivity, number> = {
+    /** Half the start threshold: a wide dead band, so a quiet syllable stays inside the turn. */
+    END_SENSITIVITY_LOW: 0.5,
+    /** Close underneath it: ends turns eagerly, which is what HIGH is asking for. */
+    END_SENSITIVITY_HIGH: 0.9,
 };
 
 export interface TurnEvent {
@@ -111,7 +121,15 @@ export class TurnDetector {
     constructor(settings: VadSettings) {
         this.settings = settings;
         this.startThreshold = START_THRESHOLD[settings.startOfSpeechSensitivity];
-        this.endThreshold = END_THRESHOLD[settings.endOfSpeechSensitivity];
+        this.endThreshold = this.startThreshold * END_FRACTION[settings.endOfSpeechSensitivity];
+        // Belt and braces: the invariant is now structural, so if it ever breaks again it broke
+        // in a way somebody meant, and they should have to see this line to do it.
+        if (!(this.endThreshold < this.startThreshold)) {
+            throw new Error(
+                `TurnDetector: end threshold ${this.endThreshold} is not below start `
+                + `${this.startThreshold}. Without hysteresis a quiet syllable ends the turn.`,
+            );
+        }
         this.startRun = START_RUN_FRAMES[settings.startOfSpeechSensitivity];
         this.silenceFrames = msToFrames(settings.silenceDurationMs);
         this.prefixFrames = msToFrames(settings.prefixPaddingMs);

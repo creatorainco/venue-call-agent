@@ -1,8 +1,12 @@
 # The test environment, in four tiers
 
 "Set up a test environment" is a phrase until somebody says what is being tested and what a green
-run would prove. There are four tiers here. **Three of them are built and need nothing.** The
-fourth needs a decision that is not an engineer's to make.
+run would prove. There are four tiers here.
+
+**Two are built and need nothing at all. The third is built-and-waiting on one variable the org
+already holds. The fourth needs a decision that is not an engineer's to make.** An earlier
+version of this line said "three of them are built and need nothing", which its own table
+contradicted two rows later — tier 2 needs `GEMINI_API_KEY`, and a lookup is not nothing.
 
 Read this before asking for an account. Most of what looks like it needs one does not.
 
@@ -37,6 +41,14 @@ refusals, its own journal at `/__mock/journal`. `npm run mock` leaves it running
 curl. `npm run mint-token -- --all` produces a valid, an expired and two wrong-scope tokens — it
 needs a signing literal, which is a string you invent rather than a credential anybody issues.
 
+**Tier 0½ — the same laptop, pointed at a REAL platform-backend.** Not a tier of its own because
+nothing about the agent changes; it is tier 0 with `CREATORAIN_API_BASE_URL` moved and
+`VENUE_CALL_SECRET` set to the same literal the backend has. `npm run doctor` prints this as the
+`real-backend` class, and this page previously had no row for it, so the doctor sent readers here
+for a tier that did not exist. What it buys: proof that `contract/seam4.json` still matches
+reality. What it costs: the seam is dark on the deployed backend today — every route refuses
+`seam_disabled` — so in practice this means a backend running on your own laptop.
+
 ---
 
 ## Tier 1 — the laptop, as a telephone
@@ -47,6 +59,18 @@ npm run call -- --only=they-interrupt --verbose     # one of them, turn by turn
 npm run call -- --sweep=200,400,600,800,1000,1200   # the tuning sweep
 npm run call -- --latency=900                       # with a model that takes 900ms
 ```
+
+🔴 **`--latency=900` EXITS 1 TODAY, AND THAT IS THE INSTRUMENT WORKING.** One of the fifteen
+calls — `phone-menu` — reaches 8,680 ms of dead air once the model is assumed to take 900 ms,
+and the hard budget is 4,000. Nothing is broken: the command is telling you that at that latency
+this feature has a call in it a person would think had dropped. Do not "fix" it by widening the
+budget; the budget is the requirement. Expected output, so nobody mistakes it for a setup fault:
+
+```
+  phone-menu   2/2   1720ms / 8680ms   0f   HARD: dead_air_within_hard_budget
+  1 hard failure(s) · 5 soft failure(s)
+```
+
 
 A real telephone call in every respect except the telephone. G.711 μ-law frames, 20 ms at a time,
 through the same codec tier 0 proves. A far end that waits for you to answer before it speaks

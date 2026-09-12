@@ -135,6 +135,7 @@ spec to satisfy.
 | `credential-expires` | — | the seam refuses mid-call; the agent ends |
 | `they-hang-up` | hangs up mid-notice | partial transcript, no crash, no retry |
 | `two-questions-then-close` | asks two things | both answered, then the close |
+| `they-interrupt` | cuts in mid-notice | the agent stops within 120 ms, and what it loses is counted |
 
 Assert on the **transcript**, never the audio.
 
