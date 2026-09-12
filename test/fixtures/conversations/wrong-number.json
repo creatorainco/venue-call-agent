@@ -1,0 +1,22 @@
+{
+  "name": "wrong-number",
+  "scenario": "wrong-number",
+  "answerer": "wrong_number",
+  "about": "Not the restaurant. Nothing further about the booking is said and the call ends. NOTE the residual: the notice has already been delivered by the time anyone can say so - docs/LIMITS.md.",
+  "turns": [
+    "Hello?",
+    "There's no restaurant here, you've got the wrong number."
+  ],
+  "expect": {
+    "must_call": [
+      {
+        "route": "/call-event",
+        "body_contains": {
+          "answerer": "wrong_number"
+        }
+      }
+    ],
+    "must_end_call": true,
+    "max_sentences": 8
+  }
+}

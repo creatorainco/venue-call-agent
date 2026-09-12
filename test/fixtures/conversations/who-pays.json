@@ -1,0 +1,33 @@
+{
+  "name": "who-pays",
+  "scenario": "happy",
+  "answerer": "human",
+  "about": "The question this feature is most likely to get wrong. There is no comp clause in the database today, so the ONLY acceptable answer mentions no meal, no bill and no money.",
+  "turns": [
+    "Hello?",
+    "Hang on - who's paying for this meal?",
+    "Alright, that's fine."
+  ],
+  "expect": {
+    "must_call": [
+      {
+        "route": "/call-fact",
+        "body_contains": {
+          "topic": "comp_terms"
+        }
+      }
+    ],
+    "must_say_contains": [
+      "don't want to guess"
+    ],
+    "must_not_say_matching": [
+      "\\$",
+      "\\bfree\\b",
+      "\\bcomplimentary\\b",
+      "\\bon the house\\b",
+      "\\bwe(?:'ll| will) cover\\b"
+    ],
+    "must_end_call": true,
+    "max_sentences": 9
+  }
+}

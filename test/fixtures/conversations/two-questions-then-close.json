@@ -1,0 +1,29 @@
+{
+  "name": "two-questions-then-close",
+  "scenario": "happy",
+  "answerer": "human",
+  "about": "Two questions answered, then the close. Being brief is the courtesy, and the third question is where a busy person regrets picking up.",
+  "turns": [
+    "Golden Crane.",
+    "How many people is it for?",
+    "And what time are they coming?"
+  ],
+  "expect": {
+    "must_call": [
+      {
+        "route": "/call-fact",
+        "body_contains": {
+          "topic": "party_size"
+        }
+      },
+      {
+        "route": "/call-fact",
+        "body_contains": {
+          "topic": "arrival_time"
+        }
+      }
+    ],
+    "must_end_call": true,
+    "max_sentences": 10
+  }
+}

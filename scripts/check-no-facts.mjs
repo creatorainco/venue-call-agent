@@ -18,6 +18,26 @@
  * reporting a pass, this script scans a synthetic string that MUST match. If the control does not
  * trip, the run fails — a broken guard is treated as worse than a violation, because a violation is
  * at least visible.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────────────────────
+ * TWO EXEMPTIONS, BOTH NARROW, BOTH ANNOUNCED ON EVERY RUN
+ * ─────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ * 1. DIRECTORIES NAMED `fixtures`. Canned backend responses are DATA standing in for the one
+ *    component that is allowed to author sentences. A fixture that could not contain a comp clause
+ *    would be useless for testing the code that handles one.
+ *
+ * 2. FILES THAT DECLARE `NO-FACTS-EXEMPT[rule, rule]: reason` IN THEIR FIRST 60 LINES.
+ *    Some code in here exists to DETECT this language — the fabrication checker's risky-word list,
+ *    the reference agent's question-to-topic cues. Those files necessarily contain the words they
+ *    hunt for, and failing them is the false-positive direction that gets a guard switched off
+ *    entirely, which loses the property this file exists to defend.
+ *
+ *    The exemption is per-RULE, not per-file: a detector may be excused from "a comp or payment
+ *    term" and still be forbidden a venue's name. It must be declared in the file, so it shows up
+ *    in review rather than in a path list nobody reads. Every exempt file and the rules it claimed
+ *    are printed on every run, and the count is capped — an exemption list that grows quietly is
+ *    the same as no guard.
  */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -28,6 +48,9 @@ import { createHash } from 'node:crypto';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const SCAN_DIRS = ['src'];
 const EXTS = new Set(['.ts', '.mts', '.js', '.mjs', '.json']);
+
+/** More than this many exempt files means the exemption has become the rule. */
+const MAX_EXEMPT_FILES = 4;
 
 /**
  * Each rule is a product noun this repository may not contain.
@@ -74,15 +97,20 @@ function isVenueName(line) {
 }
 
 const RULES = [
-  { name: 'a venue or brand name', re: { test: isVenueName } },
-  { name: 'a money amount',        re: /(?<![\w.])\$\s?\d/ },
-  { name: 'a comp or payment term', re: /\b(comp(?:ed|s|limentary)?\s+(?:meal|dinner|lunch|the\s+bill)|we\s+(?:will\s+)?(?:cover|pay\s+for)\s+(?:the\s+)?(?:meal|bill|food)|on\s+the\s+house)\b/i },
-  { name: 'a spoken script line',  re: /\b(hi[, ]+this\s+is|calling\s+(?:on\s+behalf|about\s+a\s+(?:booking|reservation))|i'?m\s+calling\s+from)\b/i },
-  { name: 'a policy sentence',     re: /\b(cancellation\s+policy|no[- ]show\s+fee|party\s+size\s+(?:is|of)\s+\d)\b/i },
+  { id: 'venue',  name: 'a venue or brand name', re: { test: isVenueName } },
+  { id: 'money',  name: 'a money amount',        re: /(?<![\w.])\$\s?\d/ },
+  { id: 'comp',   name: 'a comp or payment term', re: /\b(comp(?:ed|s|limentary)?\s+(?:meal|dinner|lunch|the\s+bill)|we\s+(?:will\s+)?(?:cover|pay\s+for)\s+(?:the\s+)?(?:meal|bill|food)|on\s+the\s+house)\b/i },
+  { id: 'script', name: 'a spoken script line',  re: /\b(hi[, ]+this\s+is|calling\s+(?:on\s+behalf|about\s+a\s+(?:booking|reservation))|i'?m\s+calling\s+from)\b/i },
+  { id: 'policy', name: 'a policy sentence',     re: /\b(cancellation\s+policy|no[- ]show\s+fee|party\s+size\s+(?:is|of)\s+\d)\b/i },
 ];
+
+const RULE_IDS = new Set(RULES.map((r) => r.id));
 
 /** The control string. It must trip at least one rule, every run, or the guard is not working. */
 const CONTROL = "Hi, this is CreatoRain calling about a booking at Nonesuch Noodles; we will cover the meal up to $60.";
+
+/** `NO-FACTS-EXEMPT[comp, money]: why` — declared in the file, near the top, with a reason. */
+const EXEMPT_RE = /NO-FACTS-EXEMPT\[([a-z, ]+)\]:\s*(.+)/;
 
 function walk(dir, out = []) {
   let entries;
@@ -116,13 +144,34 @@ if (files.length === 0) {
 }
 
 const hits = [];
+const exemptions = [];
+let badDeclaration = null;
+
 for (const f of files) {
   const text = readFileSync(f, 'utf8');
+  const rel = relative(ROOT, f);
+
+  // A declaration must appear near the top, where a reviewer reads it.
+  const header = text.split(/\r?\n/).slice(0, 60).join('\n');
+  const declared = EXEMPT_RE.exec(header);
+  let excused = new Set();
+  if (declared) {
+    const ids = declared[1].split(',').map((s) => s.trim()).filter(Boolean);
+    const unknown = ids.filter((id) => !RULE_IDS.has(id));
+    if (unknown.length) {
+      badDeclaration = `${rel} claims exemption from rule(s) that do not exist: ${unknown.join(', ')}`;
+    }
+    if (!declared[2].trim()) badDeclaration = `${rel} declares an exemption with no reason`;
+    excused = new Set(ids);
+    exemptions.push({ file: rel, rules: ids, reason: declared[2].trim() });
+  }
+
   text.split(/\r?\n/).forEach((line, i) => {
     if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;      // prose in comments is allowed
     for (const rule of RULES) {
+      if (excused.has(rule.id)) continue;
       if (rule.re.test(line)) {
-        hits.push({ file: relative(ROOT, f), line: i + 1, rule: rule.name, text: line.trim().slice(0, 120) });
+        hits.push({ file: rel, line: i + 1, rule: rule.name, text: line.trim().slice(0, 120) });
       }
     }
   });
@@ -130,11 +179,30 @@ for (const f of files) {
 
 console.log(`no-facts: ${files.length} file(s) scanned; control tripped ${tripped.length} rule(s) (${tripped.join(', ')}).`);
 
+for (const e of exemptions) {
+  console.log(`no-facts: EXEMPT ${e.file} from [${e.rules.join(', ')}] — ${e.reason}`);
+}
+
+if (badDeclaration) {
+  console.error(`\nFAIL no-facts: ${badDeclaration}`);
+  console.error('  An exemption nobody can read is an exemption nobody reviewed.');
+  process.exit(2);
+}
+
+if (exemptions.length > MAX_EXEMPT_FILES) {
+  console.error(`\nFAIL no-facts: ${exemptions.length} files claim an exemption; the cap is ${MAX_EXEMPT_FILES}.`);
+  console.error('  Past that the exemption is the rule and the guard is decoration. Either the');
+  console.error('  rules are too broad and should be narrowed, or something belongs in fixtures/.');
+  process.exit(2);
+}
+
 if (hits.length) {
   console.error(`\nFAIL no-facts: ${hits.length} product fact(s) hardcoded in this service.\n`);
   for (const h of hits) console.error(`  ${h.file}:${h.line}  [${h.rule}]\n      ${h.text}`);
   console.error('\nThis service may not author facts. Fetch the finished sentence from the backend');
   console.error('instead — if there is no endpoint for it, the missing endpoint IS the bug.');
+  console.error('\nIf this file exists to DETECT that language rather than to speak it, declare it:');
+  console.error('  NO-FACTS-EXEMPT[comp, money]: this is the fabrication checker\'s pattern list');
   process.exit(1);
 }
 

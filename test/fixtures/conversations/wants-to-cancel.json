@@ -1,0 +1,33 @@
+{
+  "name": "wants-to-cancel",
+  "scenario": "happy",
+  "answerer": "human",
+  "about": "The venue wants the booking cancelled. The agent cannot and must not imply it can - a person rings them back.",
+  "turns": [
+    "Hello?",
+    "Actually we need to cancel that one, we're closed for a private event."
+  ],
+  "expect": {
+    "must_call": [
+      {
+        "route": "/call-event",
+        "body_contains": {
+          "reason": "wants_to_cancel"
+        }
+      }
+    ],
+    "must_not_call": [
+      {
+        "route": "/call-fact"
+      }
+    ],
+    "must_say_contains": [
+      "call you back"
+    ],
+    "must_not_say_matching": [
+      "\\bI(?:'ve| have) cancelled\\b",
+      "\\bI can cancel\\b"
+    ],
+    "max_sentences": 8
+  }
+}

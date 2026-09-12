@@ -1,0 +1,204 @@
+{
+  "$comment": [
+    "CANNED BACKEND RESPONSES. This file is DATA, not code, and it lives in a `fixtures/`",
+    "directory on purpose: the no-facts guard skips those, because the thing being imitated here",
+    "IS the backend, and the backend is the one component allowed to author a sentence.",
+    "",
+    "Every venue, creator and brand below is INVENTED. No row here came from the production",
+    "database and none should ever be pasted in from it - a fixture is checked into a repository",
+    "and a real booking is somebody's dinner.",
+    "",
+    "The sentences themselves are copied verbatim from platform-backend's venueOperationsKb.ts and",
+    "venueCallScript.ts at the commit named in contract/seam4.json. Keep them verbatim. A fixture",
+    "that says something nicer than the real backend is a test that passes on a call that would",
+    "have gone differently."
+  ],
+  "event_sentences": {
+    "unanswered_question": "I've written that down for our team and they'll come back to you by email today.",
+    "human_callback": "I've passed that to our team and someone will call you back about it today.",
+    "human_callback:asked_to_stop_calling": "Understood — I've taken you off the call list. Sorry to have bothered you.",
+    "answerer_reported": ""
+  },
+  "default_facts": {
+    "creator_name": {
+      "known": true,
+      "say": "The reservation is under Dana."
+    },
+    "arrival_time": {
+      "known": true,
+      "say": "The reservation is for tonight at 7:30."
+    },
+    "party_size": {
+      "known": true,
+      "say": "The reservation is for 4 people."
+    },
+    "comp_terms": {
+      "known": false,
+      "reason": "not_agreed",
+      "say": "I'm not sure what's been arranged for this visit and I don't want to guess — our team will confirm it by email today."
+    },
+    "contact_email": {
+      "known": false,
+      "reason": "no_contact",
+      "say": "I can have someone from our team call you back today."
+    },
+    "what_the_creator_will_do": {
+      "known": true,
+      "say": "They'll take photos and video of the food and the room, and post it to their own channels afterwards. Nothing is filmed of your staff or other guests without asking."
+    },
+    "who_we_are": {
+      "known": true,
+      "say": "CreatoRain arranges visits between restaurants and content creators. We're calling on behalf of the brand that booked this one."
+    },
+    "still_active": {
+      "known": true,
+      "say": "Yes, the reservation still stands."
+    }
+  },
+  "default_context": {
+    "reservation_id": "mock-reservation-0001",
+    "attempt_id": "mock-attempt-0001",
+    "still_active": true,
+    "venue": {
+      "name": "Golden Crane Noodle House",
+      "city_state": "Atlanta, GA"
+    },
+    "brand": {
+      "name": "Northside Restaurant Group"
+    },
+    "creator": {
+      "spoken_name": "Dana"
+    },
+    "when": {
+      "spoken_time": "tonight at 7:30",
+      "local_date": null
+    },
+    "disclosure_sentence": "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
+    "opening_script": [
+      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
+      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
+      "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+      "Anything you'd like us to pass along, or any questions?"
+    ],
+    "voicemail_script": "Hi — this is an automated call from CreatoRain, for Golden Crane Noodle House. We arrange restaurant visits for content creators. You have a reservation tonight at 7:30 under Dana, booked through Northside Restaurant Group, and they'll be filming some content while they're there. There's nothing you need to do — we just wanted your team to know. Details are in the email our team sent you.",
+    "system_instruction": "WHO YOU ARE\nYou are an automated assistant placing a short courtesy call to a restaurant on behalf of CreatoRain and its client brand. You are not a person and you say so, first, before anything else. You are interrupting somebody's shift.\n\nWHAT YOU KNOW\nThese lines, and nothing else factual:\n  - Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.\n  - I'm calling about a reservation you have tonight at 7:30, under Dana.\n  - They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.\n  - We wanted your team to know ahead of time rather than have it come as a surprise on the night.\n  - Anything you'd like us to pass along, or any questions?\n\nHOW YOU ANSWER\nIf the answer is in your opening lines, say it. Otherwise call lookup_booking_fact and say EXACTLY the sentence it returns. Do not add to it, do not soften it, do not repeat it in your own words. You have no knowledge of this booking, this restaurant, this brand or this company beyond what these tools return.\nTopics lookup_booking_fact will serve: party_size, arrival_time, creator_name, comp_terms, contact_email, what_the_creator_will_do, who_we_are, still_active.\n\nHOW YOU DEFER\nIf no tool answers it: call log_unanswered_question with what they actually said, then say the deferral sentence the tool returns, and move on. Never say you will follow up without having logged it. Never guess, never estimate, never say \"typically\" or \"usually\". Deferring is a last resort, not a safe default — a question the tools can answer and you deflect is a wasted call.\n\nHOW YOU CLOSE\nTwo questions answered, or fifteen seconds of silence, or any signal they are done — thank them, say the email is on its way, end the call. Being brief is the courtesy.\n\nWHO YOU REACH\nIf what answered is a phone menu, an automated system, or anything that is not a person, do NOT deliver the notice to it. Call report_answerer, then say: \"Could you connect me with a member of staff?\" and follow whatever it tells you to do to reach a person. Try twice. If you are still not with a person, leave the voicemail message and end the call.\n\nWHAT YOU NEVER DO\n  - Never speak before the disclosure sentence.\n  - Never change, cancel, confirm or move the booking. You cannot, and you must not imply you can. If they want a change, call request_human_callback and tell them a person will ring them back today.\n  - Never state a price, a rate, an amount of money, or who pays for what, unless a tool returned that sentence to you.\n  - Never state how many people are coming unless a tool returned that sentence to you.\n  - Never invent a policy, a time, a name, or an arrangement. If you are unsure whether you know something, you do not know it.\n  - If they ask you to stop calling, call request_human_callback with asked_to_stop_calling immediately, before you say anything else, then apologise and end the call.",
+    "answerable_topics": [
+      "party_size",
+      "arrival_time",
+      "creator_name",
+      "comp_terms",
+      "contact_email",
+      "what_the_creator_will_do",
+      "who_we_are",
+      "still_active"
+    ],
+    "script_version": "venue-precall/v3"
+  },
+  "scenarios": {
+    "happy": {
+      "summary": "A person answers. Everything the backend can answer, it answers. comp_terms defers, which is what production does TODAY.",
+      "answerer": "human"
+    },
+    "comp-known": {
+      "summary": "As happy, but the campaign has an authored comp clause. This is the world AFTER TASK-972, and the only scenario in which the agent may say anything about money.",
+      "facts": {
+        "comp_terms": {
+          "known": true,
+          "say": "The brand is covering the meal for two, up to sixty dollars, excluding alcohol."
+        }
+      }
+    },
+    "no-comp-field": {
+      "summary": "Identical to happy, named separately so a test can say out loud which behaviour it is pinning. The deferral here is CORRECT, not a gap to route around.",
+      "answerer": "human"
+    },
+    "cancelled": {
+      "summary": "The booking was cancelled between the dial and the answer. call-context refuses and the agent must hang up without speaking.",
+      "refuse": {
+        "call-context": "reservation_not_active"
+      }
+    },
+    "cancelled-mid-call": {
+      "summary": "call-context succeeds, then the booking is cancelled. still_active flips to false while the agent is mid-conversation - the reason facts are re-read live rather than cached into the token.",
+      "facts": {
+        "still_active": {
+          "known": true,
+          "say": "That reservation has been cancelled — sorry to have bothered you."
+        }
+      }
+    },
+    "missing": {
+      "summary": "The token names a reservation that does not exist. Almost always a bug on our side, never something to talk around.",
+      "refuse": {
+        "call-context": "reservation_not_found",
+        "call-fact": "reservation_not_found",
+        "call-event": "reservation_not_found"
+      }
+    },
+    "campaign-paused": {
+      "summary": "An operator paused the campaign. The FIXED behaviour, per TASK-968: the call refuses before a word is spoken. This is the default the rest of development is written against.",
+      "refuse": {
+        "call-context": "campaign_not_active"
+      }
+    },
+    "campaign-paused-today": {
+      "summary": "The SAME paused campaign against the backend as deployed on 2026-09-12 - which does not refuse, because the guard compares against two strings that column never holds. Reachable on purpose so the regression has a home. Delete this scenario when TASK-968 ships and the bug is gone.",
+      "answerer": "human"
+    },
+    "venue-stopped": {
+      "summary": "The venue itself is deactivated or closed. The one venue-level switch that does silence the call - a per-client Stop deliberately does not.",
+      "refuse": {
+        "call-context": "venue_stopped"
+      }
+    },
+    "no-name": {
+      "summary": "The creator's name could not be resolved to something speakable, so no notice can be rendered. Refusing beats reading out a handle to a floor manager.",
+      "refuse": {
+        "call-context": "script_unavailable"
+      }
+    },
+    "seam-disabled": {
+      "summary": "VENUE_CALL_SECRET is unset on the backend. Every route refuses the same way. This is what a correctly-configured production looks like today.",
+      "refuse": {
+        "call-context": "seam_disabled",
+        "call-fact": "seam_disabled",
+        "call-event": "seam_disabled"
+      }
+    },
+    "bad-token": {
+      "summary": "The credential does not verify. Distinct from seam_disabled because an operator chasing one must not be shown the other.",
+      "refuse": {
+        "call-context": "token_invalid",
+        "call-fact": "token_invalid",
+        "call-event": "token_invalid"
+      }
+    },
+    "expired-token": {
+      "summary": "A token that verified but has aged out - a call that rang for longer than the credential lives.",
+      "refuse": {
+        "call-fact": "token_expired",
+        "call-event": "token_expired"
+      }
+    },
+    "stop-calling": {
+      "summary": "A person answers and asks not to be called again. The do-not-call is written synchronously and the response says so.",
+      "answerer": "human"
+    },
+    "phone-menu": {
+      "summary": "A menu answers. The notice must NOT be delivered to it. report_answerer, then try twice for a person, then voicemail.",
+      "answerer": "phone_menu"
+    },
+    "voicemail": {
+      "summary": "A machine answers. One pass of the voicemail script, no questions, nothing asked back.",
+      "answerer": "voicemail"
+    },
+    "wrong-number": {
+      "summary": "Someone who is not the restaurant answers. Nothing about the booking may be said to them at all.",
+      "answerer": "wrong_number"
+    },
+    "slow-seam": {
+      "summary": "The backend is alive but slow. Used with --latency to prove the agent stops rather than waits, and to measure where the latency budget actually goes.",
+      "answerer": "human"
+    }
+  }
+}

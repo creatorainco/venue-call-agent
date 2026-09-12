@@ -1,5 +1,11 @@
 node_modules/
 dist/
+*.log
+
+# 🔴 THE ORDER OF THESE THREE LINES IS LOAD-BEARING, and it was wrong until 2026-09-12.
+# The pattern on the second line matches the example file too, so the one document listing every
+# variable this service needs was silently absent from every clone — while README.md told people
+# to copy it. The negation restores it. A real secrets file stays ignored.
 .env
 .env.*
-*.log
+!.env.example

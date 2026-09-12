@@ -1,0 +1,192 @@
+{
+  "$comment": [
+    "THE SEAM 4 CONTRACT, SNAPSHOTTED.",
+    "",
+    "This file is the only description of the backend that this repository is allowed to rely on.",
+    "It is a SNAPSHOT, not a live read: platform-backend is a different repository on a different",
+    "deploy cadence, and an intern working here has no way to notice that a field was renamed over",
+    "there. So the shapes are written down, stamped with the commit they were read from, and a test",
+    "asserts the local mock still matches them.",
+    "",
+    "That gives drift a place to show up. It does NOT detect drift on its own - nothing here can",
+    "see the other repository. Re-derive it with `npm run contract:derive -- <path-to-platform-backend>`",
+    "whenever you touch this feature, and treat a diff as a conversation with the backend owner",
+    "rather than a merge conflict to resolve locally."
+  ],
+  "derived_from": {
+    "repo": "creatorainco/platform-backend",
+    "ref": "origin/dev",
+    "commit": "0d651963",
+    "read_on": "2026-09-12",
+    "files": [
+      "src/infrastructure/routes/reservations.routes.ts",
+      "src/infrastructure/controllers/reservations.controller.ts",
+      "src/infrastructure/services/venueCall.service.ts",
+      "src/helpers/emails/venueOperationsKb.ts",
+      "src/helpers/location/venueCallScript.ts",
+      "src/helpers/location/venueCallToken.ts"
+    ]
+  },
+  "auth": {
+    "header": "Authorization",
+    "scheme": "Bearer",
+    "note": "A short-lived HMAC capability token scoped to ONE attempt at ONE booking. The reservation id is taken FROM THE TOKEN; a body value that disagrees is a refusal, not an override. Never put the token in a query string - carrier and proxy logs retain URLs.",
+    "dark_when": "VENUE_CALL_SECRET unset on the backend. Every route then refuses seam_disabled."
+  },
+  "token": {
+    "format": "v1.<reservation_id>.<attempt_id>.<expiry_ms>.<HMAC-SHA256 base64url of the first three>",
+    "version_prefix": "v1",
+    "parts": 5,
+    "separator": ".",
+    "ttl_ms": 1200000,
+    "hmac": "sha256 over \"<reservation_id>.<attempt_id>.<expiry_ms>\", base64url, key = VENUE_CALL_SECRET as utf8",
+    "refusal_words": [
+      "invalid",
+      "expired"
+    ],
+    "note": "Only TWO refusal words, deliberately: an unparseable token, a forged signature and a token for another booking all return invalid, because a refusal that says WHY tells a prober which half of their guess was right."
+  },
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/reservations/call-context",
+      "when": "once, in the gap between the carrier answering and the first word",
+      "request_body": {},
+      "response_fields": [
+        "reservation_id",
+        "attempt_id",
+        "still_active",
+        "venue",
+        "brand",
+        "creator",
+        "when",
+        "disclosure_sentence",
+        "opening_script",
+        "voicemail_script",
+        "system_instruction",
+        "answerable_topics",
+        "script_version"
+      ],
+      "nested_fields": {
+        "venue": [
+          "name",
+          "city_state"
+        ],
+        "brand": [
+          "name"
+        ],
+        "creator": [
+          "spoken_name"
+        ],
+        "when": [
+          "spoken_time",
+          "local_date"
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/reservations/call-fact",
+      "when": "during the call, once per question the opening lines do not already answer",
+      "request_body": {
+        "topic": "one of fact_topics"
+      },
+      "response_fields": [
+        "known",
+        "say",
+        "reason",
+        "topic"
+      ],
+      "note": "`say` is a FINISHED SENTENCE and is always present, including when known is false. `reason` appears only when known is false."
+    },
+    {
+      "method": "POST",
+      "path": "/reservations/call-event",
+      "when": "during the call, before speaking any deferral",
+      "request_body": {
+        "kind": "one of event_kinds",
+        "question_verbatim": "string, max 1000, VERBATIM not a paraphrase - optional",
+        "reason": "one of callback_reasons - optional",
+        "answerer": "one of answerer_kinds - optional"
+      },
+      "response_fields": [
+        "recorded",
+        "say",
+        "do_not_call"
+      ],
+      "note": "asked_to_stop_calling is written SYNCHRONOUSLY before this responds. `say` is empty string for answerer_reported - the agent says nothing, it is a report to us."
+    }
+  ],
+  "refusal": {
+    "http_status": 409,
+    "body": {
+      "ok": false,
+      "reason": "one of refusal_reasons"
+    },
+    "why_409": "These are not authentication outcomes to retry differently. They mean the call cannot proceed, and the agent's only correct response to every one is to stop before speaking.",
+    "reasons": [
+      "seam_disabled",
+      "token_invalid",
+      "token_expired",
+      "token_scope_mismatch",
+      "reservation_not_found",
+      "reservation_not_active",
+      "campaign_not_active",
+      "venue_stopped",
+      "disclosure_unavailable",
+      "script_unavailable",
+      "unknown_topic"
+    ]
+  },
+  "fact_topics": [
+    "party_size",
+    "arrival_time",
+    "creator_name",
+    "comp_terms",
+    "contact_email",
+    "what_the_creator_will_do",
+    "who_we_are",
+    "still_active"
+  ],
+  "event_kinds": [
+    "unanswered_question",
+    "human_callback",
+    "answerer_reported"
+  ],
+  "callback_reasons": [
+    "wants_to_cancel",
+    "wants_to_change_time",
+    "disputes_the_comp",
+    "asked_to_stop_calling",
+    "not_our_booking",
+    "other"
+  ],
+  "answerer_kinds": [
+    "human",
+    "automated_system",
+    "phone_menu",
+    "voicemail",
+    "wrong_number"
+  ],
+  "tool_names": [
+    "lookup_booking_fact",
+    "log_unanswered_question",
+    "request_human_callback",
+    "report_answerer"
+  ],
+  "script_version": "venue-precall/v3",
+  "known_divergences": [
+    {
+      "id": "TASK-968",
+      "what": "campaign_not_active is a dead refusal on the deployed backend. It compares campaigns.status against 'archived' and 'deleted', values that column has never held.",
+      "mock_default": "The mock implements the FIXED behaviour - a paused campaign refuses. Scenario `campaign-paused-today` reproduces the live bug for a regression test.",
+      "why": "All remaining development is specified against the fixed backend, so the default must be the fixed backend. The bug is reachable on purpose, never by accident."
+    },
+    {
+      "id": "TASK-972",
+      "what": "comp_terms is wired to nothing on the deployed backend - the SQL selects NULL::text - so it always returns the honest refusal.",
+      "mock_default": "Scenario `happy` reproduces today: comp_terms refuses with reason not_agreed. Scenario `comp-known` returns an authored clause, which is what TASK-972 delivers.",
+      "why": "Both branches must be exercised. Today's is the one on production; tomorrow's is the one being built."
+    }
+  ]
+}

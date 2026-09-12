@@ -1,0 +1,13 @@
+{
+  "name": "campaign-paused",
+  "scenario": "campaign-paused",
+  "answerer": "human",
+  "about": "An operator paused the campaign. Refuses before a word is spoken. This is TASK-968's behaviour, not today's - the mock serves the fixed backend by default and the deployed bug lives in scenario campaign-paused-today.",
+  "turns": [
+    "Golden Crane."
+  ],
+  "expect": {
+    "must_not_speak_at_all": true,
+    "must_end_call": true
+  }
+}

@@ -1,35 +1,63 @@
-# Build gate for venue-call-agent.
+# The build gate for venue-call-agent.
 #
-# The no-facts check runs FIRST and is not advisory. This service may not author product facts;
-# that property is what makes an after-the-call check for invented claims possible at all, and it
-# can only be defended mechanically.
+# 🔴 THIS IS THE ONLY GATE THERE WILL EVER BE ON THIS REPOSITORY, and that is a fact about the
+# GitHub plan rather than a choice. Branch protection, rulesets and required status checks all
+# return 403 on this org's private repos, and CODEOWNERS is inert here — demo ships one and its
+# last three pull requests requested no reviewers. So nothing mechanically stops a red pull
+# request being merged. A human not merging red is the whole enforcement story; write the checks
+# so that a red run is unmistakable, and read them.
+#
+# Matches platform-backend's ci.yml where it can: same runner, same action versions, filtered
+# pull_request trigger, workflow_dispatch, npm ci against a committed lockfile, cache: npm.
+#
+# It deviates in one place on purpose — the no-facts guard runs BEFORE `npm ci`, with no
+# dependencies installed and no secret present. That ordering is itself an assertion: this repo's
+# load-bearing invariant must be checkable by a machine that has been handed nothing.
+
 name: verify
 
 on:
   pull_request:
+    branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
 
-      # First, and on its own, so a failure here is unmistakable in the log.
-      # The script runs its own positive control and fails if the control does not trip —
-      # a guard that cannot detect a violation must not be allowed to report "clean".
+      # 🔴 FIRST, WITH NOTHING INSTALLED. Node is not even set up yet — the runner's own node runs
+      # it. The guard has no dependencies by design, and proving that every run is what stops it
+      # quietly acquiring one.
+      #
+      # It runs its own positive control and fails if the control does not trip: a guard that
+      # cannot detect a violation must never be allowed to report "clean".
       - name: no product facts in this repository
         run: node scripts/check-no-facts.mjs
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      # `npm ci`, not `npm install` — house standard, and it is the difference between "the
+      # lockfile is honoured" and "whatever resolved today". It fails outright with no lockfile,
+      # which is the correct behaviour: this repo had none for a day and CI was red the whole time.
       - name: install
-        run: npm install --no-audit --no-fund
+        run: npm ci
 
       - name: typecheck
-        run: npm run typecheck --if-present
+        run: npm run typecheck
 
       - name: test
-        run: node --test --test-timeout=60000 "test/**/*.test.ts"
+        run: npm test
+
+      # The conversation eval. Fails the build on HARD failures only — a call that did something
+      # it must never do. Soft failures (too long, too much unscripted glue) print and do not
+      # block, because those are judgements and a judgement that blocks a merge gets tuned until
+      # it stops blocking.
+      - name: eval the recorded conversations
+        run: npm run eval

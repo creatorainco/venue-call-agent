@@ -1,0 +1,15 @@
+{
+  "$comment": "Copied from platform-backend, not from the frontends: the TypeScript already in src/ is 4-space single-quote. There is no prettier dependency and no format step in CI — this file exists so an editor with the extension installed does the right thing instead of reformatting somebody else's file on save.",
+  "printWidth": 110,
+  "tabWidth": 4,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "arrowParens": "always",
+  "endOfLine": "lf",
+  "overrides": [
+    {
+      "files": ["*.json", "*.yml", "*.yaml", "*.md"],
+      "options": { "tabWidth": 2 }
+    }
+  ]
+}

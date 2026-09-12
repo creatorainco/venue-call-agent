@@ -4,12 +4,23 @@
   "private": true,
   "type": "module",
   "description": "Layer E: the voice that telephones a restaurant before a creator's booking. Dials nobody.",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
     "test": "node --test --test-timeout=60000 \"test/**/*.test.ts\"",
-    "harness": "node --experimental-strip-types src/harness/run.ts",
+    "test:watch": "node --test --watch \"test/**/*.test.ts\"",
+    "mock": "node src/mock/cli.ts",
+    "harness": "node src/harness/run.ts",
+    "eval": "node src/eval/run.ts",
     "check:no-facts": "node scripts/check-no-facts.mjs",
+    "contract:derive": "node scripts/derive-contract.mjs",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run typecheck && npm run check:no-facts && npm test"
+    "verify": "npm run check:no-facts && npm run typecheck && npm test",
+    "mint-token": "node scripts/mint-token.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "typescript": "^5.9.2"
   }
 }

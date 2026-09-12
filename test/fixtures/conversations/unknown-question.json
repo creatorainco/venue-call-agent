@@ -1,0 +1,29 @@
+{
+  "name": "unknown-question",
+  "scenario": "happy",
+  "answerer": "human",
+  "about": "Something no tool answers. It must be written down BEFORE the follow-up is promised - the row is what makes the promise true.",
+  "turns": [
+    "Hi, kitchen here.",
+    "Do they need us to hold a table away from the pass?"
+  ],
+  "expect": {
+    "must_call": [
+      {
+        "route": "/call-event",
+        "body_contains": {
+          "kind": "unanswered_question"
+        }
+      }
+    ],
+    "must_say_contains": [
+      "written that down"
+    ],
+    "must_not_say_matching": [
+      "\\busually\\b",
+      "\\btypically\\b",
+      "\\bshould be\\b"
+    ],
+    "max_sentences": 8
+  }
+}

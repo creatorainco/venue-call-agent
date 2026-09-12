@@ -1,0 +1,13 @@
+{
+  "name": "booking-cancelled",
+  "scenario": "cancelled",
+  "answerer": "human",
+  "about": "The booking was cancelled between the dial and the answer. The call must end in silence - there is no partial opening, because a notice with a hole in it is worse than no call.",
+  "turns": [
+    "Hello, Golden Crane."
+  ],
+  "expect": {
+    "must_not_speak_at_all": true,
+    "must_end_call": true
+  }
+}

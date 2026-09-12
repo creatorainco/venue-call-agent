@@ -1,14 +1,42 @@
 {
+  // Node RUNS the .ts files in this repo by erasing types, not by compiling them. Nothing is built;
+  // `tsc` is here only to say whether the types are right. Two settings below exist because of that
+  // and are the difference between a clean typecheck and a green CI that dies at runtime:
+  //
+  //   erasableSyntaxOnly  — refuses `enum`, `namespace`, and `constructor(public x)` parameter
+  //                         properties. All three typecheck perfectly and all three make Node throw
+  //                         ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX the moment the file is imported. This
+  //                         setting moves that discovery from "a test run on somebody's laptop" to
+  //                         "the typechecker, immediately". It has already caught one.
+  //   allowImportingTsExtensions — imports in this repo are written `./thing.ts`, because that is
+  //                         the specifier Node actually resolves at runtime.
   "compilerOptions": {
     "target": "ES2023",
+    "lib": ["ES2023"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "types": ["node"],
+
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "allowImportingTsExtensions": true
+
+    // The guards and the token minter are .mjs, and they are imported by tests. Without allowJs
+    // the typechecker refuses the import outright (TS7016) — which is how `scripts/` came to be
+    // excluded from the typecheck entirely, so the repo's only mechanical guard was never checked
+    // by anything but itself. checkJs stays off: these are small scripts with JSDoc-free
+    // signatures, and turning it on produces noise that would get the whole step switched off.
+    "allowJs": true,
+    "checkJs": false
   },
   "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.mjs"]
 }

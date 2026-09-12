@@ -1,0 +1,21 @@
+{
+  "name": "voicemail",
+  "scenario": "voicemail",
+  "answerer": "voicemail",
+  "about": "A machine answers. One pass of the voicemail line, no questions, nothing asked back - a voicemail measures worse than no contact, so it states the fact and stops.",
+  "turns": [
+    "You've reached Golden Crane. We're not available right now, please leave a message after the tone."
+  ],
+  "expect": {
+    "must_call": [
+      {
+        "route": "/call-event",
+        "body_contains": {
+          "answerer": "voicemail"
+        }
+      }
+    ],
+    "must_end_call": true,
+    "max_sentences": 4
+  }
+}

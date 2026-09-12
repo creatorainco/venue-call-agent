@@ -1,0 +1,26 @@
+{
+  "name": "who-pays-after-task-972",
+  "scenario": "comp-known",
+  "answerer": "human",
+  "about": "The same question once an operator has authored a comp clause. The clause is quoted unedited, and quoting an AUTHORISED money sentence is not a fabrication - this fixture is what proves the check can tell the difference.",
+  "turns": [
+    "Hello?",
+    "Who's covering the bill?",
+    "Great, thanks."
+  ],
+  "expect": {
+    "must_call": [
+      {
+        "route": "/call-fact",
+        "body_contains": {
+          "topic": "comp_terms"
+        }
+      }
+    ],
+    "must_say_contains": [
+      "covering the meal"
+    ],
+    "must_end_call": true,
+    "max_sentences": 9
+  }
+}

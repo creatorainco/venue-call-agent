@@ -1,0 +1,14 @@
+# LF everywhere.
+#
+# Half this team is on Windows and git was already warning that it would rewrite the whole tree to
+# CRLF on the first commit from that machine. That turns every later diff into a whole-file diff,
+# and it breaks newline-anchored edits in tooling — a failure this estate has hit repeatedly.
+* text=auto eol=lf
+
+# Fixtures are compared byte-for-byte against sentences the backend produced. A line-ending
+# rewrite in one of those is a silent behaviour change inside a test.
+*.json text eol=lf
+*.ts   text eol=lf
+*.mjs  text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf

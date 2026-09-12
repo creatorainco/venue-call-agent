@@ -1,0 +1,13 @@
+{
+  "name": "they-hang-up",
+  "scenario": "happy",
+  "answerer": "human",
+  "about": "They put the phone down mid-notice. A partial transcript is written, nothing crashes, and nothing retries on its own.",
+  "turns": [
+    "Hello?"
+  ],
+  "expect": {
+    "must_end_call": false,
+    "max_sentences": 6
+  }
+}

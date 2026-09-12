@@ -1,0 +1,18 @@
+{
+  "name": "plain",
+  "scenario": "happy",
+  "answerer": "human",
+  "about": "A manager picks up, hears the notice, has nothing to ask. The commonest call, and the one that must be shortest.",
+  "turns": [
+    "Golden Crane, this is Marcus.",
+    "Okay, noted. Thanks for letting us know."
+  ],
+  "expect": {
+    "must_say_contains": [
+      "this is an automated call from CreatoRain"
+    ],
+    "must_end_call": true,
+    "max_sentences": 7,
+    "max_glue": 2
+  }
+}

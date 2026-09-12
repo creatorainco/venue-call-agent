@@ -1,0 +1,30 @@
+{
+  "name": "stop-calling",
+  "scenario": "stop-calling",
+  "answerer": "human",
+  "about": "They ask us to stop. Obeyed inside the same turn, written down synchronously, and nothing is negotiated afterwards.",
+  "turns": [
+    "Yes?",
+    "Look, we've asked before - please stop calling us."
+  ],
+  "expect": {
+    "must_call": [
+      {
+        "route": "/call-event",
+        "body_contains": {
+          "reason": "asked_to_stop_calling"
+        }
+      }
+    ],
+    "must_say_contains": [
+      "taken you off the call list"
+    ],
+    "must_not_say_matching": [
+      "\\bbut\\b",
+      "\\bbefore you go\\b",
+      "\\bjust one\\b"
+    ],
+    "must_end_call": true,
+    "max_sentences": 7
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "phone-menu",
+  "scenario": "phone-menu",
+  "answerer": "phone_menu",
+  "about": "A menu answers. The notice must not be read to it. Report what answered, try twice for a person, then leave the voicemail line and stop.",
+  "turns": [
+    "Thank you for calling. For hours and directions, press 1. For reservations, press 2.",
+    "I'm sorry, I didn't get that. Main menu. For hours and directions, press 1."
+  ],
+  "expect": {
+    "must_call": [
+      {
+        "route": "/call-event",
+        "body_contains": {
+          "kind": "answerer_reported"
+        }
+      }
+    ],
+    "must_end_call": true,
+    "max_sentences": 5
+  }
+}
