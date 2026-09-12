@@ -25,8 +25,8 @@ no-facts: N file(s) scanned; control tripped 4 rule(s) (...)
 no-facts: EXEMPT src/agent/scriptedStub.ts from [comp] — ...
 no-facts: EXEMPT src/eval/fabrication.ts from [comp, money, policy] — ...
 no-facts: clean.
-# tests 118
-# pass 118
+# tests 122
+# pass 122
 ```
 
 Then the conversations:
@@ -37,8 +37,14 @@ npm run eval
 ```
 
 **You now have a complete test environment for a telephone feature, on a laptop, with no phone, no
-Google account and no database.** That is the point of the last day's work. Nothing below needs an
-account either, until the very last ticket.
+Google account and no database.** That is the point of the last day's work.
+
+⚠️ **Two credentials are needed sooner than "the very last ticket", and an earlier version of
+this page said otherwise.** Everything in Parts 1–3, and building the adapter itself, needs
+nothing. *Opening a real Gemini session* — which the first tuning measurement in Part 4 item 2
+requires — needs `GEMINI_API_KEY`; the org already has one, so it is a lookup, not a signup.
+`SPEECH_TO_TEXT_CREDENTIALS`, for the independent transcriber, does **not** exist anywhere yet
+and somebody has to provision it. Raise it early rather than on the day you need it.
 
 ---
 
@@ -72,6 +78,16 @@ curl -s -XPOST http://127.0.0.1:8788/reservations/call-context \
 
 curl -s http://127.0.0.1:8788/__mock/journal | python -m json.tool
 ```
+
+And produce the credentials the real backend would want, with no backend:
+
+```bash
+VENUE_CALL_SECRET=local-dev-not-a-secret npm run mint-token -- --all
+```
+
+That prints four tokens: a valid one, an expired one, and two scoped to the wrong booking. The
+last two verify perfectly and are still refused — which is the property worth understanding
+before you write anything that holds one.
 
 Read `src/mock/fixtures/scenarios.json` for the full list of 18 scenarios and what each one is for.
 

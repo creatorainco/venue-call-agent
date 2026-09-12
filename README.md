@@ -16,15 +16,18 @@ New here? Read **[ONBOARDING.md](ONBOARDING.md)** — it is the thirty-minute ve
 ```bash
 nvm use             # or any Node >= 22.18; type stripping is unflagged from there
 npm ci
-npm run verify      # the guard, the typechecker and 118 tests
+npm run verify      # the guard, the typechecker and 122 tests
 npm run eval        # 14 recorded conversations, scored
 ```
 
 Both should be green on a fresh clone. **You need no Google account, no phone carrier and no AWS
-access** for any of it, and none of the remaining work on TASK-970 needs one either until the very
-last step.
+access** for any of it.
 
-If something asks you for a credential before TASK-973, that is a defect. Say so.
+⚠️ **That is true of everything above and it is NOT true of all of TASK-970.** Building the
+Gemini Live adapter against the harness needs nothing; *running a real session* — which the
+first tuning measurement requires — needs `GEMINI_API_KEY`, and the anti-fabrication check's
+second transcriber needs `SPEECH_TO_TEXT_CREDENTIALS`. An earlier version of this page said no
+account was needed until the very last ticket. That was wrong; see `docs/LIMITS.md` §9.
 
 ---
 
@@ -82,10 +85,10 @@ side of that interface is built and tested.
 
 | command | what it proves | needs |
 |---|---|---|
-| `npm test` | 118 unit tests: the state machine, the seam client, every refusal, the codec, the config, the token, the rubric's own sabotage controls | nothing |
+| `npm test` | 122 unit tests: the state machine, the seam client, every refusal, the codec, the config, the token, the rubric's own sabotage controls | nothing |
 | `npm run eval` | 14 whole conversations scored against the rubric | nothing |
 | `npm run mock` | a local Seam 4 on :8788 you can curl | nothing |
-| `npm run mint-token -- --all` | a valid, an expired and two wrong-scope tokens | nothing |
+| `npm run mint-token -- --all` | a valid, an expired and two wrong-scope tokens | a signing literal you invent — `VENUE_CALL_SECRET=anything npm run mint-token -- --all`. It exits 64 and tells you so if you forget |
 | `npm run check:no-facts` | no product fact is hardcoded here | nothing |
 | `npm run contract:derive -- ../platform-backend` | the snapshot still matches the real backend | a platform-backend checkout |
 | `npm run typecheck` | types, and that no syntax Node cannot erase has crept in | nothing |

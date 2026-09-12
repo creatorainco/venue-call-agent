@@ -132,3 +132,55 @@ describe('the known divergences are written down, not remembered', () => {
         }
     });
 });
+
+describe('🔴 the fixture holds the same sentence three times, and nothing checked the copies agree', () => {
+    // Found by a sabotage run against this repo: editing `disclosure_sentence` alone, and leaving
+    // its two other verbatim copies inside `system_instruction` and `voicemail_script` untouched,
+    // produced a COMPLETELY GREEN suite — 118/118 and 14/14. The harness reads whichever copy the
+    // agent happens to speak, so one edited copy and two stale ones look like agreement.
+    //
+    // That is the hardcoded-literal failure this repository's own guard exists to prevent, arriving
+    // through the data door: `src/mock/fixtures/` is skipped by check-no-facts by design, so
+    // nothing else in the build is looking at these strings at all.
+    const ctx = fixtures.default_context as {
+        disclosure_sentence: string;
+        opening_script: string[];
+        voicemail_script: string;
+        system_instruction: string;
+    };
+
+    test('the system instruction quotes the disclosure verbatim', () => {
+        assert.ok(
+            ctx.system_instruction.includes(ctx.disclosure_sentence),
+            'the instruction lists the exact lines the model may say — an edited disclosure that is not ' +
+            'also edited here means the model is told one thing while the harness grades another',
+        );
+    });
+
+    test('the system instruction quotes all four opening beats verbatim', () => {
+        assert.equal(ctx.opening_script.length, 4);
+        for (const beat of ctx.opening_script) {
+            assert.ok(
+                ctx.system_instruction.includes(beat),
+                `beat missing from the instruction: ${JSON.stringify(beat.slice(0, 60))}`,
+            );
+        }
+    });
+
+    test('the voicemail carries the same disclosure clause — a machine is told what a person is told', () => {
+        // Not verbatim: the voicemail names the venue. So this pins the CLAUSE, not the sentence.
+        const clause = 'this is an automated call from CreatoRain';
+        assert.ok(ctx.disclosure_sentence.includes(clause));
+        assert.ok(ctx.voicemail_script.includes(clause));
+    });
+
+    test('SABOTAGE CONTROL — a one-copy edit really would be caught now', () => {
+        const edited = 'Hi, quick call from us about a booking.';
+        assert.notEqual(edited, ctx.disclosure_sentence);
+        assert.equal(
+            ctx.system_instruction.includes(edited),
+            false,
+            'if this is true the three assertions above are vacuous',
+        );
+    });
+});

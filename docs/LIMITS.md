@@ -108,3 +108,23 @@ allowed to say, using a transcript from something other than the model itself. T
 transcriber is Google Cloud Speech-to-Text — same vendor, probably the same project. Whether that
 is a genuinely independent witness has not been asked, and its cost per minute against the credit
 has not been measured. **Owner: unassigned.**
+
+---
+
+## 9. Two credentials are needed sooner than the docs used to say, and one does not exist
+
+`README.md` and `ONBOARDING.md` both said no account was needed "until the very last ticket".
+That was wrong and is corrected. The accurate line:
+
+- Everything in this repository today, and **building** the Gemini Live adapter against the
+  harness, needs nothing.
+- **Running a real session** — which the first tuning measurement in `docs/TUNING.md` §3.2
+  requires — needs `GEMINI_API_KEY`. The org already holds one, so this is a lookup rather than
+  a signup, and nobody had written that down either.
+- The anti-fabrication check's **independent transcriber** needs `SPEECH_TO_TEXT_CREDENTIALS`.
+  That value exists **nowhere** in the org today. No ticket asks for it, and it is a
+  prerequisite for the acceptance criterion that a second witness confirms what the agent said.
+  See also §8 — whether a same-vendor transcriber counts as independent is separately unsettled.
+
+**Owner: unassigned, and it should not be.** It is the only item on this page that will stop
+work rather than merely be wrong.
