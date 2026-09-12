@@ -34,7 +34,29 @@ export interface Fixture {
     turns: string[];
     /** Milliseconds of seam latency to simulate. Omit for none. */
     latencyMs?: number;
+    /**
+     * How this conversation behaves as AUDIO. Read only by `npm run call`; this harness ignores
+     * it entirely, which is the point — the same fixture is graded as a transcript and as a
+     * telephone call, and neither grading can quietly diverge from the other's script.
+     */
+    audio?: FixtureAudio;
     expect: FixtureExpectations;
+}
+
+export interface FixtureAudio {
+    /**
+     * Zero-based indices of turns that start WHILE we are still speaking, instead of waiting.
+     *
+     * 🔴 Without at least one fixture using this, `stopped_when_interrupted` in
+     * `src/carrier/checks.ts` is a check that has never been observed failing on a real call —
+     * and a guard that has only ever been seen passing is indistinguishable from one that cannot
+     * fail. There is a unit test with a planted fault as well; this is the graded one.
+     */
+    interruptTurns?: number[];
+    /** The far end hangs up at this point in call time, mid-anything. */
+    hangUpAtMs?: number;
+    /** Prose, for a reader. Ignored by everything. */
+    about?: string;
 }
 
 export interface FixtureExpectations {

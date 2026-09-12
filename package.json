@@ -12,11 +12,13 @@
     "test:watch": "node --test --watch \"test/**/*.test.ts\"",
     "mock": "node src/mock/cli.ts",
     "harness": "node src/harness/run.ts",
+    "call": "node src/carrier/run.ts",
+    "doctor": "node scripts/doctor.mjs",
     "eval": "node src/eval/run.ts",
     "check:no-facts": "node scripts/check-no-facts.mjs",
     "contract:derive": "node scripts/derive-contract.mjs",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run check:no-facts && npm run typecheck && npm test",
+    "verify": "npm run check:no-facts && node scripts/doctor.mjs --control && npm run typecheck && npm test",
     "mint-token": "node scripts/mint-token.mjs"
   },
   "devDependencies": {

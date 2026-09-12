@@ -15,12 +15,16 @@ New here? Read **[ONBOARDING.md](ONBOARDING.md)** — it is the thirty-minute ve
 
 ```bash
 nvm use             # or any Node >= 22.18; type stripping is unflagged from there
+npm run doctor      # what this laptop can and cannot do, and exactly why. Run it FIRST.
 npm ci
-npm run verify      # the guard, the typechecker and 122 tests
+npm run verify      # the guard, the doctor's control, the typechecker and 144 tests
 npm run eval        # 14 recorded conversations, scored
+npm run call        # the same 14, as telephone calls over real μ-law audio
 ```
 
-Both should be green on a fresh clone. **You need no Google account, no phone carrier and no AWS
+All of it should be green on a fresh clone. `npm run doctor` is the one to run before anything
+else: it boots the mock, imports a real `.ts` module, and reads the environment, so it tells you
+what is actually true of your machine rather than what this page claims. **You need no Google account, no phone carrier and no AWS
 access** for any of it.
 
 ⚠️ **That is true of everything above and it is NOT true of all of TASK-970.** Building the
@@ -64,10 +68,18 @@ src/
     contract.ts         the interface a real agent implements: text in, tool calls + text out
     scriptedStub.ts     a reference agent with NO MODEL. The baseline and the executable spec.
   audio/                μ-law, resampling, formats. The carrier side, provable with no carrier.
+  carrier/              a telephone with no telephone in it:
+    leg.ts              the four things every carrier has in common. Nothing vendor-shaped.
+    fakeLeg.ts          a leg on a virtual clock, whose far end waits for an answer
+    vad.ts              turn detection — Google's parameter names, our arithmetic, said so
+    bridge.ts           audio <-> words. THE SHAPE TASK-970 FILLS IN.
+    call.ts             a whole call; returns the same result type the text harness does
+    checks.ts           dead air, barge-in, audio-after-hangup — with a planted-fault control
   tuning/liveDefaults.ts every Gemini Live knob, with the reason for each value
   harness/replay.ts     runs one recorded conversation end to end
   eval/                 the rubric, the fabrication check, and `npm run eval`
 scripts/
+  doctor.mjs            what this machine can do, by DOING it. Runs before `npm ci`.
   check-no-facts.mjs    the build guard, with a positive control it runs every time
   derive-contract.mjs   re-reads the backend and diffs it against contract/seam4.json
   mint-token.mjs        produce a valid / expired / wrong-booking token locally
@@ -75,9 +87,15 @@ test/fixtures/conversations/   14 recorded conversations
 docs/                   TUNING.md · LIMITS.md · WHAT-CANNOT-BE-TESTED.md
 ```
 
-**Not here yet, and that is TASK-970:** the Gemini Live adapter — the thing that opens a session,
-turns audio into `hear()` calls and turns the returned turns back into audio. Everything on this
-side of that interface is built and tested.
+**Not here yet, and that is TASK-970:** one class, implementing `SpeechBridge` in
+`src/carrier/bridge.ts` — the thing that opens a Gemini Live session, turns inbound frames into
+turns, and turns sentences back into audio and tool calls. It used to be describable only as "the
+adapter", which is a project; splitting the telephone off it left a component.
+
+Everything on either side of that interface is built, tested and green: the leg below it, the
+agent above it, and a working implementation of both with no model in them — `ScriptedBridge` and
+`scriptedStub` — so a new implementation has something to be compared against rather than only a
+spec to satisfy.
 
 ---
 
@@ -85,8 +103,11 @@ side of that interface is built and tested.
 
 | command | what it proves | needs |
 |---|---|---|
-| `npm test` | 122 unit tests: the state machine, the seam client, every refusal, the codec, the config, the token, the rubric's own sabotage controls | nothing |
+| `npm run doctor` | what your machine can do: Node, type-stripping (by importing a real module), the mock (by booting it), and every credential by name — never by value | nothing |
+| `npm test` | 144 unit tests: the state machine, the seam client, every refusal, the codec, the config, the token, the telephone leg, the turn detector, and the sabotage controls for all of them | nothing |
 | `npm run eval` | 14 whole conversations scored against the rubric | nothing |
+| `npm run call` | the same 14 as telephone calls: dead air per turn, talking over an interrupt, audio after hangup | nothing |
+| `npm run call -- --sweep=200,400,600,800,1000,1200` | what each turn-detector setting costs — `docs/TUNING.md` §3.3, as a command | nothing |
 | `npm run mock` | a local Seam 4 on :8788 you can curl | nothing |
 | `npm run mint-token -- --all` | a valid, an expired and two wrong-scope tokens | a signing literal you invent — `VENUE_CALL_SECRET=anything npm run mint-token -- --all`. It exits 64 and tells you so if you forget |
 | `npm run check:no-facts` | no product fact is hardcoded here | nothing |

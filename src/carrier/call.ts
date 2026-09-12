@@ -1,0 +1,367 @@
+/**
+ * A WHOLE CALL, OVER AUDIO, AGAINST NOBODY.
+ *
+ * This is `src/harness/replay.ts` with a telephone underneath it. Same fixtures, same mock
+ * backend, same agent interface, same `ReplayResult` — so `src/eval/rubric.ts` scores an audio
+ * call without knowing one happened. Everything the text harness checks still gets checked; what
+ * is added is the layer the text harness is blind to.
+ *
+ * 🔴 EVERY TIMING NUMBER IS READ OFF THE WIRE, NOT OFF EITHER SIDE'S ACCOUNT OF ITSELF.
+ * Dead air is measured from the frame the far end's last audible sound landed in to the frame our
+ * next audible byte actually played — both taken from `FakeCallLeg.inbound` and `.outbound`,
+ * which record what the leg did rather than what anybody intended. The bridge's own log of what
+ * it queued is never used for a measurement, for the same reason the replay harness scores off
+ * the mock's journal: a component's self-report is the one witness that cannot contradict it.
+ *
+ * WHAT A NUMBER FROM HERE MEANS, EXACTLY. It contains: the turn detector's `silenceDurationMs`,
+ * whatever model latency you asked for, and the time the agent spent in the seam. It does NOT
+ * contain a carrier, jitter, packet loss, the real model, or a kitchen. It is a floor and a way
+ * to compare two settings against each other — never a prediction of a real call.
+ */
+
+import { startMockSeam } from '../mock/server.ts';
+import { createSeamClient, SeamRefusal, SeamUnavailable } from '../seam/client.ts';
+import type { AgentTurn, CallTranscript, ToolCall, TranscriptLine } from '../agent/contract.ts';
+import type { AgentFactory, Fixture, ReplayResult } from '../harness/replay.ts';
+import { CARRIER_AUDIO } from '../audio/format.ts';
+import { VAD, LATENCY_PERCENTILES, MAX_CALL_SECONDS } from '../tuning/liveDefaults.ts';
+import { FakeCallLeg } from './fakeLeg.ts';
+import type { TimelineTurn } from './fakeLeg.ts';
+import { ScriptedBridge, sentenceDurationMs } from './bridge.ts';
+import type { VadSettings } from './vad.ts';
+import { framesToMs } from './leg.ts';
+import type { HangupReason } from './leg.ts';
+
+export interface AudioCallOptions {
+    /** Turn detection. Defaults to the pinned block in src/tuning/liveDefaults.ts. */
+    vad?: VadSettings;
+    /**
+     * How long the model is assumed to take between a turn ending and its first audio byte.
+     *
+     * Zero is not a neutral default, it is a claim that the model is instant — so a run at 0
+     * measures the detector alone, and a run at a realistic figure measures what a restaurant
+     * hears. `docs/TUNING.md` §3.2 has the only two figures anybody has quoted, both secondhand.
+     */
+    modelLatencyMs?: number;
+    /** Override the derived timeline — for a fixture that needs an interrupt or a hang-up. */
+    timeline?: readonly TimelineTurn[];
+    /** The far end hangs up at this point in call time. */
+    hangUpAtMs?: number;
+    trailingSilenceMs?: number;
+}
+
+export interface AudioReport {
+    /** Milliseconds from the far end's last audible sound to our next audible byte, per turn. */
+    deadAirMs: number[];
+    /** p50 / p90 / p99 of the above, and the max. Never a mean; a mean hides the bad calls. */
+    percentiles: Record<string, number>;
+    maxDeadAirMs: number;
+    /** How long after the call connected before we said anything at all. */
+    openingDelayMs: number;
+    /** Frames in which BOTH ends were audible. Every one of them is us talking over somebody. */
+    talkOverFrames: number;
+    /** Frames the barge-in threw away. Zero on a call nobody interrupted. */
+    clearedFrames: number;
+    /** Frames written after the far end hung up. Must be zero. */
+    writtenAfterHangup: number;
+    framesIn: number;
+    framesOut: number;
+    audibleOutFrames: number;
+    /** How many turns the detector found, against how many the fixture scripted. */
+    detectedTurns: number;
+    scriptedTurns: number;
+    /** Detected turns with no scripted line — the audio segmented differently than assumed. */
+    overSegmented: number;
+    /**
+     * Sentences the transcript records as spoken that the far end did not hear in full.
+     *
+     * A transcript records what was SENT. On a call where somebody interrupts, that and what was
+     * heard are different things, and only one of them is about the restaurant.
+     */
+    cutShortSentences: number;
+    /** Sentences whose audio never played at all, though the transcript says they were spoken. */
+    unheardSentences: number;
+    callMs: number;
+    endedBecause: HangupReason;
+    vad: string;
+    modelLatencyMs: number;
+}
+
+export interface AudioCallResult {
+    /** Identical in shape to a text replay, so `score()` reads it unchanged. */
+    replay: ReplayResult;
+    audio: AudioReport;
+}
+
+/**
+ * Where a speaker pauses inside one utterance.
+ *
+ * Derived from the text rather than hand-authored per fixture, so a new conversation gets a
+ * realistic envelope without anybody choosing one — and so the pauses cannot be quietly moved to
+ * make a setting look good. A dash, a comma or an ellipsis is where a person stops to think.
+ */
+const INTERNAL_PAUSE = /\s+[-\u2013\u2014]\s+|,\s+|\.{3}\s*/;
+
+/** One utterance, as runs of sound with thinking pauses between them. */
+export function segmentsOf(text: string): number[] {
+    const parts = text.split(INTERNAL_PAUSE).map((s) => s.trim()).filter(Boolean);
+    return (parts.length ? parts : [text]).map((p) => sentenceDurationMs(p));
+}
+
+/** A text fixture as an audio timeline: they speak, they wait for an answer, they speak again. */
+export function timelineFrom(fixture: Fixture): TimelineTurn[] {
+    const interrupts = new Set(fixture.audio?.interruptTurns ?? []);
+    return fixture.turns.map((text, i) => ({
+        text,
+        segmentsMs: segmentsOf(text),
+        ...(interrupts.has(i) ? { startWhen: 'interrupt' as const } : {}),
+    }));
+}
+
+export async function audioCall(
+    fixture: Fixture,
+    makeAgent: AgentFactory,
+    options: AudioCallOptions = {},
+): Promise<AudioCallResult> {
+    const vad = options.vad ?? VAD;
+    const modelLatencyMs = options.modelLatencyMs ?? 0;
+
+    const mock = await startMockSeam({
+        port: 0,
+        ...(fixture.latencyMs ? { latencyMs: fixture.latencyMs } : {}),
+    });
+
+    try {
+        const seam = createSeamClient({ baseUrl: mock.baseUrl, token: `mock:${fixture.scenario}` });
+        const agent = makeAgent({ seam, fixture });
+
+        const hangUpAtMs = options.hangUpAtMs ?? fixture.audio?.hangUpAtMs;
+        const leg = new FakeCallLeg({
+            id: `fake:${fixture.name}`,
+            turns: options.timeline ?? timelineFrom(fixture),
+            ...(hangUpAtMs === undefined ? {} : { hangUpAtMs }),
+            ...(options.trailingSilenceMs === undefined ? {} : { trailingSilenceMs: options.trailingSilenceMs }),
+            maxMs: MAX_CALL_SECONDS * 1000,
+        });
+        const bridge = new ScriptedBridge(leg, { vad, script: fixture.turns });
+
+        const lines: TranscriptLine[] = [];
+        const toolCalls: ToolCall[] = [];
+        const spoken: string[] = [];
+        let ended = false;
+        let endedBecause: CallTranscript['endedBecause'] = 'transcript_exhausted';
+        let refusalReason: string | undefined;
+        let hangupReason: HangupReason = 'timeline_exhausted';
+        /** The far end's last audible frame for each turn we answered. Used for dead air. */
+        const answeredAfterFrame: number[] = [];
+
+        leg.on('hangup', (reason) => { hangupReason = reason; });
+
+        const record = (turn: AgentTurn) => {
+            for (const call of turn.toolCalls) {
+                toolCalls.push(call);
+                lines.push({ who: 'system', text: `tool ${call.name} ${JSON.stringify(call.args)}` });
+            }
+            if (turn.say.length) {
+                if (modelLatencyMs > 0) bridge.padSilence(modelLatencyMs);
+                bridge.speak(turn.say);
+            }
+            for (const sentence of turn.say) {
+                spoken.push(sentence);
+                lines.push({ who: 'agent', text: sentence });
+            }
+            if (turn.note) lines.push({ who: 'system', text: `note: ${turn.note}` });
+            if (turn.endCall) {
+                ended = true;
+                endedBecause = 'agent_ended';
+            }
+        };
+
+        const guard = async (run: () => Promise<AgentTurn>): Promise<boolean> => {
+            try {
+                record(await run());
+                return true;
+            } catch (error) {
+                if (error instanceof SeamRefusal) {
+                    lines.push({ who: 'system', text: `seam refused: ${error.reason}` });
+                    ended = true;
+                    endedBecause = 'seam_refusal';
+                    refusalReason = error.reason;
+                    return false;
+                }
+                if (error instanceof SeamUnavailable) {
+                    lines.push({ who: 'system', text: `seam unavailable: ${error.detail}` });
+                    ended = true;
+                    endedBecause = 'seam_unavailable';
+                    return false;
+                }
+                throw error;
+            }
+        };
+
+        const startedAt = process.hrtime.bigint();
+
+        // The line was answered. Everything after this happens in call time.
+        const opened = await guard(() => agent.open());
+
+        if (opened) {
+            let pending: { text: string; lastAudibleFrame: number } | null = null;
+            leg.on('inbound', (frame) => {
+                const turn = bridge.push(frame);
+                if (turn) pending = { text: turn.text, lastAudibleFrame: turn.lastAudibleFrame };
+            });
+
+            while (!leg.ended) {
+                const alive = leg.advance();
+                if (pending) {
+                    const turn: { text: string; lastAudibleFrame: number } = pending;
+                    pending = null;
+                    lines.push({ who: 'venue', text: turn.text });
+                    answeredAfterFrame.push(turn.lastAudibleFrame);
+                    if (!(await guard(() => agent.hear(turn.text)))) break;
+                }
+                if (ended) {
+                    // The agent hung up. Let its last sentence finish playing rather than cutting
+                    // it off mid-word — a real dialler waits for the queue to drain before it
+                    // tears the leg down, and a test that does not would score a truncated call.
+                    while (leg.queuedFrames() > 0 && leg.advance()) { /* drain */ }
+                    await leg.hangup('agent_ended');
+                    break;
+                }
+                if (!alive) break;
+            }
+
+            // Anything the far end was still saying when the leg stopped.
+            const last = bridge.flush();
+            if (last && !ended) {
+                lines.push({ who: 'venue', text: last.text });
+                answeredAfterFrame.push(last.lastAudibleFrame);
+                await guard(() => agent.hear(last.text));
+            }
+        }
+
+        // The call is over. Whatever was still queued never played, so charge it honestly rather
+        // than crediting the agent with sentences the leg died holding.
+        bridge.settle(leg.elapsedFrames - leg.queuedFrames());
+
+        const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+
+        return {
+            replay: {
+                fixture,
+                transcript: {
+                    lines,
+                    toolCalls,
+                    spoken,
+                    ended,
+                    endedBecause,
+                    ...(refusalReason ? { refusalReason } : {}),
+                },
+                allowedSentences: allowedFrom(mock.journal),
+                journal: [...mock.journal],
+                elapsedMs,
+            },
+            audio: measure(leg, bridge, {
+                answeredAfterFrame,
+                scriptedTurns: fixture.turns.length,
+                endedBecause: hangupReason,
+                vad: bridge.vadDescription,
+                modelLatencyMs,
+            }),
+        };
+    } finally {
+        await mock.close();
+    }
+}
+
+function measure(
+    leg: FakeCallLeg,
+    bridge: ScriptedBridge,
+    ctx: {
+        answeredAfterFrame: number[];
+        scriptedTurns: number;
+        endedBecause: HangupReason;
+        vad: string;
+        modelLatencyMs: number;
+    },
+): AudioReport {
+    const audibleOut = leg.outbound.filter((f) => f.audible);
+    const firstAudibleAfter = (frame: number): number | null => {
+        for (const f of audibleOut) if (f.at > frame) return f.at;
+        return null;
+    };
+
+    const deadAirMs: number[] = [];
+    for (const frame of ctx.answeredAfterFrame) {
+        const next = firstAudibleAfter(frame);
+        if (next !== null) deadAirMs.push(framesToMs(next - frame));
+    }
+
+    const heard = bridge.heard();
+    const inboundAudible = new Set(leg.inbound.filter((f) => f.audible).map((f) => f.at));
+    let talkOver = 0;
+    for (const f of audibleOut) if (inboundAudible.has(f.at)) talkOver += 1;
+
+    return {
+        deadAirMs,
+        percentiles: percentiles(deadAirMs),
+        maxDeadAirMs: deadAirMs.length ? Math.max(...deadAirMs) : 0,
+        openingDelayMs: audibleOut.length ? framesToMs(audibleOut[0]!.at) : 0,
+        talkOverFrames: talkOver,
+        clearedFrames: leg.cleared,
+        writtenAfterHangup: leg.writtenAfterHangup,
+        framesIn: leg.inbound.length,
+        framesOut: leg.outbound.length,
+        audibleOutFrames: audibleOut.length,
+        detectedTurns: bridge.detectedTurns,
+        scriptedTurns: ctx.scriptedTurns,
+        overSegmented: bridge.overSegmented,
+        cutShortSentences: heard.filter((h) => h.heardMs < h.fullMs).length,
+        unheardSentences: heard.filter((h) => h.heardMs === 0).length,
+        callMs: leg.elapsedMs,
+        endedBecause: ctx.endedBecause,
+        vad: ctx.vad,
+        modelLatencyMs: ctx.modelLatencyMs,
+    };
+}
+
+/** p50 / p90 / p99, nearest-rank. Deliberately no mean — see docs/TUNING.md §3.1. */
+export function percentiles(values: readonly number[]): Record<string, number> {
+    const out: Record<string, number> = {};
+    if (!values.length) return out;
+    const sorted = [...values].sort((a, b) => a - b);
+    for (const p of LATENCY_PERCENTILES) {
+        const rank = Math.max(1, Math.ceil((p / 100) * sorted.length));
+        out[`p${p}`] = sorted[rank - 1]!;
+    }
+    return out;
+}
+
+/** Frames of audio per second of call time. One place, so nothing re-derives 50. */
+export const FRAMES_PER_SECOND = 1000 / CARRIER_AUDIO.frameMs;
+
+/**
+ * Every sentence the backend actually supplied on this call, read off the journal.
+ *
+ * Copied in shape from `src/harness/replay.ts` on purpose rather than imported: that function is
+ * private there, and the yardstick for a call must be derived from that call's own journal. If
+ * the two ever disagree, `test/carrier.test.ts` fails — there is a test that asserts an audio
+ * call and a text replay of the same fixture agree on the allowed set.
+ */
+function allowedFrom(journal: Awaited<ReturnType<typeof startMockSeam>>['journal']): string[] {
+    const allowed: string[] = [];
+    for (const entry of journal) {
+        if (entry.status !== 200) continue;
+        const body = entry.response as Record<string, unknown>;
+        if (entry.route === '/reservations/call-context') {
+            if (typeof body.disclosure_sentence === 'string') allowed.push(body.disclosure_sentence);
+            if (Array.isArray(body.opening_script)) allowed.push(...(body.opening_script as string[]));
+            if (typeof body.voicemail_script === 'string') {
+                allowed.push(body.voicemail_script);
+                allowed.push(...body.voicemail_script.split(/(?<=[.?!])\s+/).filter(Boolean));
+            }
+        }
+        if (typeof body.say === 'string' && body.say.trim()) allowed.push(body.say);
+    }
+    return allowed;
+}

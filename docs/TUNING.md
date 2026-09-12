@@ -117,10 +117,40 @@ is not our measurement, and it needs to be before anyone changes the pin in eith
 
 ### 3.3 Sweep silence duration around the documented default
 
-400 / 600 / 800 / 1000 / 1200 ms. **Bracket 800, do not sit below it** — a smaller number makes the
-agent interrupt sooner, which is the opposite of cautious. Score each with the eval and with the
-one thing the eval cannot see: how often the agent starts talking while the fixture's speaker is
-still going.
+**This one is now a command rather than a plan, and it needs no credential:**
+
+```bash
+npm run call -- --sweep=200,400,600,800,1000,1200
+```
+
+It runs all fourteen conversations as telephone calls at each setting and prints, per setting: the
+dead-air percentiles, how many frames we spent talking over the far end, and how many utterances
+got split in two. The reading on 2026-09-12, against a 500 ms mid-utterance thinking pause:
+
+| silence | p50 dead air | talk-over | over-segmented |
+|---|---|---|---|
+| 200 ms | 220 ms | 30 frames | 7 |
+| 400 ms | 420 ms | 30 frames | 7 |
+| **600 ms** | 620 ms | 0 | **0** |
+| 800 ms | 820 ms | 0 | 0 |
+| 1000 ms | 1020 ms | 0 | 0 |
+| 1200 ms | 1220 ms | 0 | 0 |
+
+So the trade is visible: below 600 ms the detector cuts through a thinking pause, the agent
+answers half a question, and it talks over the rest of it. **Bracket 800 and do not sit below it**
+— the pinned value has a margin over the knee, which is the right place to be when the pause
+length is a property of a stranger and not of us.
+
+⚠️ **What this sweep is NOT.** The detector it sweeps is ours, not Google's — same parameter
+names, same units, different algorithm, and theirs is unpublished. Read the header of
+`src/carrier/vad.ts` before quoting any of these numbers. What transfers is the SHAPE: a setting
+shorter than a human's thinking pause cuts through it, wherever the detector runs. What does not
+transfer is the knee's exact position.
+
+And the knee is a property of the fixture's pause length, which is 500 ms and is chosen, not
+measured — `DEFAULT_INTERNAL_PAUSE_MS` in `src/carrier/fakeLeg.ts`. Change it and re-run to ask
+about a slower speaker. Score each setting with the eval too: a call that stays inside the
+detector's budget and breaks a hard check has got worse.
 
 ### 3.4 Choose the voice by listening, once
 
@@ -128,10 +158,11 @@ Two voices, three fixtures, over a real handset if one is available and over a l
 not. This is the one place a subjective read is the right instrument, and it should be done once
 and written down rather than relitigated per pull request.
 
-### 3.5 Re-run the eval after every change
+### 3.5 Re-run the eval AND the calls after every change
 
 ```bash
-npm run eval
+npm run eval          # what was said and done — the transcript
+npm run call          # what it sounded like — dead air, interrupts, the wire
 ```
 
 A tuning change that improves latency and breaks a hard check has made things worse. The rubric's
@@ -145,3 +176,24 @@ Latency measured against the local mock is the **seam** round trip only. It cont
 jitter, no packet loss, no answering-machine detection and no restaurant kitchen. See
 `docs/WHAT-CANNOT-BE-TESTED.md`. Numbers from here are a floor, and the gap between that floor and
 a real call is the whole reason the ten-call soak exists.
+
+### §4.1 The one sum nobody had added up
+
+Dead air is not the model's latency. It is:
+
+```
+what the restaurant waits  =  silenceDurationMs  +  the model's first-byte latency  +  the seam round trip
+```
+
+The detector's share is fixed by the setting — 800 ms today, and it is spent before the model has
+been asked anything. So a model at the forum-reported 9–15 s does not produce a 9-second pause; it
+produces a **ten-second** one. And a model at ~2 s produces nearly three.
+
+You can put a figure in and see the whole sum without a Google account:
+
+```bash
+npm run call -- --latency=900     # assume 900ms to first audio byte
+```
+
+That is the number to walk into the model comparison (§3.2) holding, because it decides what
+"acceptable" means before anybody measures anything.

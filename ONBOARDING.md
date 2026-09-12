@@ -14,9 +14,16 @@ is a bug in the setup and not in you — say so rather than working around it.
 git clone git@github.com:creatorainco/venue-call-agent.git
 cd venue-call-agent
 nvm use          # 22.18.0; any Node >= 22.18 works
+npm run doctor   # BEFORE npm ci. It works with nothing installed, on purpose.
 npm ci
 npm run verify
 ```
+
+`npm run doctor` is the answer to "what do I need?", and it is a reading of your machine rather
+than a claim in a document. It boots the mock backend and asks it a real question, imports a real
+`.ts` file to prove type-stripping works, and lists every credential by NAME with what it unlocks
+and where it comes from. A missing credential is not a failure there — almost all of them are
+absent and that is the expected state.
 
 Expected, and worth reading rather than skimming:
 
@@ -25,19 +32,29 @@ no-facts: N file(s) scanned; control tripped 4 rule(s) (...)
 no-facts: EXEMPT src/agent/scriptedStub.ts from [comp] — ...
 no-facts: EXEMPT src/eval/fabrication.ts from [comp, money, policy] — ...
 no-facts: clean.
-# tests 122
-# pass 122
+# tests 144
+# pass 144
 ```
 
-Then the conversations:
+Then the conversations, twice — once as transcripts, once as telephone calls:
 
 ```bash
 npm run eval
 # 14/14 conversations clean · 0 hard failure(s) · 0 soft failure(s)
+
+npm run call
+# 14 call(s) · dead air p50 820ms · talk-over 0 frame(s) · 0 hard failure(s)
 ```
 
+The second one is a real telephone call in every respect except the telephone: G.711 μ-law frames,
+20 ms at a time, a far end that waits for you to answer before it speaks again, and a clock that
+is virtual so six minutes of call finish in about a second. It grades what a transcript cannot
+show — how long the restaurant waits, whether you talk over an interruption, whether you keep
+generating audio after the line closes.
+
 **You now have a complete test environment for a telephone feature, on a laptop, with no phone, no
-Google account and no database.** That is the point of the last day's work.
+Google account and no database.** That is the point of the last two days' work, and
+`docs/TEST-ENVIRONMENT.md` says exactly where it stops.
 
 ⚠️ **Two credentials are needed sooner than "the very last ticket", and an earlier version of
 this page said otherwise.** Everything in Parts 1–3, and building the adapter itself, needs
@@ -130,6 +147,17 @@ work out exactly what must be created on each side, and write it down as a runna
 
 Start at `src/tuning/liveDefaults.ts`. Every value there is a value somebody chose with a reason,
 and **none of them has been measured on a real call**. `docs/TUNING.md` §3 is the protocol.
+
+One part of it no longer needs anybody's account. The turn-detector sweep is a command:
+
+```bash
+npm run call -- --sweep=200,400,600,800,1000,1200
+npm run call -- --latency=900     # and what the model's own delay adds on top
+```
+
+Do that first — it costs a second and it tells you what "acceptable" has to mean before you
+measure the model. Read the top of `src/carrier/vad.ts` before quoting a number from it: the
+detector it sweeps is ours, not Google's.
 
 The first task is a measurement, not a change: time to first audio, on the pinned model and on the
 one it is pinned *away* from. There is a forum report that the newer model regressed from ~2 s to

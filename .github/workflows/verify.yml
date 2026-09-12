@@ -38,6 +38,13 @@ jobs:
       - name: no product facts in this repository
         run: node scripts/check-no-facts.mjs
 
+      # Also before `npm ci`, and for the same reason: `npm run doctor` is the first thing a new
+      # person runs on a fresh clone, so it has to work on a machine that has been handed
+      # nothing. This runs only its positive control — the full reading is for a human, and its
+      # answer depends on the machine, which is not something CI can assert.
+      - name: the environment doctor can still see illness
+        run: node scripts/doctor.mjs --control
+
       - uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
@@ -61,3 +68,11 @@ jobs:
       # it stops blocking.
       - name: eval the recorded conversations
         run: npm run eval
+
+      # The same fourteen conversations, run as telephone calls over real μ-law frames on a
+      # virtual clock. It grades what a transcript cannot show: dead air, talking over an
+      # interruption, audio written after the line closed. Fails on HARD only, same rule as the
+      # eval — and, like the eval, it runs its own positive control first and refuses to print a
+      # measurement if the control does not trip.
+      - name: run the conversations as audio calls
+        run: npm run call
