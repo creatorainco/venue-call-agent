@@ -1,9 +1,11 @@
 # Contributing
 
-Three rules. They are short because they are the only ones that are enforced socially rather than
-mechanically, and this repository has no mechanical enforcement to fall back on — branch protection
-and required status checks are unavailable on this GitHub plan, so a red pull request can be merged
-by anyone who does not look.
+Three rules, and one piece of process at the bottom.
+
+The three rules are enforced socially rather than mechanically. The process at the bottom is
+enforced mechanically, and that is new: since this repository went public on 2026-09-16, GitHub's
+free plan grants it protected branches, so `main` and `dev` now genuinely refuse a red merge and an
+unreviewed one. Every other repository in this org is private and has neither.
 
 ---
 
@@ -97,4 +99,43 @@ The last one needs a platform-backend checkout and is a **person's job, not CI's
 copy of that repository and should not be given credentials to fetch one. A diff from it is a
 conversation with whoever owns that file, not a merge conflict to resolve locally.
 
-🔴 **Read the pull request's CI result before merging.** Nothing else will stop you.
+🔴 **Read the pull request's CI result before merging.** Branch protection will stop a red merge
+on `main` and `dev` now, but it will not stop you merging something green and wrong, and it does
+not apply to anyone's fork.
+
+---
+
+## Branches and pull requests
+
+```
+main   released. Protected. Only ever reached by a pull request from dev.
+dev    the integration branch, and the default. Protected. Everything lands here first.
+```
+
+Both branches require **a pull request, one approving review, and a green `verify`**. Force-pushing
+and deleting them is refused. Administrators can override, which means the guard is real for
+contributors and advisory for owners — that asymmetry is deliberate and is the same shape
+platform-backend uses.
+
+If you do not have write access here — which is the normal case, and the repository being public is
+what makes it workable:
+
+```bash
+gh repo fork creatorainco/venue-call-agent --clone     # or the Fork button, then clone
+cd venue-call-agent
+git remote add upstream https://github.com/creatorainco/venue-call-agent.git
+git fetch upstream
+git checkout -b feat/the-thing upstream/dev
+# ... work, and run the four commands above ...
+git push -u origin feat/the-thing
+gh pr create --repo creatorainco/venue-call-agent --base dev --fill
+```
+
+`--base dev` matters. `dev` is this repository's default branch, so the web UI and `gh` should
+pick it for you, but a fork's own default can be stale — check the base before you submit.
+
+On a first pull request from a new contributor, GitHub holds the workflow run until a maintainer
+approves it. Nothing is wrong; it is the default for public repositories and it only happens once.
+
+Keeping a fork current: `git fetch upstream && git rebase upstream/dev`. Never merge `upstream/main`
+into a feature branch — `main` is downstream of `dev` here, not upstream of it.

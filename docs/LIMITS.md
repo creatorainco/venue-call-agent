@@ -189,7 +189,34 @@ higher and nobody has read it.** That is its own ticket, not this one.
 
 ---
 
-## 13. This GitHub org is on the FREE plan, so CI is advisory and nothing can be made required
+## 13. This GitHub org is on the FREE plan, so on a PRIVATE repo nothing can be made required — and this repo is no longer private
+
+🔴 **Rewritten 2026-09-16.** The measurement below was taken while this repository was private and
+every line of it was correct then. It is still correct for every *other* repository in this org.
+It is no longer correct here, and the reason is the one variable nobody varied: on GitHub's free
+plan, protected branches are unavailable on private repositories and **available on public ones**.
+This repository was published on 2026-09-16 with a rewritten history, and the same endpoint that
+returned 403 the week before now returns a protection object.
+
+Live here, verified by reading it back after writing it:
+
+| branch | pull request required | approving reviews | required check | force-push / delete |
+|---|---|---|---|---|
+| `main` | yes | 1 | `verify` | refused |
+| `dev` | yes | 1 | `verify` | refused |
+
+`enforce_admins` is **false**, so an organisation owner can still merge past all of it. The guard
+binds contributors, not owners. Do not read the table as "a red merge is impossible"; read it as
+"a red merge is now a deliberate act by someone with admin rights", which is a different and much
+smaller failure mode than the one described below.
+
+What has NOT changed: this is a single public repository inside a private estate. The 403s below
+are the live state of platform-backend, crm-service, demo, creator, admin and the other 60-odd,
+and buying the guarantee for them is still a Team purchase. Publishing a repository to obtain a
+security control is not a general strategy — it worked here only because the contents were audited
+and scrubbed for exactly that purpose.
+
+### The measurement, as taken 2026-09-12, on private repositories
 
 Measured: `GET /orgs/creatorainco` returns `plan.name: "free"`, 3 filled seats, 66 private repos.
 
@@ -207,9 +234,13 @@ Everything that would make `verify.yml` a *gate* rather than a *signal* is behin
 403, not 404 — the endpoints exist and the token has `admin:org`; the block is purely billing.
 The same 403 comes back for platform-backend, so it is org-wide and not a quirk of this repo.
 
-**So the accurate sentence is: nothing mechanically stops a red pull request being merged here,
-and a human not merging red is the entire enforcement story.** An earlier version of TASK-967
-implied the org was on Team and that secret scanning was one purchase away. It is two.
+**So the accurate sentence, for every private repository in this org, is: nothing mechanically
+stops a red pull request being merged, and a human not merging red is the entire enforcement
+story.** An earlier version of TASK-967 implied the org was on Team and that secret scanning was
+one purchase away. It is two.
+
+The one row above that visibility changes is branch protection. Secret scanning on a public repo
+is free too, and is the next thing to turn on here.
 
 ⚠️ Do not add a CODEOWNERS file as a review control on this plan. On Free it will not even
 auto-request reviewers, and there is no protection to make it required — a file that looks like
