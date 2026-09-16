@@ -11,10 +11,8 @@ is a bug in the setup and not in you — say so rather than working around it.
 ## Part 1 — prove the environment (5 minutes)
 
 ```bash
-# The repository is PRIVATE. Use whichever transport you are set up for:
-gh repo clone creatorainco/venue-call-agent      # if `gh auth status` is happy — simplest
-# git clone https://github.com/creatorainco/venue-call-agent.git   # HTTPS + a token
-# git clone git@github.com:creatorainco/venue-call-agent.git       # SSH, needs a registered key
+# The repository is PUBLIC. Cloning it needs no account, no token and no invitation.
+git clone https://github.com/creatorainco/venue-call-agent.git
 
 cd venue-call-agent
 nvm use          # 22.18.0; any Node >= 22.18 works
@@ -60,7 +58,7 @@ show — how long the restaurant waits, whether you talk over an interruption, w
 generating audio after the line closes.
 
 **You now have a complete test environment for a telephone feature, on a laptop, with no phone, no
-Google account and no database.** That is the point of the last two days' work, and
+Google account, no GitHub account and no database.** That is the point of the last two days' work, and
 `docs/TEST-ENVIRONMENT.md` says exactly where it stops.
 
 ⚠️ **Two credentials are needed sooner than "the very last ticket", and an earlier version of
@@ -137,13 +135,18 @@ Three things, in this order. Nothing else on this repository is open work.
 
 ### 1. Research what the repo still needs from GitHub and Google Cloud
 
-Findings so far are in TASK-967 and they are uncomfortable: this GitHub org is on a plan where
-branch protection, rulesets and required status checks all return **403 on private repos**, so CI is
-the only gate that will ever exist here and nothing mechanically stops a red merge. Two controls
-that *are* available and simply are not switched on: Dependabot alerts (free, one toggle) and
-secret scanning (a paid SKU on Team). Confirm both against the live pricing and API before anyone
-spends money — the docs and the API's own error strings disagree with each other, and one of them
-is stale.
+Findings so far are in TASK-967 and they are uncomfortable: this GitHub org is on the Free plan, where
+branch protection, rulesets and required status checks all return **403 on a private repository**.
+That was the state when the research was written and it is still true of every other repo in the
+org. It stopped being true *here* on 2026-09-16, when this repository was made public: the same
+free plan grants protected branches on public repositories, and `main` and `dev` now both require
+a pull request, one approving review and a green `verify` before anything merges. Treat that as a
+worked example rather than as the answer — the open question is what it costs to get the same
+guarantee on the private repositories, which is where the estate actually lives. Two further
+controls are available and are not switched on: Dependabot alerts (free, one toggle) and secret
+scanning (a paid SKU on Team). Confirm both against the live pricing and API before anyone spends
+money — the docs and the API's own error strings disagree with each other, and one of them is
+stale.
 
 Then the deploy identity. Nothing in this estate uses Workload Identity Federation today; every
 deploy authenticates with a long-lived key in a repo secret. For a Cloud Run deploy from Actions,
@@ -190,6 +193,26 @@ pass against the reference stub. Your job is to make the **real** agent pass the
 branches the stub cannot reach.
 
 The rule for anything new: **it must be able to fail.** See CONTRIBUTING.md.
+
+---
+
+## How your work gets back here
+
+You do not push to this repository and you are not expected to ask for access to it. Read
+**[CONTRIBUTING.md](CONTRIBUTING.md) § Branches and pull requests** once; the short version is:
+
+1. Fork it to your own account, clone the fork, and add this repo as `upstream`.
+2. Branch off `dev`, and open your pull request **against `dev`** — never `main`.
+3. `dev` requires a green `verify` and one approving review, so nothing you open can merge itself
+   and nothing red can merge at all. The first time CI runs on a pull request from a new
+   contributor, GitHub waits for one of us to approve the run. That is normal; say so if it sits
+   there longer than a working day.
+
+**Every Monday at 12:00 noon Eastern, starting Monday 22 September 2026, there should be something
+open or merged on `dev` from the previous week.** It does not have to be finished and it does not
+have to be big. A pull request that says "this is what I measured, here is what it means, here is
+what I am doing next" is a perfectly good week. Silence is the only bad outcome, because it is the
+one thing nobody can help with.
 
 ---
 

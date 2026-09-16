@@ -1,11 +1,11 @@
 # The build gate for venue-call-agent.
 #
-# 🔴 THIS IS THE ONLY GATE THERE WILL EVER BE ON THIS REPOSITORY, and that is a fact about the
-# GitHub plan rather than a choice. Branch protection, rulesets and required status checks all
-# return 403 on this org's private repos, and CODEOWNERS is inert here — demo ships one and its
-# last three pull requests requested no reviewers. So nothing mechanically stops a red pull
-# request being merged. A human not merging red is the whole enforcement story; write the checks
-# so that a red run is unmistakable, and read them.
+# 🔴 THIS RUN IS A REQUIRED CHECK, as of 2026-09-16. `main` and `dev` are protected and will not
+# merge without it green, plus one approving review. That became possible only because this
+# repository is public: on this org's free plan the same endpoints return 403 for a private repo,
+# which is why the comment here used to say the opposite, and why every other repository in the
+# org still has nothing but a human reading the result. `enforce_admins` is off, so an owner can
+# still merge past it — write the checks so that a red run is unmistakable, and read them.
 #
 # Matches platform-backend's ci.yml where it can: same runner, same action versions, filtered
 # pull_request trigger, workflow_dispatch, npm ci against a committed lockfile, cache: npm.
@@ -16,11 +16,15 @@
 
 name: verify
 
+# `dev` is in both lists and must stay there. It became the default and the integration branch on
+# 2026-09-16, and it requires this check to pass before anything merges. A required check that the
+# trigger never fires is not a strict gate, it is a deadlock: every pull request sits BLOCKED
+# waiting for a run that will never start.
 on:
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   push:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
 
 jobs:
