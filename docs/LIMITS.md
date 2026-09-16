@@ -128,3 +128,95 @@ That was wrong and is corrected. The accurate line:
 
 **Owner: unassigned, and it should not be.** It is the only item on this page that will stop
 work rather than merely be wrong.
+
+---
+
+## 10. The Live API is in PREVIEW, on both ends, and nothing guarantees it
+
+Google labels the Live API *Preview* in its own documentation, and `@google/genai` marks the
+entire Live surface `@experimental` in the published type declarations — `connect()`,
+`sendToolResponse()` and `close()` included. There is no deprecation guarantee on any of it.
+
+Two concrete consequences rather than a general worry:
+
+- **Pin `@google/genai` to `^2.22.0` and below `3.0.0`.** The 3.x line removes
+  `LiveConnectConfig.generation_config`. (It also requires Node 22, which is a non-event here.)
+- **A breaking change arrives as a broken call, not as a warning.** The eval and `npm run call`
+  both run against a fake, so neither would go red. The only detector is a real session, which
+  makes the first tuning measurement something to repeat rather than do once.
+
+**Owner: TASK-970**, and it should carry a line saying which SDK version was last exercised.
+
+---
+
+## 11. No carrier can carry the model's own audio quality
+
+Gemini Live always returns **24 kHz** and there is no setting for it. Twilio caps at **8 kHz**
+and offers no alternative; Telnyx and Plivo top out at 16 kHz; Vonage's own two pages disagree
+about whether 24 kHz exists.
+
+So the 24 kHz → 8 kHz decimation in `src/audio/resample.ts` is **permanent infrastructure**
+rather than a stopgap, and a restaurant will never hear this model at the quality it produces.
+That is not fixable by us and is only worth knowing so nobody spends a week trying.
+
+One real choice hides in it: on **Telnyx with L16/16 kHz** the G.711 codec leaves the call path
+entirely and the model receives 16 kHz instead of 8 — Telnyx's own docs recommend exactly that
+for AI voice agents. That is an argument about carriers for **TASK-973**, not a reason to delete
+`src/audio/mulaw.ts`, which is mandatory and on the hot path if Twilio wins.
+
+---
+
+## 12. Dependabot alerts are OFF on this repository, and the org is not triaging the ones it has
+
+Measured 2026-09-12 through the API, with a positive control so the reading means something:
+`GET /repos/{repo}/vulnerability-alerts` returns **204** when enabled and **404 "Vulnerability
+alerts are disabled."** when not.
+
+- **404** on venue-call-agent — and on platform-backend, demo, crm-service, creator, admin and
+  creatorain-mcp.
+- **204** on creatorainco/social-scheduler and creatorainco/website, both private. That is the
+  control: it proves the feature is available on this plan and that 404 means *off*, not
+  *unavailable*.
+
+It is free on the Free plan for private repositories and it is one toggle:
+Settings → Advanced Security → Dependabot alerts, or `PUT /repos/creatorainco/venue-call-agent/
+vulnerability-alerts`.
+
+⚠️ Separately, and larger than this repository: the first page of the org's open alerts (100 of
+an unread total) already contains **6 critical and 57 high** across five repositories, and
+`automated-security-fixes` is `false` even on the repos where alerting is on. **The true count is
+higher and nobody has read it.** That is its own ticket, not this one.
+
+---
+
+## 13. This GitHub org is on the FREE plan, so CI is advisory and nothing can be made required
+
+Measured: `GET /orgs/creatorainco` returns `plan.name: "free"`, 3 filled seats, 66 private repos.
+
+Everything that would make `verify.yml` a *gate* rather than a *signal* is behind a purchase:
+
+| control | status | what it needs |
+|---|---|---|
+| branch protection | **403** "Upgrade to GitHub Pro" | Team, ~$4/user/month → ~$12/month at 3 seats |
+| repository rulesets | **403** same | as above |
+| org rulesets | **403** "Upgrade to GitHub Team" | as above |
+| required status checks | unreachable — a sub-field of protection | as above |
+| CODEOWNERS | inert on private repos on Free | as above |
+| secret scanning | **404** "Secret scanning is disabled" | Team **first**, then Secret Protection at $19/active committer/month |
+
+403, not 404 — the endpoints exist and the token has `admin:org`; the block is purely billing.
+The same 403 comes back for platform-backend, so it is org-wide and not a quirk of this repo.
+
+**So the accurate sentence is: nothing mechanically stops a red pull request being merged here,
+and a human not merging red is the entire enforcement story.** An earlier version of TASK-967
+implied the org was on Team and that secret scanning was one purchase away. It is two.
+
+⚠️ Do not add a CODEOWNERS file as a review control on this plan. On Free it will not even
+auto-request reviewers, and there is no protection to make it required — a file that looks like
+a guard and guards nothing is worse than no file.
+
+Three org switches that ARE free and are currently off, all of which bear on a repository about
+to hold telephony and model credentials: **two-factor is not required** across a 3-seat org with
+66 private repositories; **members can fork private repos** — the cheapest exfiltration path
+there is; and **members can create public repos**. All three are operator settings on Peter's
+side, so they are surfaced here and not written. **Owner: Peter.**

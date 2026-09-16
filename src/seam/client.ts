@@ -74,7 +74,7 @@ export interface SeamClientOptions {
      *
      * The default is deliberately short. This runs while a person is holding a telephone: three
      * seconds of nothing is already a long silence, and a caller who waits ten is worse than a
-     * caller who stops. Tune it in `src/tuning/defaults.ts`, not here.
+     * caller who stops. Tune it in `src/tuning/liveDefaults.ts`, not here.
      */
     timeoutMs?: number;
     /** Injectable for tests. Defaults to the global fetch. */

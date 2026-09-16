@@ -2,10 +2,14 @@
   "name": "they-hang-up",
   "scenario": "happy",
   "answerer": "human",
-  "about": "They put the phone down mid-notice. A partial transcript is written, nothing crashes, and nothing retries on its own.",
+  "about": "They put the phone down mid-notice. A partial transcript is written, nothing crashes, nothing retries on its own - and, the part only the audio run can see, the agent stops GENERATING audio the moment the line closes. Until this fixture set hangUpAtMs the no_audio_after_hangup check had never been observed acting on a real call loop.",
   "turns": [
     "Hello?"
   ],
+  "audio": {
+    "hangUpAtMs": 12000,
+    "about": "The far end hangs up 12 seconds in, part-way through the notice. Only `npm run call` reads this; the text harness ignores it."
+  },
   "expect": {
     "must_end_call": false,
     "max_sentences": 6

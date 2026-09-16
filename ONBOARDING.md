@@ -11,12 +11,23 @@ is a bug in the setup and not in you — say so rather than working around it.
 ## Part 1 — prove the environment (5 minutes)
 
 ```bash
-git clone git@github.com:creatorainco/venue-call-agent.git
+# The repository is PRIVATE. Use whichever transport you are set up for:
+gh repo clone creatorainco/venue-call-agent      # if `gh auth status` is happy — simplest
+# git clone https://github.com/creatorainco/venue-call-agent.git   # HTTPS + a token
+# git clone git@github.com:creatorainco/venue-call-agent.git       # SSH, needs a registered key
+
 cd venue-call-agent
 nvm use          # 22.18.0; any Node >= 22.18 works
+npm run doctor   # BEFORE npm ci. It works with nothing installed, on purpose.
 npm ci
 npm run verify
 ```
+
+`npm run doctor` is the answer to "what do I need?", and it is a reading of your machine rather
+than a claim in a document. It boots the mock backend and asks it a real question, imports a real
+`.ts` file to prove type-stripping works, and lists every credential by NAME with what it unlocks
+and where it comes from. A missing credential is not a failure there — almost all of them are
+absent and that is the expected state.
 
 Expected, and worth reading rather than skimming:
 
@@ -25,19 +36,32 @@ no-facts: N file(s) scanned; control tripped 4 rule(s) (...)
 no-facts: EXEMPT src/agent/scriptedStub.ts from [comp] — ...
 no-facts: EXEMPT src/eval/fabrication.ts from [comp, money, policy] — ...
 no-facts: clean.
-# tests 122
-# pass 122
+# fail 0
 ```
 
-Then the conversations:
+⚠️ **`# fail 0` is the line to read, and this page deliberately does not print a test count.**
+A count in a document is false by the next contribution — that has already happened here twice —
+so `test/docs.test.ts` now fails the build if one reappears.
+
+Then the conversations, twice — once as transcripts, once as telephone calls:
 
 ```bash
 npm run eval
-# 14/14 conversations clean · 0 hard failure(s) · 0 soft failure(s)
+# 15/15 conversations clean · 0 hard failure(s) · 0 soft failure(s)
+
+npm run call
+# across 15 call(s) · dead air p50 820ms · 0 hard failure(s) · 2 soft failure(s)
 ```
 
+The second one is a real telephone call in every respect except the telephone: G.711 μ-law frames,
+20 ms at a time, a far end that waits for you to answer before it speaks again, and a clock that
+is virtual so six minutes of call finish in about a second. It grades what a transcript cannot
+show — how long the restaurant waits, whether you talk over an interruption, whether you keep
+generating audio after the line closes.
+
 **You now have a complete test environment for a telephone feature, on a laptop, with no phone, no
-Google account and no database.** That is the point of the last day's work.
+Google account and no database.** That is the point of the last two days' work, and
+`docs/TEST-ENVIRONMENT.md` says exactly where it stops.
 
 ⚠️ **Two credentials are needed sooner than "the very last ticket", and an earlier version of
 this page said otherwise.** Everything in Parts 1–3, and building the adapter itself, needs
@@ -131,6 +155,29 @@ work out exactly what must be created on each side, and write it down as a runna
 Start at `src/tuning/liveDefaults.ts`. Every value there is a value somebody chose with a reason,
 and **none of them has been measured on a real call**. `docs/TUNING.md` §3 is the protocol.
 
+One part of it no longer needs anybody's account. The turn-detector sweep is a command:
+
+```bash
+npm run call -- --sweep=200,400,600,800,1000,1200
+npm run call -- --latency=900     # and what the model's own delay adds on top
+```
+
+🔴 **`--latency=900` EXITS 1 TODAY, AND THAT IS THE INSTRUMENT WORKING.** One of the fifteen
+calls — `phone-menu` — reaches 8,680 ms of dead air once the model is assumed to take 900 ms,
+and the hard budget is 4,000. Nothing is broken: the command is telling you that at that latency
+this feature has a call in it a person would think had dropped. Do not "fix" it by widening the
+budget; the budget is the requirement. Expected output, so nobody mistakes it for a setup fault:
+
+```
+  phone-menu   2/2   1720ms / 8680ms   0f   HARD: dead_air_within_hard_budget
+  1 hard failure(s) · 5 soft failure(s)
+```
+
+
+Do that first — it costs a second and it tells you what "acceptable" has to mean before you
+measure the model. Read the top of `src/carrier/vad.ts` before quoting a number from it: the
+detector it sweeps is ours, not Google's.
+
 The first task is a measurement, not a change: time to first audio, on the pinned model and on the
 one it is pinned *away* from. There is a forum report that the newer model regressed from ~2 s to
 9–15 s, from two strangers with no reply from Google. On a telephone that is the call over, so it
@@ -138,8 +185,8 @@ matters — and it is not our measurement yet.
 
 ### 3. Test the agent
 
-The harness, the rubric, the fabrication check and 14 conversations already exist and pass against
-the reference stub. Your job is to make the **real** agent pass the same ones, then add the
+The harness, the rubric, the fabrication check and every recorded conversation already exist and
+pass against the reference stub. Your job is to make the **real** agent pass the same ones, then add the
 branches the stub cannot reach.
 
 The rule for anything new: **it must be able to fail.** See CONTRIBUTING.md.

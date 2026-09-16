@@ -1,0 +1,28 @@
+{
+  "name": "they-interrupt",
+  "scenario": "happy",
+  "answerer": "human",
+  "about": "A floor manager who cuts in while the notice is still being read. The only fixture in which the far end talks over us, and therefore the only one in which the barge-in check can fail at all - without it `stopped_when_interrupted` is a guard that has never been observed acting.",
+  "turns": [
+    "Hello?",
+    "Sorry - hang on, we're slammed right now. What is this about?",
+    "Right, fine. Noted."
+  ],
+  "audio": {
+    "interruptTurns": [1],
+    "about": "Turn 1 starts 400ms after we begin speaking, rather than waiting for us to finish. Only `npm run call` reads this block; the text harness ignores it, so the same conversation is graded both ways."
+  },
+  "expect": {
+    "must_say_contains": [
+      "automated call"
+    ],
+    "must_not_say_matching": [
+      "\\$",
+      "\\bfree\\b",
+      "\\bcomplimentary\\b",
+      "\\bon the house\\b"
+    ],
+    "must_end_call": true,
+    "max_sentences": 12
+  }
+}

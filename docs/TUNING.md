@@ -62,10 +62,21 @@ alternative for a notice-shaped call. Choose with §3.4, not from the adjectives
 | knob | default | ours | what it changes |
 |---|---|---|---|
 | `automaticActivityDetection.disabled` | false | false | manual signalling means we decide when a turn ended, from a jittery carrier stream. Harder, not safer |
-| `startOfSpeechSensitivity` | not documented | `LOW` | HIGH treats a dropped tray as the manager starting to speak, and the agent stops mid-sentence for nothing |
-| `endOfSpeechSensitivity` | not documented | `LOW` | HIGH treats a thinking pause as a finished turn |
+| `startOfSpeechSensitivity` | **`START_SENSITIVITY_LOW`, documented** | `LOW` | HIGH treats a dropped tray as the manager starting to speak, and the agent stops mid-sentence for nothing |
+| `endOfSpeechSensitivity` | **`END_SENSITIVITY_LOW`, documented** | `LOW` | HIGH treats a thinking pause as a finished turn |
 | `prefixPaddingMs` | not documented | 300 | how much audio before the detected start is kept. Too low clips first syllables: "…orty-five" |
-| `silenceDurationMs` | **~800 ms, documented** | 800 | how long a pause must be to end a turn. Up = dead air; down = talking over people |
+| `silenceDurationMs` | **~800 ms, documented; 500–800 ms recommended** | 800 | how long a pause must be to end a turn. Up = dead air; down = talking over people |
+
+🔴 **Corrected 2026-09-12. The two sensitivity rows previously said "not documented" and that was
+wrong — the Live API REST reference states flatly "The default is START_SENSITIVITY_LOW." and
+"The default is END_SENSITIVITY_LOW.", and Google's own Developer-API example sets both to LOW.
+So our LOW/LOW is not a cautious deviation from a hair-trigger default; it IS the documented
+stock setting, and §3 has one less thing to justify.
+
+One contradiction to know about before leaning on an *unset* default: the SDK's own docstrings
+attribute a HIGH default to a surface called "Gemini Live" that appears twice in 17,939 lines of
+type declarations and is defined nowhere. Three sources say LOW, one undefined carve-out says
+HIGH. Set them explicitly, as this repo does, and the disagreement cannot reach a call.**
 | `realtimeInputConfig.turnCoverage` | differs between 2.5 and 3.x | `TURN_INCLUDES_ALL_INPUT` | whether we keep sending audio while the model speaks. Barge-in depends on it. **Not** a top-level field |
 
 ### Session
@@ -89,11 +100,43 @@ four operations and `test/audio.test.ts` proves them against the standard's own 
 
 ### Not tunable, and it is the thing everyone asks about
 
-**Concurrency.** Google publishes no Live API concurrency limit, and staff have said publicly that
-there is no session-count guarantee — the real ceiling is tokens per minute. The "1,000 concurrent
-sessions" figure that circulates is unsourced; the page it is attributed to does not contain it.
-The only number that will ever be true for us is on our own signed-in quota page. Read that; do
-not quote the docs.
+**Concurrency.** 🔴 **This section said "the 1,000 concurrent sessions figure is unsourced; the
+page it is attributed to does not contain it." That was wrong, and it was wrong in the direction
+of dismissing a real limit.** Corrected 2026-09-12 after fetching both pages:
+
+- The **Vertex / Cloud** surface publishes it plainly, under the heading *Maximum concurrent
+  sessions*: "You can have up to 1,000 concurrent sessions per project on a pay-as-you-go (PayGo)
+  plan. This limit does not apply to customers using Provisioned Throughput."
+- The **Gemini Developer API** surface — `ai.google.dev`, the API-key path this repo's
+  `GEMINI_API_KEY` uses — publishes **no** Live API concurrency figure at all. Its rate-limits
+  page has no Live row; its only "concurrent" entry is the Batch API's.
+
+So the accurate statement is that **which limit binds depends on which credential the agent
+ships with**, and that is now a decision this feature has to make on purpose rather than dismiss.
+An API key gets you no published ceiling and no guarantee; a Vertex service account gets you a
+documented 1,000 per project. Either way the number that finally matters is on our own signed-in
+quota page — but "there is no published figure" is no longer a true sentence.
+
+**Barge-in, on the model's side.** The server signals an interruption with
+`serverContent.interrupted: true`, and the client must stop playback and discard whatever it has
+already buffered. That maps exactly onto `CallLeg.clear()` in `src/carrier/leg.ts`, which is what
+`npm run call` exercises against the fake leg. `LiveServerMessage` also carries
+`voiceActivityDetectionSignal` and `voiceActivity` — the server's own VAD, which is the channel
+worth logging while tuning the two sensitivities above.
+
+**The SDK, pinned.** `@google/genai`, latest **2.22.0** (published 2026-09-10, engines
+`node >= 20`). Pin `^2.22.0` **and below 3.0.0**: the 3.x line requires Node 22 — a non-event
+here — and removes `LiveConnectConfig.generation_config`, which is not.
+
+⚠️ **The Live API is PREVIEW on both ends.** Google labels it Preview in the docs and the SDK
+marks the whole Live surface `@experimental`, including `connect()`, `sendToolResponse()` and
+`close()`. There is no deprecation guarantee on any of it. See `docs/LIMITS.md`.
+
+💡 **One cheap guard worth taking on day one.** This page says putting `model` in the config
+object gets it "silently ignored". That is only true because `LIVE_DEFAULTS` is an untyped object
+literal. Annotate it `: LiveConnectConfig` once the SDK is a dependency and the same mistake
+becomes `error TS2353: 'model' does not exist in type 'LiveConnectConfig'` — the whole class of
+misplaced-field bug turns from silent into a failed build, for one line.
 
 ---
 
@@ -115,12 +158,79 @@ Run the same fixture on the pinned model and on `gemini-3.1-flash-live-preview`.
 ~2 s for the 2.5 native-audio line. On a telephone nine seconds after "hello" is the call over. It
 is not our measurement, and it needs to be before anyone changes the pin in either direction.
 
+**Independent second signal, found 2026-09-12 and older than the latency thread.**
+`google-gemini/cookbook` issue **#1197** (opened 2026-04-16, still open, no Google response)
+reports four production voice-call defects on `gemini-3.1-flash-live-preview`, the first being
+**greeting stuttering when interrupted** — a barge-in defect, which is the exact mechanism this
+lane depends on and the one `npm run call` grades. Two unrelated reports, months apart, both
+against the newer model, both on things a telephone call cannot tolerate. That strengthens the
+2.5 pin beyond "we have not measured it yet" — but it is still two strangers' reports, and the
+measurement is still the deciding move.
+
 ### 3.3 Sweep silence duration around the documented default
 
-400 / 600 / 800 / 1000 / 1200 ms. **Bracket 800, do not sit below it** — a smaller number makes the
-agent interrupt sooner, which is the opposite of cautious. Score each with the eval and with the
-one thing the eval cannot see: how often the agent starts talking while the fixture's speaker is
-still going.
+**This one is now a command rather than a plan, and it needs no credential:**
+
+```bash
+npm run call -- --sweep=200,400,600,800,1000,1200
+```
+
+It runs every recorded conversation as a telephone call at each setting and prints, per setting:
+the dead-air percentiles, how many frames we spent talking over the far end, and how many
+utterances got split in two. Against a 500 ms mid-utterance thinking pause:
+
+<!-- SWEEP-TABLE:START -->
+| silence | p50 dead air | talk-over (frames) | over-segmented |
+|---|---|---|---|
+| 200 ms | 220 ms | 39 | 2 |
+| 400 ms | 420 ms | 39 | 2 |
+| 600 ms | 620 ms | 3 | 0 |
+| 800 ms | 820 ms | 3 | 0 |
+| 1000 ms | 1020 ms | 3 | 0 |
+| 1200 ms | 1220 ms | 3 | 0 |
+<!-- SWEEP-TABLE:END -->
+
+🔴 **These cells are recomputed by `test/docs.test.ts` on every build and the build fails if they
+have drifted.** They are not a note somebody took. An earlier version of this table was taken
+with fourteen fixtures and published in the commit that added the fifteenth; eight of its twelve
+non-dead-air cells did not reproduce, including the zeros this paragraph draws its conclusion
+from. That is why the check exists.
+
+So the trade is visible: **below 600 ms the detector cuts through a thinking pause**, the agent
+answers half a question, and the talk-over column jumps thirteenfold because it then interrupts
+the rest of it. Both columns move together and both are zero above the knee, which is what makes
+600 ms the smallest defensible setting rather than merely the smallest one that looks calm. **Bracket 800 and do not sit below it** — the pinned value has a margin over the
+knee, which is the right place to be when the pause length is a property of a stranger.
+
+⚠️ The three residual talk-over frames at 600 ms and above are not noise and not a defect: they
+are the `they-interrupt` fixture, where the far end deliberately cuts in and the barge-in cannot
+be instantaneous. 60 ms is inside the grace in `src/carrier/checks.ts` and shorter than a
+syllable. If that column ever reads 0 at every rung, the interrupting fixture has been lost and
+the barge-in check is no longer being exercised by anything.
+
+**What Google says about the same knob**, fetched 2026-09-12 and worth putting beside our own
+numbers: *"Recommended (500ms–800ms): Provides a good balance… The server's internal default is
+approximately 800ms. Too low (e.g., 100ms–200ms): The system ends speech turns during natural
+pauses, splitting a single utterance into multiple small audio fragments… losing cross-fragment
+context and resulting in lower transcription and response quality. Too high (e.g., 2000ms+):
+increasing perceived latency."*
+
+Two things follow. Their "too low" is about **transcription quality**, not only politeness — a
+cost our sweep cannot see at all, because there is no recogniser in it. And their harm example is
+100–200 ms; they say nothing about 400. **So keep the 400 rung.** It is below the recommended
+band and above the documented harm example, which makes it the one rung that measures where the
+edge actually is rather than assuming the band's lower bound is a cliff.
+
+⚠️ **What this sweep is NOT.** The detector it sweeps is ours, not Google's — same parameter
+names, same units, different algorithm, and theirs is unpublished. Read the header of
+`src/carrier/vad.ts` before quoting any of these numbers. What transfers is the SHAPE: a setting
+shorter than a human's thinking pause cuts through it, wherever the detector runs. What does not
+transfer is the knee's exact position, and nothing here sees transcription quality.
+
+And the knee is a property of the fixture's pause length, which is 500 ms and is chosen, not
+measured — `DEFAULT_INTERNAL_PAUSE_MS` in `src/carrier/fakeLeg.ts`. Change it and re-run to ask
+about a slower speaker. Score each setting with the eval too: a call that stays inside the
+detector's budget and breaks a hard check has got worse.
 
 ### 3.4 Choose the voice by listening, once
 
@@ -128,10 +238,11 @@ Two voices, three fixtures, over a real handset if one is available and over a l
 not. This is the one place a subjective read is the right instrument, and it should be done once
 and written down rather than relitigated per pull request.
 
-### 3.5 Re-run the eval after every change
+### 3.5 Re-run the eval AND the calls after every change
 
 ```bash
-npm run eval
+npm run eval          # what was said and done — the transcript
+npm run call          # what it sounded like — dead air, interrupts, the wire
 ```
 
 A tuning change that improves latency and breaks a hard check has made things worse. The rubric's
@@ -145,3 +256,36 @@ Latency measured against the local mock is the **seam** round trip only. It cont
 jitter, no packet loss, no answering-machine detection and no restaurant kitchen. See
 `docs/WHAT-CANNOT-BE-TESTED.md`. Numbers from here are a floor, and the gap between that floor and
 a real call is the whole reason the ten-call soak exists.
+
+### §4.1 The one sum nobody had added up
+
+Dead air is not the model's latency. It is:
+
+```
+what the restaurant waits  =  silenceDurationMs  +  the model's first-byte latency  +  the seam round trip
+```
+
+The detector's share is fixed by the setting — 800 ms today, and it is spent before the model has
+been asked anything. So a model at the forum-reported 9–15 s does not produce a 9-second pause; it
+produces a **ten-second** one. And a model at ~2 s produces nearly three.
+
+You can put a figure in and see the whole sum without a Google account:
+
+```bash
+npm run call -- --latency=900     # assume 900ms to first audio byte
+```
+
+🔴 **`--latency=900` EXITS 1 TODAY, AND THAT IS THE INSTRUMENT WORKING.** One of the fifteen
+calls — `phone-menu` — reaches 8,680 ms of dead air once the model is assumed to take 900 ms,
+and the hard budget is 4,000. Nothing is broken: the command is telling you that at that latency
+this feature has a call in it a person would think had dropped. Do not "fix" it by widening the
+budget; the budget is the requirement. Expected output, so nobody mistakes it for a setup fault:
+
+```
+  phone-menu   2/2   1720ms / 8680ms   0f   HARD: dead_air_within_hard_budget
+  1 hard failure(s) · 5 soft failure(s)
+```
+
+
+That is the number to walk into the model comparison (§3.2) holding, because it decides what
+"acceptable" means before anybody measures anything.

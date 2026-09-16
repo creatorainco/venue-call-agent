@@ -23,8 +23,18 @@ carrier timing. Owner: **TASK-973**.
 **3. DTMF.** Navigating a real phone menu means sending tones. The `phone-menu` fixture tests the
 *decision* to ask for a person; it cannot test pressing 2.
 
-**4. Barge-in and half-duplex,** including whether echo cancellation feeds our own voice back to us
-as input. On a bad line the agent can hear itself and interrupt itself. Only a real call shows it.
+**4. Barge-in and half-duplex,** including whether echo cancellation feeds our own voice back to
+us as input. On a bad line the agent can hear itself and interrupt itself. Only a real call shows
+that.
+
+⚠️ **Narrowed 2026-09-12, and only narrowed.** `npm run call` now runs a fixture whose far end
+deliberately talks over us, and `src/carrier/checks.ts` fails the build if we keep speaking for
+more than 120 ms after they start. So the *plumbing* of barge-in — that the interrupt is noticed
+and the outbound queue is actually thrown away — is covered, with a planted-fault test that proves
+the check can fail. What remains untestable here is everything acoustic: echo, whether the far
+end's voice arrives at all over ours, and whether Google's detector agrees with ours about when a
+human started talking. Do not read a green `stopped_when_interrupted` as "barge-in works on the
+phone".
 
 **5. End-to-end latency under jitter and loss.** The mock's `--latency` models the *seam* round
 trip and nothing else. There is no carrier, no network, no audio path. Numbers from `docs/TUNING.md`
@@ -80,3 +90,34 @@ conclusion holds one way only: nothing is happening. It does not tell you that t
 
 That distinction — merged, deployed, flagged off, observed working — is four different states, and
 the epic keeps them apart on purpose. Do not collapse them when reporting progress.
+
+
+---
+
+## What the audio layer added, and what it did NOT
+
+Added 2026-09-12 with `src/carrier/`. `npm run call` runs every recorded conversation as a
+telephone call: real G.711 μ-law frames, 20 ms at a time, on a virtual clock, against a leg that
+speaks to nobody. It is a real instrument and it is worth being exact about its edges.
+
+**It can now see** — dead air per turn, measured off the wire; talking over an interruption; a
+frame of the wrong length; 0x00 "silence"; audio generated after the leg closed; an utterance the
+turn detector split in two.
+
+**It still cannot see, and these are not small:**
+
+**12. Whether Google's turn detector behaves like ours.** `src/carrier/vad.ts` has the same four
+parameter names and the same units as the Live API's `automaticActivityDetection`, and it is not
+their algorithm — theirs is unpublished and runs on their side. A sweep here tells you how a
+setting behaves against a known pause structure. It does not predict their behaviour, and the file
+says so at the top. Owner: the first real measurement, **TASK-970**.
+
+**13. Speech recognition, at all.** The far end's words are injected, not recognised. The audio
+envelope is real and is what the detector works on; the text is handed over once a turn ends.
+Every conversational check in this repository therefore still rests on a transcript somebody
+wrote, never on one a machine produced. This is the honest boundary of the whole test environment
+and it does not move until there is a real model in the loop.
+
+**14. What a voice sounds like.** The generated audio is a tone. Prosody, clipping, the difference
+between Puck and Charon, and whether a restaurant finds the delivery robotic are all outside it.
+`docs/TUNING.md` §3.4 is deliberately a listening test by a person, once, written down.
