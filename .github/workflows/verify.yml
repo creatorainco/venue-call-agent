@@ -16,11 +16,15 @@
 
 name: verify
 
+# `dev` is in both lists and must stay there. It became the default and the integration branch on
+# 2026-09-16, and it requires this check to pass before anything merges. A required check that the
+# trigger never fires is not a strict gate, it is a deadlock: every pull request sits BLOCKED
+# waiting for a run that will never start.
 on:
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   push:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
 
 jobs:
