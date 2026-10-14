@@ -57,7 +57,7 @@ describe('the refusals — each one ends the call before a word is spoken', () =
     const contextRefusals: Array<[string, string]> = [
         ['cancelled', 'reservation_not_active'],
         ['missing', 'reservation_not_found'],
-        ['campaign-paused', 'campaign_not_active'],
+        ['campaign-closed', 'campaign_not_active'],
         ['venue-stopped', 'venue_stopped'],
         ['outside-opening-hours', 'outside_opening_hours'],
         ['no-name', 'script_unavailable'],

@@ -24,7 +24,8 @@
       "src/infrastructure/services/venueCall.service.ts",
       "src/helpers/emails/venueOperationsKb.ts",
       "src/helpers/location/venueCallScript.ts",
-      "src/helpers/location/venueCallToken.ts"
+      "src/helpers/location/venueCallToken.ts",
+      "src/shared/enum.ts"
     ]
   },
   "auth": {
@@ -139,6 +140,25 @@
       "unknown_topic"
     ]
   },
+  "campaign_rule": {
+    "route": "/reservations/call-context",
+    "allowed": [
+      "active",
+      "paused"
+    ],
+    "case_insensitive": true,
+    "refusal": "campaign_not_active",
+    "known_statuses": [
+      "active",
+      "cancelled",
+      "closed",
+      "draft",
+      "email_sent",
+      "paused",
+      "pending"
+    ],
+    "note": "An ALLOW-LIST, read from the backend's CALL_KEEPING_CAMPAIGN_STATUSES. A booking on an active or paused campaign is called; every other status - including NULL and any word not in known_statuses - refuses campaign_not_active before a word is spoken. Paused is allowed because pausing stops new outreach, not visits already booked: the guest is still coming and the venue still needs the notice. known_statuses is the backend's campaign status vocabulary, carried so a NEW status shows up as drift - it would refuse by default, which is safe, but somebody should decide."
+  },
   "fact_topics": [
     "party_size",
     "arrival_time",
@@ -177,12 +197,6 @@
   ],
   "script_version": "venue-precall/v3",
   "known_divergences": [
-    {
-      "id": "TASK-968",
-      "what": "campaign_not_active is a dead refusal on the deployed backend. It compares campaigns.status against 'archived' and 'deleted', values that column has never held.",
-      "mock_default": "The mock implements the FIXED behaviour - a paused campaign refuses. Scenario `campaign-paused-today` reproduces the live bug for a regression test.",
-      "why": "All remaining development is specified against the fixed backend, so the default must be the fixed backend. The bug is reachable on purpose, never by accident."
-    },
     {
       "id": "TASK-972",
       "what": "comp_terms is wired to nothing on the deployed backend - the SQL selects NULL::text - so it always returns the honest refusal.",

@@ -41,6 +41,7 @@ const OTHER_REPOS: Array<{ prefix: string; repo: string }> = [
     { prefix: 'src/helpers/', repo: 'platform-backend' },
     { prefix: 'src/index.ts', repo: 'platform-backend' },
     { prefix: 'src/infrastructure/', repo: 'platform-backend' },
+    { prefix: 'src/shared/enum.ts', repo: 'platform-backend' },
 ];
 
 /**

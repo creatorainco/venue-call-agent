@@ -136,14 +136,14 @@
       }
     },
     "campaign-paused": {
-      "summary": "An operator paused the campaign. The FIXED behaviour, per TASK-968: the call refuses before a word is spoken. This is the default the rest of development is written against.",
+      "summary": "An operator paused the campaign. The call PROCEEDS: pausing stops new outreach, not visits that are already booked, so a booking on a paused campaign still gets its notice. Only active and paused keep calls (contract/seam4.json campaign_rule).",
+      "answerer": "human"
+    },
+    "campaign-closed": {
+      "summary": "The campaign is closed. Every status other than active and paused - closed, cancelled, draft, pending, an unknown word, or none at all - refuses before a word is spoken.",
       "refuse": {
         "call-context": "campaign_not_active"
       }
-    },
-    "campaign-paused-today": {
-      "summary": "The SAME paused campaign against the backend as deployed on 2026-09-12 - which does not refuse, because the guard compares against two strings that column never holds. Reachable on purpose so the regression has a home. Delete this scenario when TASK-968 ships and the bug is gone.",
-      "answerer": "human"
     },
     "venue-stopped": {
       "summary": "The venue itself is deactivated or closed. The one venue-level switch that does silence the call - a per-client Stop deliberately does not.",

@@ -1,0 +1,13 @@
+{
+  "name": "campaign-closed",
+  "scenario": "campaign-closed",
+  "answerer": "human",
+  "about": "The campaign is closed, so its bookings get no pre-arrival call. Refuses before a word is spoken. A PAUSED campaign is different: its bookings still stand and the call proceeds (mock scenario campaign-paused, test/contract.test.ts).",
+  "turns": [
+    "Golden Crane."
+  ],
+  "expect": {
+    "must_not_speak_at_all": true,
+    "must_end_call": true
+  }
+}

@@ -111,25 +111,48 @@ describe('the mock and the snapshot', () => {
 });
 
 describe('the known divergences are written down, not remembered', () => {
-    test('both live divergences from the deployed backend are declared', () => {
+    test('the one live divergence from the deployed backend is declared', () => {
+        // TASK-968 left this list when the campaign rule shipped (2026-09-18) — it is a rule now,
+        // `campaign_rule`, checked against the backend by `npm run contract:derive`.
         const ids = (contract.known_divergences as Array<{ id: string }>).map((d) => d.id).sort();
-        assert.deepEqual(ids, ['TASK-968', 'TASK-972']);
+        assert.deepEqual(ids, ['TASK-972']);
     });
+});
 
-    test('the paused-campaign bug is reachable by name, and is not the default', async () => {
-        // The default must be the FIXED backend, because every remaining ticket is specified
-        // against it. The bug still needs somewhere to live, so it is a scenario you ask for.
+describe('the campaign rule: the mock does what the snapshot says the backend does', () => {
+    // The backend keeps calls for an ALLOW-LIST of campaign statuses and refuses everything else.
+    // These read the allow-list from the snapshot, not from a literal here, so the mock and the
+    // contract cannot quietly disagree: flip `paused` out of `allowed` and the first test goes red.
+    const rule = contract.campaign_rule as { allowed: string[]; case_insensitive: boolean; refusal: string };
+
+    const outcome = async (scenario: string): Promise<'proceeds' | string> => {
         const mock = await startMockSeam({ port: 0 });
         try {
-            await assert.rejects(
-                () => createSeamClient({ baseUrl: mock.baseUrl, token: 'mock:campaign-paused' }).callContext(),
-                (e: unknown) => (e as { reason?: string }).reason === 'campaign_not_active',
-            );
-            const today = await createSeamClient({ baseUrl: mock.baseUrl, token: 'mock:campaign-paused-today' }).callContext();
-            assert.ok(today.disclosure_sentence, 'the deployed backend lets a paused campaign through — that is TASK-968');
+            const ctx = await createSeamClient({ baseUrl: mock.baseUrl, token: `mock:${scenario}` }).callContext();
+            assert.ok(ctx.disclosure_sentence);
+            return 'proceeds';
+        } catch (e) {
+            return String((e as { reason?: string }).reason ?? e);
         } finally {
             await mock.close();
         }
+    };
+
+    test('a paused campaign proceeds exactly when the snapshot allows paused', async () => {
+        const expected = rule.allowed.includes('paused') ? 'proceeds' : rule.refusal;
+        assert.equal(await outcome('campaign-paused'), expected,
+            'a paused campaign\'s bookings still stand; refusing here would leave a venue unwarned about a guest who arrives anyway');
+    });
+
+    test('a closed campaign refuses exactly when the snapshot does not allow closed', async () => {
+        const expected = rule.allowed.includes('closed') ? 'proceeds' : rule.refusal;
+        assert.equal(await outcome('campaign-closed'), expected);
+    });
+
+    test('the rule itself: active and paused keep calls, case-insensitively, and the refusal is campaign_not_active', () => {
+        assert.deepEqual([...rule.allowed].sort(), ['active', 'paused']);
+        assert.equal(rule.case_insensitive, true);
+        assert.equal(rule.refusal, 'campaign_not_active');
     });
 });
 
