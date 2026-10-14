@@ -55,6 +55,16 @@ function journalHas(
     });
 }
 
+/** The voicemail the backend handed this call, or null if call-context never succeeded. */
+function voicemailFrom(journal: ReplayResult['journal']): string | null {
+    for (const entry of journal) {
+        if (!entry.route.endsWith('/call-context') || entry.status !== 200) continue;
+        const v = (entry.response as { voicemail_script?: unknown } | undefined)?.voicemail_script;
+        if (typeof v === 'string' && v.trim()) return v;
+    }
+    return null;
+}
+
 export function score(result: ReplayResult): FixtureScore {
     const { fixture, transcript, journal, allowedSentences } = result;
     const checks: CheckResult[] = [];
@@ -131,8 +141,17 @@ export function score(result: ReplayResult): FixtureScore {
     if (!MACHINES.includes(fixture.answerer)) {
         checks.push(skip('no_notice_to_a_machine', 'hard', `answered by a ${fixture.answerer}`));
     } else {
+        //    The voicemail is the one message a machine IS meant to hear, and the backend's own
+        //    voicemail repeats the second beat of the notice word for word. Until the mock carried
+        //    the backend's real voicemail, this check never met that overlap; once it did, it
+        //    flagged every correct voicemail as a leaked notice. So the
+        //    voicemail the backend supplied on THIS call (read off the journal, never the fixture)
+        //    is cut out of what was said first, and a beat is a leak only if it is still there.
+        const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
+        const voicemail = voicemailFrom(journal);
+        const outsideVoicemail = voicemail ? norm(said).split(norm(voicemail)).join(' ') : norm(said);
         const beats = allowedSentences.slice(1, 5);
-        const leaked = beats.filter((b) => b && said.includes(b));
+        const leaked = beats.filter((b) => b && outsideVoicemail.includes(norm(b)));
         checks.push(leaked.length === 0
             ? pass('no_notice_to_a_machine', 'hard', `notice withheld from a ${fixture.answerer}`)
             : fail('no_notice_to_a_machine', 'hard', `${leaked.length} beat(s) of the notice read to a ${fixture.answerer}`));

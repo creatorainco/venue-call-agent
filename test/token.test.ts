@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createHmac } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 
 import { mint, TTL_MS } from '../scripts/mint-token.mjs';
 
@@ -24,6 +25,7 @@ const contract = JSON.parse(
     readFileSync(fileURLToPath(new URL('../contract/seam4.json', import.meta.url)), 'utf8'),
 );
 
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const SECRET = 'local-dev-not-a-secret';
 const AT = 1_757_000_000_000; // a fixed instant; Date.now() in a test is a flake waiting to happen
 
@@ -66,10 +68,32 @@ describe('scoping — the property that makes a leaked token nearly worthless', 
 
     test('🔴 the SAME booking\'s next attempt also produces a different token', () => {
         // This is the part the attempt id buys and the part that is easy to drop as redundant.
-        // Without it, a token leaked from attempt 1 replays onto attempt 2 of the same booking.
+        // The backend does not refuse a token for "the wrong attempt" — it has nothing to compare
+        // it with. What the attempt id buys is the LEDGER: one row per call, keyed by it, so two
+        // calls on one attempt id are one row and the second call disappears into the first.
         const a = mint({ reservationId: 'r1', attemptId: 'a1', secret: SECRET, expiresAt: AT });
         const b = mint({ reservationId: 'r1', attemptId: 'a2', secret: SECRET, expiresAt: AT });
         assert.notEqual(a, b);
+    });
+
+    test('the contract says attempt_id is the ledger\'s call key, and mint-token says it too', () => {
+        const ledger = (contract.routes as Array<{ path: string; ledger?: { key: string; note: string } }>)
+            .find((r) => r.path === '/reservations/call-event')?.ledger;
+        assert.equal(ledger?.key, 'attempt_id');
+        assert.match(ledger?.note ?? '', /ONE ledger row per call/);
+        assert.match(ledger?.note ?? '', /NEW attempt_id/);
+
+        const run = (...args: string[]) => spawnSync(process.execPath, ['scripts/mint-token.mjs', ...args],
+            { cwd: ROOT, encoding: 'utf8', env: { ...process.env, VENUE_CALL_SECRET: SECRET } });
+        assert.match(run('--help').stdout, /ledger's call key/);
+        const all = run('--all', `--now=${AT}`);
+        assert.match(all.stdout, /# wrong booking\n/);
+        assert.match(all.stdout, /# wrong attempt\n/);
+        assert.match(all.stderr, /one for the wrong booking/);
+        assert.match(all.stderr, /one for the wrong attempt/);
+        // The old text said both were "still refused". The backend honours both; a sentence that
+        // teaches the opposite of the system is worse than none.
+        assert.doesNotMatch(all.stderr, /still refused/);
     });
 
     test('a different secret produces a different signature', () => {

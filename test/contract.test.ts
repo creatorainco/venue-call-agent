@@ -33,7 +33,7 @@ const contract = read('../contract/seam4.json');
 const fixtures = read('../src/mock/fixtures/scenarios.json');
 
 describe('the snapshot and the types', () => {
-    test('the eleven refusal reasons match, in the same set', () => {
+    test('the twelve refusal reasons match, in the same set', () => {
         assert.deepEqual([...SEAM_REFUSAL_REASONS].sort(), [...contract.refusal.reasons].sort());
     });
 
@@ -63,18 +63,30 @@ describe('the mock and the snapshot', () => {
         }
     });
 
-    test('every refusal reason in the contract is reachable through some scenario', () => {
+    test('every refusal word the agent compiles against has a scenario that produces it', async () => {
+        // No exclusion list. The last version of this test excused token_scope_mismatch and
+        // disclosure_unavailable by name, which is how a twelfth word (outside_opening_hours)
+        // arrived on the backend with nothing in the mock able to say it. unknown_topic is the
+        // one word the ROUTE produces rather than a scenario, so it is proven by asking the mock
+        // for a topic that does not exist, not by being added to the set by hand.
         const reachable = new Set<string>();
         for (const scenario of Object.values(fixtures.scenarios) as Array<{ refuse?: Record<string, string> }>) {
             for (const reason of Object.values(scenario.refuse ?? {})) reachable.add(reason);
         }
-        // unknown_topic is produced by the route rather than by a scenario, and the two token
-        // scope failures need a real signing key to reproduce — named here rather than skipped
-        // silently, because a quiet exclusion is how coverage claims stop being true.
-        reachable.add('unknown_topic');
-        const unreachable = (contract.refusal.reasons as string[])
-            .filter((r) => !reachable.has(r))
-            .filter((r) => r !== 'token_scope_mismatch' && r !== 'disclosure_unavailable');
+        // Raw fetch, not the client: the client refuses an unknown topic locally, before the wire.
+        const mock = await startMockSeam({ port: 0 });
+        try {
+            const res = await fetch(`${mock.baseUrl}/reservations/call-fact`, {
+                method: 'POST',
+                headers: { Authorization: 'Bearer mock:happy', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topic: 'not_a_topic' }),
+            });
+            const body = await res.json() as { reason?: string };
+            if (res.status === 409 && body.reason) reachable.add(body.reason);
+        } finally {
+            await mock.close();
+        }
+        const unreachable = SEAM_REFUSAL_REASONS.filter((r) => !reachable.has(r));
         assert.deepEqual(unreachable, [], `no scenario produces: ${unreachable.join(', ')}`);
     });
 
@@ -111,25 +123,48 @@ describe('the mock and the snapshot', () => {
 });
 
 describe('the known divergences are written down, not remembered', () => {
-    test('both live divergences from the deployed backend are declared', () => {
+    test('the one live divergence from the deployed backend is declared', () => {
+        // The campaign-status entry left this list when that rule shipped — it is a rule now,
+        // `campaign_rule`, checked against the backend by `npm run contract:derive`.
         const ids = (contract.known_divergences as Array<{ id: string }>).map((d) => d.id).sort();
-        assert.deepEqual(ids, ['TASK-968', 'TASK-972']);
+        assert.deepEqual(ids, ['comp-clause']);
     });
+});
 
-    test('the paused-campaign bug is reachable by name, and is not the default', async () => {
-        // The default must be the FIXED backend, because every remaining ticket is specified
-        // against it. The bug still needs somewhere to live, so it is a scenario you ask for.
+describe('the campaign rule: the mock does what the snapshot says the backend does', () => {
+    // The backend keeps calls for an ALLOW-LIST of campaign statuses and refuses everything else.
+    // These read the allow-list from the snapshot, not from a literal here, so the mock and the
+    // contract cannot quietly disagree: flip `paused` out of `allowed` and the first test goes red.
+    const rule = contract.campaign_rule as { allowed: string[]; case_insensitive: boolean; refusal: string };
+
+    const outcome = async (scenario: string): Promise<'proceeds' | string> => {
         const mock = await startMockSeam({ port: 0 });
         try {
-            await assert.rejects(
-                () => createSeamClient({ baseUrl: mock.baseUrl, token: 'mock:campaign-paused' }).callContext(),
-                (e: unknown) => (e as { reason?: string }).reason === 'campaign_not_active',
-            );
-            const today = await createSeamClient({ baseUrl: mock.baseUrl, token: 'mock:campaign-paused-today' }).callContext();
-            assert.ok(today.disclosure_sentence, 'the deployed backend lets a paused campaign through — that is TASK-968');
+            const ctx = await createSeamClient({ baseUrl: mock.baseUrl, token: `mock:${scenario}` }).callContext();
+            assert.ok(ctx.disclosure_sentence);
+            return 'proceeds';
+        } catch (e) {
+            return String((e as { reason?: string }).reason ?? e);
         } finally {
             await mock.close();
         }
+    };
+
+    test('a paused campaign proceeds exactly when the snapshot allows paused', async () => {
+        const expected = rule.allowed.includes('paused') ? 'proceeds' : rule.refusal;
+        assert.equal(await outcome('campaign-paused'), expected,
+            'a paused campaign\'s bookings still stand; refusing here would leave a venue unwarned about a guest who arrives anyway');
+    });
+
+    test('a closed campaign refuses exactly when the snapshot does not allow closed', async () => {
+        const expected = rule.allowed.includes('closed') ? 'proceeds' : rule.refusal;
+        assert.equal(await outcome('campaign-closed'), expected);
+    });
+
+    test('the rule itself: active and paused keep calls, case-insensitively, and the refusal is campaign_not_active', () => {
+        assert.deepEqual([...rule.allowed].sort(), ['active', 'paused']);
+        assert.equal(rule.case_insensitive, true);
+        assert.equal(rule.refusal, 'campaign_not_active');
     });
 });
 

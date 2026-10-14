@@ -24,6 +24,7 @@ import { VAD } from '../src/tuning/liveDefaults.ts';
 import { loadFixtures } from '../src/harness/fixtures.ts';
 import { replay } from '../src/harness/replay.ts';
 import { agentFactory } from '../src/eval/run.ts';
+import { fixtureColumnWidth } from '../src/carrier/run.ts';
 
 const vadWith = (silenceDurationMs: number): VadSettings => ({ ...VAD, silenceDurationMs });
 
@@ -574,5 +575,15 @@ describe('percentiles', () => {
 
     it('an empty sample produces no percentiles rather than a zero', () => {
         assert.deepEqual(percentiles([]), {});
+    });
+});
+
+describe('the npm run call report', () => {
+    it('leaves at least two spaces after every fixture name, so no row runs into its count', () => {
+        const names = loadFixtures().map((f) => f.name);
+        const width = fixtureColumnWidth(names);
+        for (const name of names) {
+            assert.ok(width - name.length >= 2, `${name} (${name.length} chars) fills a ${width}-wide column`);
+        }
     });
 });

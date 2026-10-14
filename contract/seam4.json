@@ -15,22 +15,24 @@
   ],
   "derived_from": {
     "repo": "creatorainco/platform-backend",
-    "ref": "origin/dev",
-    "commit": "0d651963",
-    "read_on": "2026-09-12",
+    "ref": "origin/master",
+    "commit": "a1fe157d",
+    "read_on": "2026-10-14",
     "files": [
       "src/infrastructure/routes/reservations.routes.ts",
       "src/infrastructure/controllers/reservations.controller.ts",
       "src/infrastructure/services/venueCall.service.ts",
       "src/helpers/emails/venueOperationsKb.ts",
       "src/helpers/location/venueCallScript.ts",
-      "src/helpers/location/venueCallToken.ts"
+      "src/helpers/location/venueCallToken.ts",
+      "src/helpers/location/venueCallRecord.ts",
+      "src/shared/enum.ts"
     ]
   },
   "auth": {
     "header": "Authorization",
     "scheme": "Bearer",
-    "note": "A short-lived HMAC capability token scoped to ONE attempt at ONE booking. The reservation id is taken FROM THE TOKEN; a body value that disagrees is a refusal, not an override. Never put the token in a query string - carrier and proxy logs retain URLs.",
+    "note": "A short-lived HMAC capability token scoped to ONE attempt at ONE booking. The reservation id is taken FROM THE TOKEN, never from a body. The backend declares token_scope_mismatch for a body id that disagrees, but at the snapshot commit no route passes one to the check, so the word is never emitted. The attempt_id is the ledger's call key: see the call-event route's ledger block. Never put the token in a query string - carrier and proxy logs retain URLs.",
     "dark_when": "VENUE_CALL_SECRET unset on the backend. Every route then refuses seam_disabled."
   },
   "token": {
@@ -44,7 +46,7 @@
       "invalid",
       "expired"
     ],
-    "note": "Only TWO refusal words, deliberately: an unparseable token, a forged signature and a token for another booking all return invalid, because a refusal that says WHY tells a prober which half of their guess was right."
+    "note": "Only TWO refusal words, deliberately: a refusal that says WHY tells a prober which half of their guess was right. An unparseable token, a forged signature and a token edited to name another booking (so its signature no longer matches) all return invalid. A correctly signed token for another booking is NOT refused: it opens that booking. So each call must hold only its own token."
   },
   "routes": [
     {
@@ -114,7 +116,21 @@
         "say",
         "do_not_call"
       ],
-      "note": "asked_to_stop_calling is written SYNCHRONOUSLY before this responds. `say` is empty string for answerer_reported - the agent says nothing, it is a report to us."
+      "note": "asked_to_stop_calling is written SYNCHRONOUSLY before this responds. `say` is empty string for answerer_reported - the agent says nothing, it is a report to us.",
+      "ledger": {
+        "key": "attempt_id",
+        "note": "ONE ledger row per call. The row in reservation_call_attempts is keyed by call_id = the attempt_id inside the token. The first event of a call writes the row; every later event of the same call folds into it (its note is appended) and the disposition only moves UP disposition_rank, so a late, weaker event can never undo a stop. A re-dial is a new call and MUST carry a token minted with a NEW attempt_id: reuse one and the second call's events fold into the first call's row, and the 3-per-day attempt count never sees it.",
+        "disposition_rank": [
+          "failed",
+          "no_answer",
+          "busy",
+          "left_voicemail",
+          "spoke_to_staff",
+          "refused",
+          "wrong_number",
+          "asked_to_stop_calling"
+        ]
+      }
     }
   ],
   "refusal": {
@@ -133,10 +149,30 @@
       "reservation_not_active",
       "campaign_not_active",
       "venue_stopped",
+      "outside_opening_hours",
       "disclosure_unavailable",
       "script_unavailable",
       "unknown_topic"
     ]
+  },
+  "campaign_rule": {
+    "route": "/reservations/call-context",
+    "allowed": [
+      "active",
+      "paused"
+    ],
+    "case_insensitive": true,
+    "refusal": "campaign_not_active",
+    "known_statuses": [
+      "active",
+      "cancelled",
+      "closed",
+      "draft",
+      "email_sent",
+      "paused",
+      "pending"
+    ],
+    "note": "An ALLOW-LIST, read from the backend's CALL_KEEPING_CAMPAIGN_STATUSES. A booking on an active or paused campaign is called; every other status - including NULL and any word not in known_statuses - refuses campaign_not_active before a word is spoken. Paused is allowed because pausing stops new outreach, not visits already booked: the guest is still coming and the venue still needs the notice. known_statuses is the backend's campaign status vocabulary, carried so a NEW status shows up as drift - it would refuse by default, which is safe, but somebody should decide."
   },
   "fact_topics": [
     "party_size",
@@ -177,16 +213,10 @@
   "script_version": "venue-precall/v3",
   "known_divergences": [
     {
-      "id": "TASK-968",
-      "what": "campaign_not_active is a dead refusal on the deployed backend. It compares campaigns.status against 'archived' and 'deleted', values that column has never held.",
-      "mock_default": "The mock implements the FIXED behaviour - a paused campaign refuses. Scenario `campaign-paused-today` reproduces the live bug for a regression test.",
-      "why": "All remaining development is specified against the fixed backend, so the default must be the fixed backend. The bug is reachable on purpose, never by accident."
-    },
-    {
-      "id": "TASK-972",
-      "what": "comp_terms is wired to nothing on the deployed backend - the SQL selects NULL::text - so it always returns the honest refusal.",
-      "mock_default": "Scenario `happy` reproduces today: comp_terms refuses with reason not_agreed. Scenario `comp-known` returns an authored clause, which is what TASK-972 delivers.",
-      "why": "Both branches must be exercised. Today's is the one on production; tomorrow's is the one being built."
+      "id": "comp-clause",
+      "what": "comp_terms has no authored clause to return on the deployed backend yet, so it always returns the honest refusal.",
+      "mock_default": "Scenario `happy` reproduces today: comp_terms refuses with reason not_agreed. Scenario `comp-known` returns an authored clause, which is what the comp-clause backend change delivers.",
+      "why": "Both branches must be exercised. Today's is the one deployed; tomorrow's is the one being built."
     }
   ]
 }

@@ -5,28 +5,30 @@
  * decided by what comes back from three HTTP routes: whether the call proceeds at all, which
  * sentence is spoken, whether a deferral is allowed. Without a stand-in, exercising any of that
  * means a running platform-backend, a database with the right rows in it, and a signing secret —
- * which in practice means it does not get exercised, and the eleven refusal paths are read rather
+ * which in practice means it does not get exercised, and the twelve refusal paths are read rather
  * than run.
  *
  * So: the shapes from `contract/seam4.json`, served from `fixtures/scenarios.json`, on localhost.
- * Every one of the eleven refusals is reachable by name. Nothing here talks to anything.
+ * Every one of the twelve refusals is reachable by name (test/contract.test.ts holds that to
+ * account). Nothing here talks to anything.
  *
  * 🔴 THE MOCK IS ALLOWED TO AUTHOR SENTENCES AND THE AGENT IS NOT. That asymmetry is the point of
  * the whole design, so it is worth being blunt about: this file is imitating the component that
  * owns the words. If you find yourself moving a sentence OUT of here and into `src/` proper to
  * make something easier, you have just deleted the property the feature is built on.
  *
- * 🔴 IT DEFAULTS TO THE FIXED BACKEND, NOT THE DEPLOYED ONE. A paused campaign refuses here, which
- * is TASK-968's behaviour and not today's. All remaining work is specified against the fixed
- * backend, so the default has to be the fixed backend; the live bug is still reachable, by asking
- * for it by name (`campaign-paused-today`), because a regression needs somewhere to live.
+ * 🔴 IT IMITATES THE BACKEND AS SHIPPED, read at the commit in `contract/seam4.json`. That
+ * includes the campaign rule, which is easy to guess wrong: a PAUSED campaign's booking is still
+ * called (`campaign-paused` proceeds), and a closed, cancelled, draft or unknown one refuses
+ * (`campaign-closed`). Pausing stops new outreach, not a visit that is already booked. The rule
+ * is `campaign_rule` in the snapshot, and `npm run contract:derive` checks it against the backend.
  *
  * HOW A CALLER PICKS A SCENARIO. The bearer token doubles as the selector: `mock:<scenario>`, or
  * `mock:<scenario>:<reservation_id>`. That keeps the client code identical to production — it
  * carries whatever token it was handed and never knows it is talking to a mock.
  *
  *     Authorization: Bearer mock:happy
- *     Authorization: Bearer mock:campaign-paused
+ *     Authorization: Bearer mock:campaign-closed
  *
  * A token that is not in that shape refuses `token_invalid`, exactly as the real seam would.
  *

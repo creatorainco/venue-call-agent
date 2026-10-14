@@ -6,7 +6,7 @@
  * silence that is actually full-scale noise, and neither shows up in a unit test that never looks
  * at a sample.
  *
- * 🔴 A CORRECTION TO SOMETHING WRITTEN DOWN IN THIS ESTATE. A memory note says the Live API
+ * 🔴 A CORRECTION TO AN EARLIER NOTE. It said the Live API
  * "resamples INPUT itself (send 8 kHz, declare audio/pcm;rate=8000), only the 24 kHz→8 kHz
  * outbound leg is ours." The first half is true and the conclusion does not follow. The API
  * accepts raw little-endian 16-bit PCM at a declared rate — it does NOT accept μ-law. A telephone
@@ -46,7 +46,7 @@ export const MODEL_AUDIO: { in: AudioFormat; out: AudioFormat } = {
  *
  * These values are the G.711 μ-law/8 kHz/20 ms that every North American carrier media stream
  * uses, including the one that note implies. They are the right thing to build against and they
- * are still a guess until TASK-973 picks a carrier.
+ * are still a guess until the carrier work picks a carrier.
  *
  * ⚠️ NO CALL SITE MAY HARDCODE 8000. Read it from here, so that when the guess is settled there
  * is exactly one line to change and a failing test to tell you that you missed one.

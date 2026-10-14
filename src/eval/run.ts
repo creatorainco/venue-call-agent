@@ -1,12 +1,13 @@
 /**
  * `npm run eval` — run every recorded conversation and grade it.
  *
- * No phone, no cloud account, no booking, no audio. Fourteen calls in about a second.
+ * No phone, no cloud account, no booking, no audio. Every recorded conversation in about a second.
  *
  *     npm run eval                    every fixture, against the reference stub
  *     npm run eval -- --only=who      just the fixtures whose name contains "who"
- *     npm run eval -- --verbose       print the full transcript of each call
- *     npm run eval -- --agent=live    against the real agent, once TASK-970 builds one
+ *     npm run eval -- --verbose       print every check, passed ones too, and the quoted/glue count
+ *                                     (the transcript itself: `npm run harness -- --fixture=<name>`)
+ *     npm run eval -- --agent=live    against the real agent, once the Gemini Live adapter exists
  *
  * 🔴 IT REFUSES TO REPORT A SCORE IT CANNOT VOUCH FOR. Before grading anything it runs the
  * rubric's own control, and if the fabrication checker cannot catch a planted invention — or if
@@ -29,14 +30,14 @@ const has = (name: string) => process.argv.includes(`--${name}`);
  * Which brain to grade.
  *
  * `stub` is the keyword matcher in `src/agent/scriptedStub.ts` — no model, no audio, and the
- * baseline the real agent has to beat. `live` is TASK-970 and does not exist yet; it fails loudly
+ * baseline the real agent has to beat. `live` is the Gemini Live adapter and does not exist yet; it fails loudly
  * rather than silently falling back, because a silent fallback would report the stub's score under
  * the real agent's name.
  */
 export function agentFactory(kind: string): AgentFactory {
     if (kind === 'stub') return ({ seam }) => createScriptedStub({ seam });
     throw new Error(
-        `no agent named "${kind}". Only "stub" exists today; "live" is TASK-970. ` +
+        `no agent named "${kind}". Only "stub" exists today; "live" is the Gemini Live adapter, not built yet. ` +
         'Wire it in src/eval/run.ts when it lands, and keep the stub so the two can be compared.',
     );
 }

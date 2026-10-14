@@ -65,6 +65,14 @@ function pad(s: string, n: number): string {
     return s.length >= n ? s.slice(0, n) : s + ' '.repeat(n - s.length);
 }
 
+/**
+ * The fixture column, sized to the longest name plus a two-space gap. A fixed width once equalled
+ * the longest name exactly and printed `who-pays-after-comp-clause3/3`, a row nothing can parse.
+ */
+export function fixtureColumnWidth(names: readonly string[]): number {
+    return Math.max('fixture'.length, ...names.map((n) => n.length)) + 2;
+}
+
 export function summarise(reports: readonly AudioReport[]) {
     const all = reports.flatMap((r) => r.deadAirMs);
     return {
@@ -139,7 +147,8 @@ if (isEntryPoint(import.meta.url)) {
     }
 
     console.log(`venue-call-agent audio calls — agent: ${agentKind}, ${rows.length} call(s), model latency ${latencyMs}ms\n`);
-    console.log(`  ${pad('fixture', 26)}${pad('turns', 8)}${pad('dead air p50/max', 19)}${pad('talk-over', 11)}verdict`);
+    const nameWidth = fixtureColumnWidth(rows.map((r) => r.fixture.name));
+    console.log(`  ${pad('fixture', nameWidth)}${pad('turns', 8)}${pad('dead air p50/max', 19)}${pad('talk-over', 11)}verdict`);
 
     let hard = 0;
     let soft = 0;
@@ -158,7 +167,7 @@ if (isEntryPoint(import.meta.url)) {
 
         const p50 = a.percentiles.p50 ?? 0;
         console.log(
-            `  ${pad(row.fixture.name, 26)}${pad(`${a.detectedTurns}/${a.scriptedTurns}`, 8)}`
+            `  ${pad(row.fixture.name, nameWidth)}${pad(`${a.detectedTurns}/${a.scriptedTurns}`, 8)}`
             + `${pad(`${p50}ms / ${a.maxDeadAirMs}ms`, 19)}${pad(`${a.talkOverFrames}f`, 11)}`
             + (failedHard.length ? `HARD: ${failedHard.join(', ')}` : failedSoft.length ? `soft: ${failedSoft.join(', ')}` : 'clean'),
         );

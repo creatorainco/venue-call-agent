@@ -4,7 +4,9 @@ You have been handed a feature that is further along than it looks. This page is
 honest path from a fresh laptop to changing something real.
 
 Everything in **Part 1** is already done for you. Read it, run it, and if any command fails, that
-is a bug in the setup and not in you — say so rather than working around it.
+is a bug in the setup and not in you — open an issue on this repository rather than working
+around it. One failure is deliberate: from **2026-11-17** `npm run verify` fails until the pinned
+Gemini model moves (Part 4, item 2).
 
 ---
 
@@ -15,11 +17,15 @@ is a bug in the setup and not in you — say so rather than working around it.
 git clone https://github.com/creatorainco/venue-call-agent.git
 
 cd venue-call-agent
-nvm use          # 22.18.0; any Node >= 22.18 works
+nvm install      # reads .nvmrc and fetches the newest Node 22; `nvm use` alone may pick an older 22
+nvm use          # Node 22.18 or newer (22 or 24 LTS) works
 npm run doctor   # BEFORE npm ci. It works with nothing installed, on purpose.
 npm ci
 npm run verify
 ```
+
+No `nvm`? Install it from https://github.com/nvm-sh/nvm, or use any Node 22.18 or newer; the
+doctor checks the version either way.
 
 `npm run doctor` is the answer to "what do I need?", and it is a reading of your machine rather
 than a claim in a document. It boots the mock backend and asks it a real question, imports a real
@@ -31,13 +37,17 @@ Expected, and worth reading rather than skimming:
 
 ```
 no-facts: N file(s) scanned; control tripped 4 rule(s) (...)
+no-facts: venue names: the control only (...)
 no-facts: EXEMPT src/agent/scriptedStub.ts from [comp] — ...
 no-facts: EXEMPT src/eval/fabrication.ts from [comp, money, policy] — ...
 no-facts: clean.
-# fail 0
+doctor: control tripped as designed — ...
+...
+ℹ fail 0
 ```
 
-⚠️ **`# fail 0` is the line to read, and this page deliberately does not print a test count.**
+⚠️ **The `fail 0` line is the one to read (`ℹ fail 0` in a terminal, `# fail 0` in CI's log),
+and this page deliberately does not print a test count.**
 A count in a document is false by the next contribution — that has already happened here twice —
 so `test/docs.test.ts` now fails the build if one reappears.
 
@@ -48,8 +58,14 @@ npm run eval
 # 15/15 conversations clean · 0 hard failure(s) · 0 soft failure(s)
 
 npm run call
-# across 15 call(s) · dead air p50 820ms · 0 hard failure(s) · 2 soft failure(s)
+#   across 15 call(s), ...
+# 0 hard failure(s) · N soft failure(s)
 ```
+
+The line to read in both is `0 hard failure(s)`. A soft failure is a judgement, not a defect, and
+its count on this default run is whatever the command prints today — this page does not copy it,
+for the same reason it does not copy the test count. (The one block that does carry counts, the
+`--latency=900` output in Part 4, is recomputed and compared by `test/docs.test.ts` on every run.)
 
 The second one is a real telephone call in every respect except the telephone: G.711 μ-law frames,
 20 ms at a time, a far end that waits for you to answer before it speaks again, and a clock that
@@ -58,15 +74,15 @@ show — how long the restaurant waits, whether you talk over an interruption, w
 generating audio after the line closes.
 
 **You now have a complete test environment for a telephone feature, on a laptop, with no phone, no
-Google account, no GitHub account and no database.** That is the point of the last two days' work, and
+Google account, no GitHub account and no database.** That is the point of this repository, and
 `docs/TEST-ENVIRONMENT.md` says exactly where it stops.
 
-⚠️ **Two credentials are needed sooner than "the very last ticket", and an earlier version of
-this page said otherwise.** Everything in Parts 1–3, and building the adapter itself, needs
-nothing. *Opening a real Gemini session* — which the first tuning measurement in Part 4 item 2
-requires — needs `GEMINI_API_KEY`; the org already has one, so it is a lookup, not a signup.
-`SPEECH_TO_TEXT_CREDENTIALS`, for the independent transcriber, does **not** exist anywhere yet
-and somebody has to provision it. Raise it early rather than on the day you need it.
+⚠️ **Two credentials are needed before the end of the work, and an earlier version of this page
+said otherwise.** Everything in Parts 1–3, and building the adapter itself, needs nothing.
+*Opening a real Gemini session* — which the first tuning measurement in Part 4 item 2 requires —
+needs `GEMINI_API_KEY`; open an issue on this repository and a CreatoRain engineer mints one for
+you. `SPEECH_TO_TEXT_CREDENTIALS`, for the independent transcriber, has **not** been provisioned
+yet and somebody has to do it. Open that issue early rather than on the day you need it.
 
 ---
 
@@ -75,8 +91,13 @@ and somebody has to provision it. Raise it early rather than on the day you need
 Watch one call, turn by turn:
 
 ```bash
-npm run eval -- --only=who-pays --verbose
+npm run harness -- --fixture=who-pays
 ```
+
+The `--fixture=` is required: a bare `npm run harness -- who-pays` ignores the name and plays the
+`plain` call. To see how that call was graded, check by check, run
+`npm run eval -- --only=who-pays --verbose` (`--only` matches every fixture whose name contains
+the text, so that one grades two calls).
 
 Then poke the backend stand-in by hand:
 
@@ -88,17 +109,18 @@ In another terminal:
 
 ```bash
 curl -s -XPOST http://127.0.0.1:8788/reservations/call-context \
-  -H "Authorization: Bearer mock:happy" | python -m json.tool
+  -H "Authorization: Bearer mock:happy"
 
 curl -s -XPOST http://127.0.0.1:8788/reservations/call-fact \
   -H "Authorization: Bearer mock:happy" -H "Content-Type: application/json" \
   -d '{"topic":"comp_terms"}'
 
-# the same booking, with the campaign paused
+# the same booking, with the campaign closed: refused before a word is spoken.
+# (A PAUSED campaign is still called — try mock:campaign-paused and compare.)
 curl -s -XPOST http://127.0.0.1:8788/reservations/call-context \
-  -H "Authorization: Bearer mock:campaign-paused"
+  -H "Authorization: Bearer mock:campaign-closed"
 
-curl -s http://127.0.0.1:8788/__mock/journal | python -m json.tool
+curl -s http://127.0.0.1:8788/__mock/journal
 ```
 
 And produce the credentials the real backend would want, with no backend:
@@ -107,11 +129,17 @@ And produce the credentials the real backend would want, with no backend:
 VENUE_CALL_SECRET=local-dev-not-a-secret npm run mint-token -- --all
 ```
 
-That prints four tokens: a valid one, an expired one, and two scoped to the wrong booking. The
-last two verify perfectly and are still refused — which is the property worth understanding
-before you write anything that holds one.
+```powershell
+$env:VENUE_CALL_SECRET='local-dev-not-a-secret'; npm run mint-token -- --all
+```
 
-Read `src/mock/fixtures/scenarios.json` for the full list of 18 scenarios and what each one is for.
+That prints four tokens: a valid one, an expired one, one for the wrong booking and one for the
+wrong attempt. The last two verify perfectly and the backend **honours** both — it answers about
+the other booking, or writes the other attempt's ledger row. Keeping each call on its own token
+is the dialler's job, which is the property worth understanding before you write anything that
+holds one.
+
+Read `src/mock/fixtures/scenarios.json` for the full list of scenarios and what each one is for.
 
 ---
 
@@ -133,25 +161,19 @@ Skim `docs/TUNING.md` when you get to the model; do not read it yet.
 
 Three things, in this order. Nothing else on this repository is open work.
 
-### 1. Research what the repo still needs from GitHub and Google Cloud
+Items 2 and 3 both need the one missing component, and building it is yours: the Gemini Live
+adapter, a class implementing `SpeechBridge` in `src/carrier/bridge.ts` (README, "Not here yet").
+Build it against the harness first; it needs a key only once it opens a real session.
 
-Findings so far are in TASK-967 and they are uncomfortable: this GitHub org is on the Free plan, where
-branch protection, rulesets and required status checks all return **403 on a private repository**.
-That was the state when the research was written and it is still true of every other repo in the
-org. It stopped being true *here* on 2026-09-16, when this repository was made public: the same
-free plan grants protected branches on public repositories, and `main` and `dev` now both require
-a pull request, one approving review and a green `verify` before anything merges. Treat that as a
-worked example rather than as the answer — the open question is what it costs to get the same
-guarantee on the private repositories, which is where the estate actually lives. Two further
-controls are available and are not switched on: Dependabot alerts (free, one toggle) and secret
-scanning (a paid SKU on Team). Confirm both against the live pricing and API before anyone spends
-money — the docs and the API's own error strings disagree with each other, and one of them is
-stale.
+### 1. Research what the repo still needs from Google Cloud
 
-Then the deploy identity. Nothing in this estate uses Workload Identity Federation today; every
-deploy authenticates with a long-lived key in a repo secret. For a Cloud Run deploy from Actions,
-work out exactly what must be created on each side, and write it down as a runnable checklist.
-**Do not create anything in Google Cloud** — that needs a signed-in console and is not yours.
+This repository's own merge rules are settled: `main` and `dev` both require a pull request, one
+approving review and a green `verify` (`docs/LIMITS.md` §12).
+
+What is open is the deploy identity. Nothing deploys this service yet. For a Cloud Run deploy from
+Actions, work out exactly what must be created on each side — `docs/DEPLOY.md` §5 is the start —
+and write it down as a runnable checklist. **Do not create anything in Google Cloud** — that needs
+a signed-in console and is not yours.
 
 ### 2. Tune the agent
 
@@ -172,8 +194,8 @@ this feature has a call in it a person would think had dropped. Do not "fix" it 
 budget; the budget is the requirement. Expected output, so nobody mistakes it for a setup fault:
 
 ```
-  phone-menu   2/2   1720ms / 8680ms   0f   HARD: dead_air_within_hard_budget
-  1 hard failure(s) · 5 soft failure(s)
+  phone-menu                  2/2     1720ms / 8680ms    0f         HARD: dead_air_within_hard_budget
+1 hard failure(s) · 5 soft failure(s)
 ```
 
 
@@ -181,10 +203,11 @@ Do that first — it costs a second and it tells you what "acceptable" has to me
 measure the model. Read the top of `src/carrier/vad.ts` before quoting a number from it: the
 detector it sweeps is ours, not Google's.
 
-The first task is a measurement, not a change: time to first audio, on the pinned model and on the
-one it is pinned *away* from. There is a forum report that the newer model regressed from ~2 s to
-9–15 s, from two strangers with no reply from Google. On a telephone that is the call over, so it
-matters — and it is not our measurement yet.
+The first task is a measurement, not a change, and it has a deadline: Google has scheduled the
+pinned model, and the one it is pinned *away* from, for shutdown on **2026-11-17**, with
+`gemini-3.8-live` named as the replacement. So measure time to first audio on the pinned model and
+on the replacement; re-pinning is what that measurement decides. `docs/TUNING.md` §3.2 has the
+sources, and `test/liveDefaults.test.ts` fails the build on that date if the pin has not moved.
 
 ### 3. Test the agent
 
@@ -201,16 +224,16 @@ The rule for anything new: **it must be able to fail.** See CONTRIBUTING.md.
 You do not push to this repository and you are not expected to ask for access to it. Read
 **[CONTRIBUTING.md](CONTRIBUTING.md) § Branches and pull requests** once; the short version is:
 
-1. Fork it to your own account, clone the fork, and add this repo as `upstream`.
+1. Fork it to your own account and clone the fork, with this repo as `upstream` —
+   CONTRIBUTING.md shows the `gh` path and the web path.
 2. Branch off `dev`, and open your pull request **against `dev`** — never `main`.
 3. `dev` requires a green `verify` and one approving review, so nothing you open can merge itself
    and nothing red can merge at all. The first time CI runs on a pull request from a new
-   contributor, GitHub waits for one of us to approve the run. That is normal; say so if it sits
-   there longer than a working day.
+   contributor, GitHub waits for one of us to approve the run. That is normal; comment on the pull
+   request if it sits there longer than a working day.
 
-**Every Monday at 12:00 noon Eastern, starting Monday 22 September 2026, there should be something
-open or merged on `dev` from the previous week.** It does not have to be finished and it does not
-have to be big. A pull request that says "this is what I measured, here is what it means, here is
+**Open a pull request early, and keep something moving on `dev` every week.** It does not have to
+be finished and it does not have to be big. A pull request that says "this is what I measured, here is what it means, here is
 what I am doing next" is a perfectly good week. Silence is the only bad outcome, because it is the
 one thing nobody can help with.
 
@@ -219,12 +242,13 @@ one thing nobody can help with.
 ## What you should NOT do
 
 - **Do not place a call.** Not to a restaurant, not to a colleague, not to your own mobile. That is
-  TASK-973 and it needs Peter's yes on the day. "It is our own handset" was tried as an argument
-  and overturned.
+  the carrier and first-dial work, and it needs the repository owner's yes on the day. A number
+  we own is no exception: whose phone rings changes who is inconvenienced, not which switch was
+  flipped.
 - **Do not set an environment variable on a deployed service.** That is a configuration change and
   it belongs to the operator.
 - **Do not hardcode a sentence** the restaurant might hear. If there is nowhere to fetch it from,
-  the missing endpoint is the bug — say so and it gets added over there.
+  the missing endpoint is the bug — open an issue and it gets added over there.
 - **Do not delete `src/agent/scriptedStub.ts`** when the real agent works. It is the baseline; if a
   language model scores below a keyword matcher, that is the single most useful thing you could
   find out, and you can only find it out by keeping both.
@@ -233,9 +257,9 @@ one thing nobody can help with.
 
 ## When you are stuck
 
-- The whole feature's state, including what is merged and what is only merged-not-deployed, is on
-  **TASK-967**. It is written to be read cold.
+- What is still wrong or open, and who owns it: `docs/LIMITS.md`. What a green build does not
+  prove: `docs/WHAT-CANNOT-BE-TESTED.md`.
 - What the backend actually returns: `contract/seam4.json`, and `npm run contract:derive -- <path>`
   to check it is still true.
-- Something in this repo contradicts something in a ticket: the repo is not automatically right.
-  Both have been wrong this week. Check `origin`, and say which one you checked.
+- Something in this repo contradicts the task description you were given: the repo is not
+  automatically right, and either can be wrong. Check `origin`, and say which one you checked.

@@ -52,5 +52,5 @@ promise nobody is queued to keep.
 4. **Then break it**: make the agent fail your new expectation on purpose, confirm the eval catches
    it, restore, confirm it passes. Paste both. See `CONTRIBUTING.md`.
 
-Six deliberately broken agents already live in `test/harness.test.ts`; if your new check is a hard
-one, add a seventh there rather than trusting it.
+A set of deliberately broken agents already lives in `test/harness.test.ts`; if your new check is a
+hard one, add one more there rather than trusting it.

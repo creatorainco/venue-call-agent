@@ -89,7 +89,7 @@ const ENV_REGISTER = [
         name: 'GEMINI_API_KEY',
         klass: 'live-model',
         unlocks: 'opening a real Gemini Live session — the first tuning measurement needs this',
-        source: "the org already holds one: it is in the context hub's .env under this exact name. A lookup, not a signup.",
+        source: 'a key minted for you on request by a CreatoRain engineer, or your own from Google AI Studio for a personal experiment',
         blocksWhenAbsent: 'docs/TUNING.md §3.2 onward. Building the adapter against the harness does not need it.',
     },
     {
@@ -103,8 +103,15 @@ const ENV_REGISTER = [
         name: 'SPEECH_TO_TEXT_CREDENTIALS',
         klass: 'fabrication-witness',
         unlocks: "the post-call fabrication check's SECOND, independent transcript",
-        source: '🔴 EXISTS NOWHERE IN THIS ORG. Nobody has provisioned it and no ticket asks for it. See docs/LIMITS.md §9.',
+        source: '🔴 NOT PROVISIONED YET. See docs/LIMITS.md §9.',
         blocksWhenAbsent: 'the acceptance criterion that a witness other than the model confirms what the model said.',
+    },
+    {
+        name: 'VENUE_NAME_LIST_FILE',
+        klass: 'engineer-only',
+        unlocks: "the no-facts guard's check against REAL venue names (one per line, kept outside this repository)",
+        source: 'a CreatoRain engineer holds the list; it is never committed. An outside contributor never needs it',
+        blocksWhenAbsent: null,
     },
 ];
 
@@ -138,7 +145,8 @@ async function checkNode(version = process.versions.node) {
         return {
             state: 'broken',
             detail: `Node ${version}; this repository needs >= ${wanted}. `
-                + 'Below it, importing a .ts file throws and nothing in here runs. `nvm use` reads .nvmrc.',
+                + 'Below it, importing a .ts file throws and nothing in here runs. .nvmrc says 22, so '
+                + '`nvm install` fetches the newest 22.x; `nvm use` alone may pick an older 22 you already have.',
         };
     }
     return { state: 'ok', detail: `Node ${version} (>= ${wanted})` };
@@ -324,7 +332,7 @@ const COMMANDS = [
     { cmd: 'npm run typecheck', ok: localOk && depsOk, needs: 'npm ci' },
     { cmd: 'npm run mint-token -- --all', ok: localOk && secret, needs: 'VENUE_CALL_SECRET (any string you invent)' },
     { cmd: 'the first tuning measurement (docs/TUNING.md §3.2)', ok: localOk && gemini, needs: 'GEMINI_API_KEY' },
-    { cmd: 'the independent-witness fabrication check', ok: localOk && gemini && stt, needs: 'SPEECH_TO_TEXT_CREDENTIALS — which exists nowhere yet' },
+    { cmd: 'the independent-witness fabrication check', ok: localOk && gemini && stt, needs: 'SPEECH_TO_TEXT_CREDENTIALS — not provisioned yet' },
 ];
 
 if (asJson) {

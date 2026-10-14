@@ -14,13 +14,13 @@ lives in this repository:
 
 | thing | where it lives | why it is not yours |
 |---|---|---|
-| the disclosure sentence | backend, `venueCallScript.ts` | it is the first sentence of every call, and it is a legal position, not copy |
+| the disclosure sentence | backend, `venueCallScript.ts` | it is the first sentence of every call: calls must identify themselves as automated |
 | the four opening beats | backend, rendered per call | reordered once already, after an acceptance read found the original structurally identical to a robocall |
 | the system instruction | backend, `buildVenueCallInstruction` | arrives in `call-context`. Not a prompt you edit here |
 | every factual sentence | backend, `venueOperationsKb.ts` | the model picks *which*; it never phrases one |
 | the eight answerable topics | backend, a closed set | an open topic list invites the model to ask for a fact we do not have and fill the gap itself |
 | disclosure-before-audio | `src/state.ts` | there is no transition out of `connected` except to `disclosing`. Do not add one |
-| the retry cadence and the 3-per-24h cap | backend, `venueCallRecord.ts` | a legal position under FCC 24-17, not a tuning knob |
+| the retry cadence and the 3-per-24h cap | backend, `venueCallRecord.ts` | set by the backend for every call, not a tuning knob |
 
 If tuning seems to require changing one of these, you have found a design question. Raise it; do
 not settle it in a config file.
@@ -92,7 +92,7 @@ HIGH. Set them explicitly, as this repo does, and the disagreement cannot reach 
 The Live API takes **raw little-endian 16-bit PCM** and resamples a declared input rate itself, so
 you may send 8 kHz as `audio/pcm;rate=8000`. Output is **always 24 kHz** and there is no setting.
 
-🔴 A note in this estate says "only the 24 kHz → 8 kHz outbound leg is ours." Half right. The API
+🔴 An earlier note said "only the 24 kHz → 8 kHz outbound leg is ours." Half right. The API
 does resample input — but it does not accept **μ-law**, and a telephone hands us μ-law. So the
 inbound leg needs a G.711 decode before anything is declared, and that decode is unavoidably ours.
 Both legs are ours; only the *resampling* half of the inbound one is theirs. `src/audio/` does all
@@ -151,21 +151,34 @@ any tool call inside it. Report **p50, p90, p99 and max**. Never a mean — a me
 calls this feature must not make. Record the model id, the full VAD block and the fixture, or two
 runs are not comparable.
 
-### 3.2 Settle the model question first
+### 3.2 Settle the model question first — before 17 November 2026
 
-Run the same fixture on the pinned model and on `gemini-3.1-flash-live-preview`. A forum thread
-(two posters, no Google reply, last post 2026-09-05) reports the newer one at 9–15 s TTFA against
-~2 s for the 2.5 native-audio line. On a telephone nine seconds after "hello" is the call over. It
-is not our measurement, and it needs to be before anyone changes the pin in either direction.
+🔴 **The pin has a shutdown date.** Google's deprecations page
+(https://ai.google.dev/gemini-api/docs/deprecations, read 2026-10-14) lists **both** the pinned
+`gemini-2.5-flash-native-audio-preview-12-2025` **and** the model it avoids,
+`gemini-3.1-flash-live-preview`, for shutdown on **2026-11-17**, and names `gemini-3.8-live` as the
+replacement for both. Google's models page still calls the 2.5 native-audio line not deprecated,
+with access limited to existing users; the deprecations page is the one with a date, so plan to
+it. `LIVE_MODEL_SHUTDOWN` and `LIVE_MODEL_REPLACEMENT` in `src/tuning/liveDefaults.ts` hold both
+values, and `test/liveDefaults.test.ts` fails the build on that date if the pin has not moved.
+
+So the comparison to run is the pinned model against **`gemini-3.8-live`**, on the same fixture,
+recording everything in §3.1. Re-pinning is the outcome of that measurement, not an edit made from
+a docs page — which is why the value in `src/tuning/liveDefaults.ts` has not been changed.
+
+**Why the pin avoided `gemini-3.1-flash-live-preview`** — still worth knowing, because it is the
+kind of failure to look for in the replacement. A forum thread (two posters, no Google reply, last
+post 2026-09-05) reports it at 9–15 s TTFA against ~2 s for the 2.5 native-audio line. On a
+telephone nine seconds after "hello" is the call over. It is not our measurement.
 
 **Independent second signal, found 2026-09-12 and older than the latency thread.**
 `google-gemini/cookbook` issue **#1197** (opened 2026-04-16, still open, no Google response)
 reports four production voice-call defects on `gemini-3.1-flash-live-preview`, the first being
 **greeting stuttering when interrupted** — a barge-in defect, which is the exact mechanism this
 lane depends on and the one `npm run call` grades. Two unrelated reports, months apart, both
-against the newer model, both on things a telephone call cannot tolerate. That strengthens the
-2.5 pin beyond "we have not measured it yet" — but it is still two strangers' reports, and the
-measurement is still the deciding move.
+against `gemini-3.1-flash-live-preview`, both on things a telephone call cannot tolerate. Neither
+says anything about `gemini-3.8-live`, which nobody here has measured; the replacement starts with
+no evidence either way, and the measurement is the deciding move.
 
 ### 3.3 Sweep silence duration around the documented default
 

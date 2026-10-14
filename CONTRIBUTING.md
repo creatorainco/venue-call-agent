@@ -2,10 +2,10 @@
 
 Three rules, and one piece of process at the bottom.
 
-The three rules are enforced socially rather than mechanically. The process at the bottom is
-enforced mechanically, and that is new: since this repository went public on 2026-09-16, GitHub's
-free plan grants it protected branches, so `main` and `dev` now genuinely refuse a red merge and an
-unreviewed one. Every other repository in this org is private and has neither.
+Rules 1 and 2 are enforced socially; rule 3 is also enforced by `npm run check:no-facts`, which
+`npm run verify` runs and CI fails on. The process at the bottom is
+enforced mechanically: `main` and `dev` are protected branches, so they refuse a red merge and an
+unreviewed one.
 
 ---
 
@@ -25,8 +25,8 @@ So for every check you add:
 Where a check can carry its own control, it must: `scripts/check-no-facts.mjs` scans a synthetic
 violation before it will report clean; `scripts/derive-contract.mjs` runs every extractor against a
 fragment with known contents; `src/eval/fabrication.ts` exports `fabricationControl()` and
-`npm run eval` refuses to print a score if it fails; `test/harness.test.ts` drives six deliberately
-broken agents through the rubric and requires each to be caught.
+`npm run eval` refuses to print a score if it fails; `test/harness.test.ts` drives a set of
+deliberately broken agents through the rubric and requires each to be caught.
 
 This is not theory. Writing the current test suite, controls caught four real defects in one day —
 including a μ-law table that was wrong in a way every round-trip test would have happily confirmed,
@@ -37,15 +37,19 @@ because a round trip against your own encoder passes when both halves are wrong 
 ## 2. A test must never quietly defend a bug
 
 If you pin behaviour you believe is wrong, say so **in the test name and in a comment**, name the
-ticket, and make it obvious that the fix rewrites the test rather than reverting it.
+open work that fixes it, and make it obvious that the fix rewrites the test rather than reverting
+it.
 
-There is a live example in the sibling repo: a test asserting that a paused campaign does **not**
-stop a call, headed `🔴 campaign_not_active — a DEAD guard, pinned deliberately (TASK-968)`. A
-reader who finds that in six weeks knows immediately that it is a defect on record, not a decision.
+The shape: a test name that starts with `🔴` and says the behaviour is a defect, a comment naming
+what fixes it, and an assertion that fix will turn red. A reader who finds that in six weeks knows
+immediately that it is a defect on record, not a decision. There is no such test here today — the
+last one pinned a backend campaign-status guard that could never fire, and it was rewritten when
+the backend fixed the guard, which is exactly the ending this rule is for.
 
-The mock does the same thing at a larger scale: it serves the **fixed** backend by default and the
-deployed bug only under a scenario you ask for by name (`campaign-paused-today`), because every
-remaining ticket is specified against the fixed backend.
+The mock does the same thing at a larger scale: where the deployed backend and the planned one
+differ, it serves both and says which is which. `contract/seam4.json` lists each case under
+`known_divergences` — today only `comp-clause`, where scenario `happy` is the deployed behaviour
+and `comp-known` is the planned one.
 
 ---
 
@@ -92,12 +96,18 @@ than four — an exemption list that grows quietly is the same as no guard.
 npm run verify        # guard + doctor control + typecheck + the whole suite
 npm run eval          # every recorded conversation, as a transcript
 npm run call          # the same ones as telephone calls — dead air, barge-in, the wire
+```
+
+**CreatoRain engineers only**, and an outside contributor never needs it:
+
+```bash
 npm run contract:derive -- ../platform-backend    # has the backend moved under us?
 ```
 
-The last one needs a platform-backend checkout and is a **person's job, not CI's** — CI here has no
-copy of that repository and should not be given credentials to fetch one. A diff from it is a
-conversation with whoever owns that file, not a merge conflict to resolve locally.
+It needs a platform-backend checkout and is a **person's job, not CI's** — CI here has no copy of
+that repository and should not be given credentials to fetch one. A diff from it is a
+conversation with whoever owns that file, not a merge conflict to resolve locally. The same goes
+for running platform-backend locally to test against a real backend.
 
 🔴 **Read the pull request's CI result before merging.** Branch protection will stop a red merge
 on `main` and `dev` now, but it will not stop you merging something green and wrong, and it does
@@ -114,21 +124,35 @@ dev    the integration branch, and the default. Protected. Everything lands here
 
 Both branches require **a pull request, one approving review, and a green `verify`**. Force-pushing
 and deleting them is refused. Administrators can override, which means the guard is real for
-contributors and advisory for owners — that asymmetry is deliberate and is the same shape
-platform-backend uses.
+contributors and advisory for owners — that asymmetry is deliberate.
 
 If you do not have write access here — which is the normal case, and the repository being public is
-what makes it workable:
+what makes it workable — fork it one of two ways.
+
+With the GitHub CLI. `gh repo fork --clone` clones your fork **and** adds this repository as
+`upstream` for you, so there is no `git remote add` step:
 
 ```bash
-gh repo fork creatorainco/venue-call-agent --clone     # or the Fork button, then clone
+gh repo fork creatorainco/venue-call-agent --clone
+cd venue-call-agent
+git fetch upstream
+git checkout -b feat/the-thing upstream/dev
+# ... work, and run the three commands above ...
+git push -u origin feat/the-thing
+gh pr create --repo creatorainco/venue-call-agent --base dev --fill
+```
+
+With the web UI. Press **Fork** on GitHub, then clone your fork and add `upstream` yourself:
+
+```bash
+git clone https://github.com/<you>/venue-call-agent.git
 cd venue-call-agent
 git remote add upstream https://github.com/creatorainco/venue-call-agent.git
 git fetch upstream
 git checkout -b feat/the-thing upstream/dev
-# ... work, and run the four commands above ...
+# ... work, and run the three commands above ...
 git push -u origin feat/the-thing
-gh pr create --repo creatorainco/venue-call-agent --base dev --fill
+# then open the pull request on GitHub, against dev
 ```
 
 `--base dev` matters. `dev` is this repository's default branch, so the web UI and `gh` should

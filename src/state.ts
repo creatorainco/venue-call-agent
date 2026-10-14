@@ -6,7 +6,7 @@
  * restaurant has to be told what this call is before it hears anything else, and the machine — not
  * a reviewer's diligence — is what makes that true.
  *
- * TASK-970 fills in the behaviour. This file exists so the shape, and the one rule that must not be
+ * The Gemini Live adapter fills in the behaviour. This file exists so the shape, and the one rule that must not be
  * negotiated away, are in place before anyone writes the interesting part.
  */
 

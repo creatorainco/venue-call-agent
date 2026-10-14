@@ -1,7 +1,7 @@
 /**
  * The seam client, against the local mock. No database, no network, no credential, no phone.
  *
- * WHAT THIS SUITE IS FOR. Eleven refusals exist on the other side of a cloud boundary and every
+ * WHAT THIS SUITE IS FOR. Twelve refusals exist on the other side of a cloud boundary and every
  * one of them ends a call. Before this file they were readable and not runnable, which is the
  * state in which a refusal path quietly stops working and nobody finds out until a restaurant is
  * on the line. Each is now exercised by name.
@@ -57,8 +57,13 @@ describe('the refusals — each one ends the call before a word is spoken', () =
     const contextRefusals: Array<[string, string]> = [
         ['cancelled', 'reservation_not_active'],
         ['missing', 'reservation_not_found'],
-        ['campaign-paused', 'campaign_not_active'],
+        ['campaign-closed', 'campaign_not_active'],
         ['venue-stopped', 'venue_stopped'],
+        ['venue-stopped-by-another-booking', 'venue_stopped'],
+        ['outside-opening-hours', 'outside_opening_hours'],
+        ['visit-started', 'reservation_not_active'],
+        ['token-scope-mismatch', 'token_scope_mismatch'],
+        ['disclosure-unavailable', 'disclosure_unavailable'],
         ['no-name', 'script_unavailable'],
         ['seam-disabled', 'seam_disabled'],
         ['bad-token', 'token_invalid'],
@@ -90,10 +95,11 @@ describe('the refusals — each one ends the call before a word is spoken', () =
     });
 
     test('every reason word in the contract is one the client can actually raise', () => {
-        // Not a behavioural test — a completeness one. If the backend gains a twelfth reason and
-        // nobody updates the union, this is where it shows up rather than at 7pm on a Friday.
+        // Not a behavioural test — a completeness one. The backend gained a twelfth reason
+        // (outside_opening_hours) a month before this union did; the thirteenth shows up here, or in
+        // `npm run contract:derive`, rather than at 7pm on a Friday.
         assert.equal(new Set(SEAM_REFUSAL_REASONS).size, SEAM_REFUSAL_REASONS.length, 'no duplicates');
-        assert.equal(SEAM_REFUSAL_REASONS.length, 11);
+        assert.equal(SEAM_REFUSAL_REASONS.length, 12);
     });
 });
 
@@ -116,7 +122,7 @@ describe('call-fact — a sentence, never a value', () => {
         assert.doesNotMatch(answer.say, /\$|dollar|free|comp|cover|meal|bill|pay/i);
     });
 
-    test('after TASK-972 the authored clause is quoted unedited', async () => {
+    test('once the comp clause is built, the authored clause is quoted unedited', async () => {
         const answer = await clientFor('comp-known').callFact('comp_terms');
         assert.equal(answer.known, true);
         assert.match(answer.say, /covering the meal/);

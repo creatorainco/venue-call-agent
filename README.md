@@ -3,10 +3,9 @@
 The voice that telephones a restaurant before a creator's booking.
 
 **Nothing here dials anybody.** There is no phone-carrier code in this repository and adding it is a
-separate, approval-gated piece of work (TASK-973). Until then this service's only clients are the
-local mock backend and the replay harness, both in this repo.
+separate, approval-gated piece of work. Until then this service's only clients are the local mock
+backend and the replay harness, both in this repo.
 
-Ticket: **TASK-970**. Parent epic with the full picture: **TASK-967**.
 New here? Read **[ONBOARDING.md](ONBOARDING.md)** — it is the thirty-minute version.
 
 ---
@@ -14,7 +13,8 @@ New here? Read **[ONBOARDING.md](ONBOARDING.md)** — it is the thirty-minute ve
 ## Start here — three minutes, no accounts
 
 ```bash
-nvm use             # or any Node >= 22.18; type stripping is unflagged from there
+nvm install && nvm use   # Node 22.18 or newer (22 or 24 LTS); type stripping is unflagged from 22.18
+                         # no nvm? https://github.com/nvm-sh/nvm, or any Node 22.18+; the doctor checks
 npm run doctor      # what this laptop can and cannot do, and exactly why. Run it FIRST.
 npm ci
 npm run verify      # the guard, the doctor's control, the typechecker, the whole suite
@@ -27,11 +27,11 @@ else: it boots the mock, imports a real `.ts` module, and reads the environment,
 what is actually true of your machine rather than what this page claims. **You need no Google account, no phone carrier and no AWS
 access** for any of it.
 
-⚠️ **That is true of everything above and it is NOT true of all of TASK-970.** Building the
-Gemini Live adapter against the harness needs nothing; *running a real session* — which the
+⚠️ **That is true of everything above and it is NOT true of the Gemini Live adapter.** Building
+the adapter against the harness needs nothing; *running a real session* — which the
 first tuning measurement requires — needs `GEMINI_API_KEY`, and the anti-fabrication check's
 second transcriber needs `SPEECH_TO_TEXT_CREDENTIALS`. An earlier version of this page said no
-account was needed until the very last ticket. That was wrong; see `docs/LIMITS.md` §9.
+account was needed until the end of the work. That was wrong; see `docs/LIMITS.md` §9.
 
 ---
 
@@ -63,7 +63,7 @@ src/
   config.ts             three classes of setting; the local path needs none of them
   state.ts              the call state machine. No path reaches audio before the disclosure.
   seam/                 types + client for the three backend routes. The only way a fact enters.
-  mock/                 a local stand-in for those three routes. 18 scenarios, every refusal.
+  mock/                 a local stand-in for those three routes. A scenario for every refusal.
   agent/
     contract.ts         the interface a real agent implements: text in, tool calls + text out
     scriptedStub.ts     a reference agent with NO MODEL. The baseline and the executable spec.
@@ -72,7 +72,7 @@ src/
     leg.ts              the four things every carrier has in common. Nothing vendor-shaped.
     fakeLeg.ts          a leg on a virtual clock, whose far end waits for an answer
     vad.ts              turn detection — Google's parameter names, our arithmetic, said so
-    bridge.ts           audio <-> words. THE SHAPE TASK-970 FILLS IN.
+    bridge.ts           audio <-> words. THE SHAPE THE GEMINI LIVE ADAPTER FILLS IN.
     call.ts             a whole call; returns the same result type the text harness does
     checks.ts           dead air, barge-in, audio-after-hangup — with a planted-fault control
   tuning/liveDefaults.ts every Gemini Live knob, with the reason for each value
@@ -84,10 +84,10 @@ scripts/
   derive-contract.mjs   re-reads the backend and diffs it against contract/seam4.json
   mint-token.mjs        produce a valid / expired / wrong-booking token locally
 test/fixtures/conversations/   the recorded conversations, one file per branch
-docs/                   TUNING.md · LIMITS.md · WHAT-CANNOT-BE-TESTED.md
+docs/                   TUNING.md · LIMITS.md · WHAT-CANNOT-BE-TESTED.md · DEPLOY.md · TEST-ENVIRONMENT.md
 ```
 
-**Not here yet, and that is TASK-970:** one class, implementing `SpeechBridge` in
+**Not here yet, and that is the Gemini Live adapter:** one class, implementing `SpeechBridge` in
 `src/carrier/bridge.ts` — the thing that opens a Gemini Live session, turns inbound frames into
 turns, and turns sentences back into audio and tool calls. It used to be describable only as "the
 adapter", which is a project; splitting the telephone off it left a component.
@@ -109,9 +109,9 @@ spec to satisfy.
 | `npm run call` | the same ones as telephone calls: dead air per turn, talking over an interrupt, audio after hangup | nothing |
 | `npm run call -- --sweep=200,400,600,800,1000,1200` | what each turn-detector setting costs — `docs/TUNING.md` §3.3, as a command | nothing |
 | `npm run mock` | a local Seam 4 on :8788 you can curl | nothing |
-| `npm run mint-token -- --all` | a valid, an expired and two wrong-scope tokens | a signing literal you invent — `VENUE_CALL_SECRET=anything npm run mint-token -- --all`. It exits 64 and tells you so if you forget |
+| `npm run mint-token -- --all` | a valid token, an expired one, one for the wrong booking and one for the wrong attempt | a signing literal you invent — bash: `VENUE_CALL_SECRET=anything npm run mint-token -- --all`; PowerShell: `$env:VENUE_CALL_SECRET='anything'; npm run mint-token -- --all`. It exits 64 and tells you so if you forget |
 | `npm run check:no-facts` | no product fact is hardcoded here | nothing |
-| `npm run contract:derive -- ../platform-backend` | the snapshot still matches the real backend | a platform-backend checkout |
+| `npm run contract:derive -- ../platform-backend` | the snapshot still matches the real backend | a platform-backend checkout. **CreatoRain engineers only**; an outside contributor never needs it |
 | `npm run typecheck` | types, and that no syntax Node cannot erase has crept in | nothing |
 
 ---
@@ -124,14 +124,14 @@ spec to satisfy.
 |---|---|---|
 | `plain` | says "noted, thanks" | notice delivered, short close |
 | `who-pays` | asks who is paying | today's honest deferral — **no meal, no bill, no money** |
-| `who-pays-after-task-972` | asks the same, once a comp clause exists | the authored clause, quoted unedited |
+| `who-pays-after-comp-clause` | asks the same, once a comp clause exists | the authored clause, quoted unedited |
 | `unknown-question` | asks something no tool answers | logged **first**, then the deferral |
 | `stop-calling` | says stop calling us | do-not-call written before the reply, call ends |
 | `phone-menu` | is a menu | notice withheld, two tries for a person, then voicemail |
 | `voicemail` | is a machine | one pass of the voicemail line, nothing asked back |
 | `wrong-number` | is not the restaurant | nothing further about the booking, call ends |
 | `wants-to-cancel` | wants the booking moved | a callback logged; the agent never implies it can |
-| `booking-cancelled`, `campaign-paused` | — | refused **before a word is spoken** |
+| `booking-cancelled`, `campaign-closed` | — | refused **before a word is spoken** |
 | `credential-expires` | — | the seam refuses mid-call; the agent ends |
 | `they-hang-up` | hangs up mid-notice | partial transcript, no crash, no retry |
 | `two-questions-then-close` | asks two things | both answered, then the close |
@@ -155,37 +155,43 @@ and a `.gitignore` line that hid the environment template from every clone.
 
 ## Talking to a real backend
 
-The routes are merged on `platform-backend`'s `dev` branch. Against the local mock you need none of
-this; against a real backend:
+The routes are on `platform-backend`'s main line and deployed, but switched off: until the
+call-token secret is set on a deployed service, every route answers `seam_disabled`. Against the
+local mock you need none of this. Against a real backend — a **CreatoRain-engineer step**; an
+outside contributor never needs it:
 
 - run platform-backend locally (it listens on **4400**, `API_PORT`), set `VENUE_CALL_SECRET` **in
   your own shell** to any throwaway string, and set the same value here,
 - `npm run mint-token` produces the credential,
 - 🔴 setting an environment variable on a *deployed* service is a configuration change and is
-  Peter's call. Ask; do not do it.
+  the repository owner's call. Ask; do not do it.
 
-The credential is scoped to **one booking and one attempt** and expires in twenty minutes. Test an
-expired one and one minted for a different booking — both must be refused.
+The credential names **one booking and one attempt** and expires in twenty minutes. An expired
+one is refused. One minted for a different booking is **honoured** — the backend answers about
+that other booking — and one minted for a different attempt writes a different ledger row, so
+keeping each call on its own token is the dialler's job. `npm run mint-token -- --all` prints
+the same warning.
 
 ---
 
 ## Deployment
 
-Google Cloud Run, eventually. **Not part of TASK-970.** When it happens: raise the request timeout
-off its 5-minute default, allow high concurrency, turn session affinity on. Two things are still
-unknown and are on the epic — whether Cloud Run is enabled in the project that bills our AI usage,
-and our real concurrency ceiling. Neither blocks any local work.
+Google Cloud Run, eventually. **Not part of the Gemini Live adapter.** When it happens: raise the
+request timeout off its 5-minute default, allow high concurrency, turn session affinity on. Two
+things are still unknown — whether Cloud Run is enabled in the project that bills our AI usage,
+and our real concurrency ceiling. Neither blocks any local work. `docs/DEPLOY.md` has the rest.
 
 ---
 
 ## Absolute limits
 
-- **Never place a real call** to any number, including one we own, without Peter's explicit yes for
-  that act on that day. An earlier plan exempted a self-call because the handset was ours. That was
-  overturned: whose phone rings changes who is inconvenienced, not which switch was flipped.
+- **Never place a real call** to any number, including one we own, without the repository owner's
+  explicit yes for that act on that day. A number we own is no exception: whose phone rings changes
+  who is inconvenienced, not which switch was flipped.
 - **Transcripts only, never recorded audio.**
 - **No route may write to a booking.** A stranger on a telephone cannot move, cancel or confirm a
-  reservation. The single permitted write is the do-not-call record.
+  reservation. The writes that exist are the call ledger — one row per call, from `call-event` —
+  and the do-not-call record, which covers the whole venue.
 - **The first outbound audio is gated on the disclosure being spoken**, and the state machine has no
   path that reaches the notice without it.
 
