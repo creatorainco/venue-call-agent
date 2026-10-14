@@ -59,6 +59,7 @@ const SOURCES = {
     script: 'src/helpers/location/venueCallScript.ts',
     routes: 'src/infrastructure/routes/reservations.routes.ts',
     token: 'src/helpers/location/venueCallToken.ts',
+    record: 'src/helpers/location/venueCallRecord.ts',
     enum: 'src/shared/enum.ts',
 };
 
@@ -124,6 +125,17 @@ const interfaceFields = (text, name) => {
 
     const fields = [...body.matchAll(/(?:^|[;\n])\s*([a-z_][a-z0-9_]*)\s*\??\s*:/gi)].map((m) => m[1]);
     return [...new Set(fields)].sort();
+};
+
+/** Every `'word'` of the named array literal (`NAME ... = [ ... ];`), IN SOURCE ORDER. */
+const orderedMembers = (text, constName) => {
+    const start = text.indexOf(constName);
+    if (start < 0) return null;
+    const open = text.indexOf('= [', start);
+    const close = text.indexOf('];', open);
+    if (open < 0 || close < 0) return null;
+    const out = [...text.slice(open, close).matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+    return out.length ? out : null;
 };
 
 const stringConst = (text, name) => {
@@ -256,6 +268,11 @@ const positiveControl = async () => {
     const SAMPLE = `
         export type FakeReason = 'alpha' | 'beta';
         export const FAKE_TOPICS: readonly string[] = [ 'gamma', 'delta' ];
+        export const FAKE_RANK: readonly Fake[] = [
+            'zeta',
+            'eta',
+            'theta',
+        ];
         router.post('/thing', handler);
         export interface FakeShape { one: string; two: { nested: string }; three: number; }
         export const FAKE_VERSION = 'v/9';
@@ -299,6 +316,7 @@ const positiveControl = async () => {
         ['routePaths', routePaths(SAMPLE), ['/thing']],
         ['interfaceFields', interfaceFields(SAMPLE, 'FakeShape'), ['one', 'three', 'two']],
         ['stringConst', [stringConst(SAMPLE, 'FAKE_VERSION')], ['v/9']],
+        ['orderedMembers', orderedMembers(SAMPLE, 'FAKE_RANK'), ['zeta', 'eta', 'theta']],
         ['constSentence', constSentence(SAMPLE, 'FAKE_SENTENCE'), 'Zip — zap, it\'s zop.'],
         ['factsById', factsById(SAMPLE, 'FAKE_FACTS'), { 'first-one': 'Qux\'s quux, "quoted".', 'second-one': 'Corge.' }],
         ['functionReturns', functionReturns(SAMPLE, 'fakeSentence'), ['Grault\'s.', '']],
@@ -375,6 +393,7 @@ const kb = show(SOURCES.kb);
 const scriptSrc = show(SOURCES.script);
 const routes = show(SOURCES.routes);
 const tokenSrc = show(SOURCES.token);
+const recordSrc = show(SOURCES.record);
 const enumSrc = show(SOURCES.enum);
 
 /** `20 * 60 * 1000` in the source, evaluated. Kept blunt: only this exact shape is accepted. */
@@ -403,6 +422,7 @@ const observed = {
     'script version': [stringConst(scriptSrc, 'VENUE_CALL_SCRIPT_VERSION')],
     'token version prefix': [stringConst(tokenSrc, 'const VERSION')],
     'token ttl (ms)': ttlMs === null ? null : [String(ttlMs)],
+    'ledger: disposition rank, weakest first (VENUE_CALL_DISPOSITION_RANK)': orderedMembers(recordSrc, 'VENUE_CALL_DISPOSITION_RANK'),
     'campaign rule: statuses that keep calls': rule && rule.allowed,
     'campaign rule: case-insensitive': rule && [String(rule.caseInsensitive)],
     'campaign rule: every status the backend knows': rule && rule.known,
@@ -425,6 +445,7 @@ const expected = {
     'script version': [contract.script_version],
     'token version prefix': [contract.token.version_prefix],
     'token ttl (ms)': [String(contract.token.ttl_ms)],
+    'ledger: disposition rank, weakest first (VENUE_CALL_DISPOSITION_RANK)': contract.routes.find((r) => r.ledger)?.ledger.disposition_rank ?? [],
     'campaign rule: statuses that keep calls': [...contract.campaign_rule.allowed].sort(),
     'campaign rule: case-insensitive': [String(contract.campaign_rule.case_insensitive)],
     'campaign rule: every status the backend knows': [...contract.campaign_rule.known_statuses].sort(),

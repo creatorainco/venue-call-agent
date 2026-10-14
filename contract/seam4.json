@@ -25,13 +25,14 @@
       "src/helpers/emails/venueOperationsKb.ts",
       "src/helpers/location/venueCallScript.ts",
       "src/helpers/location/venueCallToken.ts",
+      "src/helpers/location/venueCallRecord.ts",
       "src/shared/enum.ts"
     ]
   },
   "auth": {
     "header": "Authorization",
     "scheme": "Bearer",
-    "note": "A short-lived HMAC capability token scoped to ONE attempt at ONE booking. The reservation id is taken FROM THE TOKEN; a body value that disagrees is a refusal, not an override. Never put the token in a query string - carrier and proxy logs retain URLs.",
+    "note": "A short-lived HMAC capability token scoped to ONE attempt at ONE booking. The reservation id is taken FROM THE TOKEN, never from a body. The backend declares token_scope_mismatch for a body id that disagrees, but at the snapshot commit no route passes one to the check, so the word is never emitted. The attempt_id is the ledger's call key: see the call-event route's ledger block. Never put the token in a query string - carrier and proxy logs retain URLs.",
     "dark_when": "VENUE_CALL_SECRET unset on the backend. Every route then refuses seam_disabled."
   },
   "token": {
@@ -45,7 +46,7 @@
       "invalid",
       "expired"
     ],
-    "note": "Only TWO refusal words, deliberately: an unparseable token, a forged signature and a token for another booking all return invalid, because a refusal that says WHY tells a prober which half of their guess was right."
+    "note": "Only TWO refusal words, deliberately: an unparseable token, a forged signature and a token edited to name another booking (so its signature no longer matches) all return invalid. A correctly signed token for another booking is NOT refused: it opens that booking, which is why each call must hold only its own token, because a refusal that says WHY tells a prober which half of their guess was right."
   },
   "routes": [
     {
@@ -115,7 +116,21 @@
         "say",
         "do_not_call"
       ],
-      "note": "asked_to_stop_calling is written SYNCHRONOUSLY before this responds. `say` is empty string for answerer_reported - the agent says nothing, it is a report to us."
+      "note": "asked_to_stop_calling is written SYNCHRONOUSLY before this responds. `say` is empty string for answerer_reported - the agent says nothing, it is a report to us.",
+      "ledger": {
+        "key": "attempt_id",
+        "note": "ONE ledger row per call (TASK-1127). The row in reservation_call_attempts is keyed by call_id = the attempt_id inside the token. The first event of a call writes the row; every later event of the same call folds into it (its note is appended) and the disposition only moves UP disposition_rank, so a late, weaker event can never undo a stop. A re-dial is a new call and MUST carry a token minted with a NEW attempt_id: reuse one and the second call's events fold into the first call's row, and the 3-per-day attempt count never sees it.",
+        "disposition_rank": [
+          "failed",
+          "no_answer",
+          "busy",
+          "left_voicemail",
+          "spoke_to_staff",
+          "refused",
+          "wrong_number",
+          "asked_to_stop_calling"
+        ]
+      }
     }
   ],
   "refusal": {

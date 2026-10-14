@@ -5,6 +5,14 @@
  *     npm run mint-token -- --reservation=abc --attempt=1
  *     npm run mint-token -- --reservation=abc --attempt=1 --expired
  *     npm run mint-token -- --all          # one of each shape, for a test fixture
+ *     npm run mint-token -- --help
+ *
+ * 🔴 attempt_id IS THE LEDGER'S CALL KEY. The backend writes ONE row per call in
+ * reservation_call_attempts, keyed by the attempt_id in the token; every later event of that call
+ * folds into the row, and its disposition only moves up the rank in contract/seam4.json (the
+ * call-event route's `ledger` block). So each re-dial must be minted with a NEW attempt_id —
+ * reuse one and the second call vanishes into the first call's row — and one call never switches
+ * tokens halfway.
  *
  * WHY THIS EXISTS. The token is the only credential the agent ever holds, and every interesting
  * refusal is about it: a forged one, an aged-out one, one minted for a different booking. Before
@@ -61,6 +69,22 @@ if (process.argv[1] && process.argv[1].endsWith('mint-token.mjs')) {
     const attemptId = flag('attempt') ?? 'mock-attempt-0001';
     const now = Number(flag('now') ?? Date.now());
 
+    if (has('help')) {
+        console.log('usage: npm run mint-token -- [--reservation=<id>] [--attempt=<id>] [--expired | --all]');
+        console.log('                               [--secret=<s>] [--now=<epoch ms>]');
+        console.log('');
+        console.log('  --reservation  the booking the token opens (default mock-reservation-0001)');
+        console.log('  --attempt      the attempt_id: the ledger\'s call key. One ledger row per call,');
+        console.log('                 keyed by it; every re-dial must be minted with a NEW one.');
+        console.log('                 (default mock-attempt-0001)');
+        console.log('  --expired      a token that has already aged out (token_expired)');
+        console.log('  --all          valid, expired, one for the wrong booking and one for the wrong attempt');
+        console.log('  --secret       the signing secret; otherwise VENUE_CALL_SECRET');
+        console.log('');
+        console.log('Dials nothing. Against the in-repo mock you need no token — use `Bearer mock:<scenario>`.');
+        process.exit(0);
+    }
+
     if (!secret) {
         console.error('mint-token: VENUE_CALL_SECRET is unset and --secret was not passed.');
         console.error('');
@@ -77,8 +101,8 @@ if (process.argv[1] && process.argv[1].endsWith('mint-token.mjs')) {
         ? [
             ['valid', { reservationId, attemptId, expiresAt: now + TTL_MS }],
             ['expired', { reservationId, attemptId, expiresAt: now - 1000 }],
-            ['other booking', { reservationId: `${reservationId}-other`, attemptId, expiresAt: now + TTL_MS }],
-            ['next attempt', { reservationId, attemptId: `${attemptId}-2`, expiresAt: now + TTL_MS }],
+            ['wrong booking', { reservationId: `${reservationId}-other`, attemptId, expiresAt: now + TTL_MS }],
+            ['wrong attempt', { reservationId, attemptId: `${attemptId}-2`, expiresAt: now + TTL_MS }],
         ]
         : [[has('expired') ? 'expired' : 'valid', {
             reservationId,
@@ -94,8 +118,14 @@ if (process.argv[1] && process.argv[1].endsWith('mint-token.mjs')) {
 
     if (has('all')) {
         console.error('');
-        console.error('The last two verify perfectly and are still refused: a token is scoped to ONE');
-        console.error('attempt at ONE booking, so it cannot be replayed onto another booking, and it');
-        console.error('cannot be replayed onto the same booking\'s next attempt either.');
+        console.error('The last two verify perfectly, and the backend HONOURS both — it reads the');
+        console.error('booking and the attempt from the token and has nothing to compare them with:');
+        console.error('  wrong booking  one for the wrong booking: every route answers about that');
+        console.error('                 other reservation (reservation_not_found if it does not exist).');
+        console.error('  wrong attempt  one for the wrong attempt: same booking, a different attempt_id,');
+        console.error('                 so its events land on a different ledger row. attempt_id is the');
+        console.error('                 ledger\'s call key — one row per call — so a re-dial MUST be');
+        console.error('                 minted with a new one, and one call must never use two.');
+        console.error('Keeping each call on its own token is the dialler\'s job, not the backend\'s.');
     }
 }
