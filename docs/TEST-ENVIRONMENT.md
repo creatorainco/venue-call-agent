@@ -15,7 +15,7 @@ Read this before asking for an account. Most of what looks like it needs one doe
 | **0 — the laptop** | the decision layer, the contract, every refusal, the codec | nothing | ✅ built |
 | **1 — the laptop, as a telephone** | turn-taking, dead air, barge-in, the wire | nothing | ✅ built |
 | **2 — a real model** | that the adapter works, and what it costs in seconds | `GEMINI_API_KEY` | ⏳ a key, on request |
-| **3 — a real call** | everything that is actually a telephone | a carrier, and Peter's yes | 🔴 blocked, and correctly |
+| **3 — a real call** | everything that is actually a telephone | a carrier, and the repository owner's yes | 🔴 blocked, and correctly |
 
 ---
 
@@ -144,10 +144,9 @@ written at the interface with its fix, rather than left for whoever picks Vonage
 Which carrier is a product decision, not an engineering one, and it has not been made.
 `docs/LIMITS.md` §11 carries the one audio-quality trade that bears on it.
 
-**Peter's explicit yes, on the day, for that call.** This is not a formality and it has already
-been tested once: an earlier plan exempted a call to a handset we own, on the grounds that it was
-ours. That was overturned — whose phone rings changes who is inconvenienced, not which switch was
-flipped. Owner: **the carrier and first-dial work**.
+**The repository owner's explicit yes, on the day, for that call.** This is not a formality, and a
+number we own is no exception: whose phone rings changes who is inconvenienced, not which switch
+was flipped. Owner: **the carrier and first-dial work**.
 
 ---
 

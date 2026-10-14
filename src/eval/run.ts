@@ -5,7 +5,8 @@
  *
  *     npm run eval                    every fixture, against the reference stub
  *     npm run eval -- --only=who      just the fixtures whose name contains "who"
- *     npm run eval -- --verbose       print the full transcript of each call
+ *     npm run eval -- --verbose       print every check, passed ones too, and the quoted/glue count
+ *                                     (the transcript itself: `npm run harness -- --fixture=<name>`)
  *     npm run eval -- --agent=live    against the real agent, once the Gemini Live adapter exists
  *
  * 🔴 IT REFUSES TO REPORT A SCORE IT CANNOT VOUCH FOR. Before grading anything it runs the

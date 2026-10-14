@@ -14,6 +14,7 @@ New here? Read **[ONBOARDING.md](ONBOARDING.md)** — it is the thirty-minute ve
 
 ```bash
 nvm install && nvm use   # Node 22.18 or newer (22 or 24 LTS); type stripping is unflagged from 22.18
+                         # no nvm? https://github.com/nvm-sh/nvm, or any Node 22.18+; the doctor checks
 npm run doctor      # what this laptop can and cannot do, and exactly why. Run it FIRST.
 npm ci
 npm run verify      # the guard, the doctor's control, the typechecker, the whole suite
@@ -30,7 +31,7 @@ access** for any of it.
 the adapter against the harness needs nothing; *running a real session* — which the
 first tuning measurement requires — needs `GEMINI_API_KEY`, and the anti-fabrication check's
 second transcriber needs `SPEECH_TO_TEXT_CREDENTIALS`. An earlier version of this page said no
-account was needed until the very last ticket. That was wrong; see `docs/LIMITS.md` §9.
+account was needed until the end of the work. That was wrong; see `docs/LIMITS.md` §9.
 
 ---
 
@@ -83,7 +84,7 @@ scripts/
   derive-contract.mjs   re-reads the backend and diffs it against contract/seam4.json
   mint-token.mjs        produce a valid / expired / wrong-booking token locally
 test/fixtures/conversations/   the recorded conversations, one file per branch
-docs/                   TUNING.md · LIMITS.md · WHAT-CANNOT-BE-TESTED.md
+docs/                   TUNING.md · LIMITS.md · WHAT-CANNOT-BE-TESTED.md · DEPLOY.md · TEST-ENVIRONMENT.md
 ```
 
 **Not here yet, and that is the Gemini Live adapter:** one class, implementing `SpeechBridge` in
@@ -163,7 +164,7 @@ outside contributor never needs it:
   your own shell** to any throwaway string, and set the same value here,
 - `npm run mint-token` produces the credential,
 - 🔴 setting an environment variable on a *deployed* service is a configuration change and is
-  Peter's call. Ask; do not do it.
+  the repository owner's call. Ask; do not do it.
 
 The credential names **one booking and one attempt** and expires in twenty minutes. An expired
 one is refused. One minted for a different booking is **honoured** — the backend answers about
@@ -184,9 +185,9 @@ and our real concurrency ceiling. Neither blocks any local work. `docs/DEPLOY.md
 
 ## Absolute limits
 
-- **Never place a real call** to any number, including one we own, without Peter's explicit yes for
-  that act on that day. An earlier plan exempted a self-call because the handset was ours. That was
-  overturned: whose phone rings changes who is inconvenienced, not which switch was flipped.
+- **Never place a real call** to any number, including one we own, without the repository owner's
+  explicit yes for that act on that day. A number we own is no exception: whose phone rings changes
+  who is inconvenienced, not which switch was flipped.
 - **Transcripts only, never recorded audio.**
 - **No route may write to a booking.** A stranger on a telephone cannot move, cancel or confirm a
   reservation. The writes that exist are the call ledger — one row per call, from `call-event` —

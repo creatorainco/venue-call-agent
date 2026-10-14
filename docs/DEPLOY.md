@@ -10,7 +10,7 @@ open the console and find out which of these is wrong — which is a different a
 starting at a blank page, and it is the honest state of it.
 
 🔴 **A DEPLOYED SERVICE IS NOT A DIALLING SERVICE.** Nothing here places a call, and a green
-deploy opens no gate. The carrier and first-dial work, and Peter's per-act yes, are a separate
+deploy opens no gate. The carrier and first-dial work, and the repository owner's per-act yes, are a separate
 approval that this page does not touch.
 
 ---
@@ -272,4 +272,4 @@ Not hedges — questions with no answer available from documentation, each with 
 | Does the eventual carrier need a custom domain, a static egress IP, or IP allowlisting? | picking a carrier. Cloud Run gives a `*.run.app` URL; anything beyond that is extra deploy surface. |
 | Would Cloud Run **worker pools** — which take TCP connections rather than HTTP requests — suit a media stream better? | unresearched. It may change the 60-minute ceiling entirely. |
 
-**Do not create anything in Google Cloud to answer these.** Surface them; the console is Peter's.
+**Do not create anything in Google Cloud to answer these.** Surface them; the console is the repository owner's.

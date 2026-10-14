@@ -2,7 +2,8 @@
 
 Three rules, and one piece of process at the bottom.
 
-The three rules are enforced socially rather than mechanically. The process at the bottom is
+Rules 1 and 2 are enforced socially; rule 3 is also enforced by `npm run check:no-facts`, which
+`npm run verify` runs and CI fails on. The process at the bottom is
 enforced mechanically: `main` and `dev` are protected branches, so they refuse a red merge and an
 unreviewed one.
 

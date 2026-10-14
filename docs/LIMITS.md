@@ -18,7 +18,7 @@ booking, and the call ends. It cannot cover the exposure before.
 The fix, if it is wanted, is a product decision about beat one: confirm the venue before naming the
 booking. That was deliberately removed once — an acceptance read found "I'm calling Golden Crane?"
 read as a template filling in a field — so putting it back is a trade, not a correction.
-**Owner: Peter. Not ticketed.**
+**Owner: the repository owner.**
 
 ---
 
@@ -105,13 +105,13 @@ measured. **Owner: unassigned.**
 
 ## 9. Two credentials are needed sooner than the docs used to say, and one does not exist
 
-`README.md` and `ONBOARDING.md` both said no account was needed "until the very last ticket".
-That was wrong and is corrected. The accurate line:
+`README.md` and `ONBOARDING.md` both used to say no account was needed until the end of the
+work. That was wrong and is corrected. The accurate line:
 
 - Everything in this repository today, and **building** the Gemini Live adapter against the
   harness, needs nothing.
 - **Running a real session** — which the first tuning measurement in `docs/TUNING.md` §3.2
-  requires — needs `GEMINI_API_KEY`. A CreatoRain engineer mints one on request.
+  requires — needs `GEMINI_API_KEY`. Open an issue and a CreatoRain engineer mints one.
 - The anti-fabrication check's **independent transcriber** needs `SPEECH_TO_TEXT_CREDENTIALS`.
   That value has not been provisioned, and it is a prerequisite for the acceptance criterion that
   a second witness confirms what the agent said. See also §8 — whether a same-vendor transcriber
@@ -159,10 +159,7 @@ for AI voice agents. That is an argument for the carrier work, not a reason to d
 
 ---
 
-## 12. This repository's merge rules bind contributors, not owners
+## 12. Merge rules
 
 `main` and `dev` both require a pull request, one approving review and the `verify` check, and
-refuse force-pushes and deletion. `enforce_admins` is **off**, so an owner can still merge past
-all of it: read that as "a red merge is a deliberate act by someone with admin rights", not "a red
-merge is impossible". Dependabot alerts are on. Secret scanning is off, so nothing catches a
-committed key — `.gitignore` and your own review of the diff are the guard.
+refuse force-pushes and deletion. Read your own diff for keys before you push.

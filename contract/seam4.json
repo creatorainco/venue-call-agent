@@ -46,7 +46,7 @@
       "invalid",
       "expired"
     ],
-    "note": "Only TWO refusal words, deliberately: an unparseable token, a forged signature and a token edited to name another booking (so its signature no longer matches) all return invalid. A correctly signed token for another booking is NOT refused: it opens that booking, which is why each call must hold only its own token, because a refusal that says WHY tells a prober which half of their guess was right."
+    "note": "Only TWO refusal words, deliberately: a refusal that says WHY tells a prober which half of their guess was right. An unparseable token, a forged signature and a token edited to name another booking (so its signature no longer matches) all return invalid. A correctly signed token for another booking is NOT refused: it opens that booking. So each call must hold only its own token."
   },
   "routes": [
     {

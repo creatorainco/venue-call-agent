@@ -6,9 +6,9 @@ the things an agent gets wrong here specifically.
 ## 🔴 The three that are not negotiable
 
 1. **Never place a call.** Not to a restaurant, not to a colleague, not to a number we own. The
-   first dial of any kind is a send switch and needs Peter's explicit yes for that act on that day
-   (the carrier and first-dial work). "It is our own handset" has been tried as an argument and
-   was overturned: whose phone rings changes who is inconvenienced, not which switch was flipped.
+   first dial of any kind is a send switch and needs the repository owner's explicit yes for that
+   act on that day (the carrier and first-dial work). A number we own is no exception: whose phone
+   rings changes who is inconvenienced, not which switch was flipped.
 2. **Never write a product fact into `src/`.** No price, policy, venue name, offer term or spoken
    sentence. If a sentence is missing, the missing backend endpoint is the bug. `npm run
    check:no-facts` enforces it; the two declared exemptions are for code that *detects* that

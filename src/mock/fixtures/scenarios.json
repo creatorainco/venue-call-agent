@@ -196,7 +196,7 @@
       }
     },
     "seam-disabled": {
-      "summary": "VENUE_CALL_SECRET is unset on the backend. Every route refuses the same way. This is what a correctly-configured production looks like today.",
+      "summary": "VENUE_CALL_SECRET is unset on the backend. Every route refuses the same way.",
       "refuse": {
         "call-context": "seam_disabled",
         "call-fact": "seam_disabled",

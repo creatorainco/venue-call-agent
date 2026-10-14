@@ -54,6 +54,10 @@ describe('🔴 fields that are silently ignored in the wrong place', () => {
 /**
  * True when `pin` is still one Google has scheduled for shutdown and `today` is on or past that
  * day. Pure, so the control below can hand it a date this build has not reached yet.
+ *
+ * The scheduled list names the 2.5 model as a literal, NOT as `LIVE_MODEL`, on purpose: it is
+ * Google's list, and it must not follow the pin. Written as `LIVE_MODEL`, re-pinning to the
+ * replacement would put the replacement on the list and fail the build forever.
  */
 function pinOutlivedItsModel(pin: string, today: string): boolean {
     const scheduled = [LIVE_MODEL_UNDER_SUSPICION, 'gemini-2.5-flash-native-audio-preview-12-2025'];
@@ -70,6 +74,8 @@ describe('🔴 the pinned model has a published shutdown date', () => {
     test('the build fails once the shutdown date passes with a scheduled model still pinned', () => {
         // Re-pinning is the measured outcome of the first tuning run (docs/TUNING.md §3.2), not
         // an edit made from a docs page. This test is what stops the deadline passing quietly.
+        // DELIBERATE: from the shutdown date (a UTC calendar day) this fails `npm run verify`,
+        // and so CI, on every pull request until the pin moves, hotfixes included.
         const today = new Date().toISOString().slice(0, 10);
         assert.equal(
             pinOutlivedItsModel(LIVE_MODEL, today),
