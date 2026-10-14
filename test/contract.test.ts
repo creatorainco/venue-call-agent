@@ -33,7 +33,7 @@ const contract = read('../contract/seam4.json');
 const fixtures = read('../src/mock/fixtures/scenarios.json');
 
 describe('the snapshot and the types', () => {
-    test('the eleven refusal reasons match, in the same set', () => {
+    test('the twelve refusal reasons match, in the same set', () => {
         assert.deepEqual([...SEAM_REFUSAL_REASONS].sort(), [...contract.refusal.reasons].sort());
     });
 

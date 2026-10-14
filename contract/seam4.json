@@ -15,9 +15,9 @@
   ],
   "derived_from": {
     "repo": "creatorainco/platform-backend",
-    "ref": "origin/dev",
-    "commit": "0d651963",
-    "read_on": "2026-09-12",
+    "ref": "origin/master",
+    "commit": "a1fe157d",
+    "read_on": "2026-10-14",
     "files": [
       "src/infrastructure/routes/reservations.routes.ts",
       "src/infrastructure/controllers/reservations.controller.ts",
@@ -133,6 +133,7 @@
       "reservation_not_active",
       "campaign_not_active",
       "venue_stopped",
+      "outside_opening_hours",
       "disclosure_unavailable",
       "script_unavailable",
       "unknown_topic"

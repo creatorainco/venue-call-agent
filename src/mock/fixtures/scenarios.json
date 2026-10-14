@@ -151,6 +151,12 @@
         "call-context": "venue_stopped"
       }
     },
+    "outside-opening-hours": {
+      "summary": "The venue is not open right now in its own time zone, or nobody ever recorded its hours. Re-checked at connect time, because a retry can land long after the scheduler placed the call. Refuses before a word is spoken.",
+      "refuse": {
+        "call-context": "outside_opening_hours"
+      }
+    },
     "no-name": {
       "summary": "The creator's name could not be resolved to something speakable, so no notice can be rendered. Refusing beats reading out a handle to a floor manager.",
       "refuse": {

@@ -24,6 +24,7 @@ export type SeamRefusalReason =
     | 'reservation_not_active'
     | 'campaign_not_active'
     | 'venue_stopped'
+    | 'outside_opening_hours'
     | 'disclosure_unavailable'
     | 'script_unavailable'
     | 'unknown_topic';
@@ -37,6 +38,7 @@ export const SEAM_REFUSAL_REASONS: readonly SeamRefusalReason[] = [
     'reservation_not_active',
     'campaign_not_active',
     'venue_stopped',
+    'outside_opening_hours',
     'disclosure_unavailable',
     'script_unavailable',
     'unknown_topic',

@@ -6,7 +6,7 @@
  * agent is a sentence spoken to a restaurant.
  *
  * 🔴 A REFUSAL IS NOT AN ERROR TO RECOVER FROM. Every 409 means the call cannot proceed, and the
- * correct handling of all eleven is the same — stop before speaking. They are separate words only
+ * correct handling of all twelve is the same — stop before speaking. They are separate words only
  * so the operator reading the ledger afterwards can tell "nobody configured this" from "somebody
  * presented a bad credential".
  *
@@ -27,7 +27,7 @@ import type {
 import { FACT_TOPICS, SEAM_REFUSAL_REASONS } from './types.ts';
 
 /**
- * The backend refused, in words, and named which of the eleven reasons.
+ * The backend refused, in words, and named which of the twelve reasons.
  *
  * ⚠️ Note the plain field assignments rather than TypeScript's `constructor(public readonly x)`
  * shorthand. Node runs the `.ts` files in this repo by ERASING types, not compiling them, and

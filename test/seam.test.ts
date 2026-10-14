@@ -59,6 +59,7 @@ describe('the refusals — each one ends the call before a word is spoken', () =
         ['missing', 'reservation_not_found'],
         ['campaign-paused', 'campaign_not_active'],
         ['venue-stopped', 'venue_stopped'],
+        ['outside-opening-hours', 'outside_opening_hours'],
         ['no-name', 'script_unavailable'],
         ['seam-disabled', 'seam_disabled'],
         ['bad-token', 'token_invalid'],
@@ -90,10 +91,11 @@ describe('the refusals — each one ends the call before a word is spoken', () =
     });
 
     test('every reason word in the contract is one the client can actually raise', () => {
-        // Not a behavioural test — a completeness one. If the backend gains a twelfth reason and
-        // nobody updates the union, this is where it shows up rather than at 7pm on a Friday.
+        // Not a behavioural test — a completeness one. The backend gained a twelfth reason
+        // (outside_opening_hours) a month before this union did; the thirteenth shows up here, or in
+        // `npm run contract:derive`, rather than at 7pm on a Friday.
         assert.equal(new Set(SEAM_REFUSAL_REASONS).size, SEAM_REFUSAL_REASONS.length, 'no duplicates');
-        assert.equal(SEAM_REFUSAL_REASONS.length, 11);
+        assert.equal(SEAM_REFUSAL_REASONS.length, 12);
     });
 });
 
