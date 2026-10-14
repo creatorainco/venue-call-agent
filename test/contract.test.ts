@@ -63,18 +63,30 @@ describe('the mock and the snapshot', () => {
         }
     });
 
-    test('every refusal reason in the contract is reachable through some scenario', () => {
+    test('every refusal word the agent compiles against has a scenario that produces it', async () => {
+        // No exclusion list. The last version of this test excused token_scope_mismatch and
+        // disclosure_unavailable by name, which is how a twelfth word (outside_opening_hours)
+        // arrived on the backend with nothing in the mock able to say it. unknown_topic is the
+        // one word the ROUTE produces rather than a scenario, so it is proven by asking the mock
+        // for a topic that does not exist, not by being added to the set by hand.
         const reachable = new Set<string>();
         for (const scenario of Object.values(fixtures.scenarios) as Array<{ refuse?: Record<string, string> }>) {
             for (const reason of Object.values(scenario.refuse ?? {})) reachable.add(reason);
         }
-        // unknown_topic is produced by the route rather than by a scenario, and the two token
-        // scope failures need a real signing key to reproduce — named here rather than skipped
-        // silently, because a quiet exclusion is how coverage claims stop being true.
-        reachable.add('unknown_topic');
-        const unreachable = (contract.refusal.reasons as string[])
-            .filter((r) => !reachable.has(r))
-            .filter((r) => r !== 'token_scope_mismatch' && r !== 'disclosure_unavailable');
+        // Raw fetch, not the client: the client refuses an unknown topic locally, before the wire.
+        const mock = await startMockSeam({ port: 0 });
+        try {
+            const res = await fetch(`${mock.baseUrl}/reservations/call-fact`, {
+                method: 'POST',
+                headers: { Authorization: 'Bearer mock:happy', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topic: 'not_a_topic' }),
+            });
+            const body = await res.json() as { reason?: string };
+            if (res.status === 409 && body.reason) reachable.add(body.reason);
+        } finally {
+            await mock.close();
+        }
+        const unreachable = SEAM_REFUSAL_REASONS.filter((r) => !reachable.has(r));
         assert.deepEqual(unreachable, [], `no scenario produces: ${unreachable.join(', ')}`);
     });
 

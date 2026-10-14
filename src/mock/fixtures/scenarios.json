@@ -151,10 +151,36 @@
         "call-context": "venue_stopped"
       }
     },
+    "venue-stopped-by-another-booking": {
+      "summary": "On an earlier call about a DIFFERENT booking, someone at this venue asked us to stop calling. That request covers the venue, not the one booking it was made on, so this booking's call refuses venue_stopped too - the same word as a closed venue because the effect is the same: this venue is not rung (TASK-1127).",
+      "refuse": {
+        "call-context": "venue_stopped"
+      }
+    },
     "outside-opening-hours": {
       "summary": "The venue is not open right now in its own time zone, or nobody ever recorded its hours. Re-checked at connect time, because a retry can land long after the scheduler placed the call. Refuses before a word is spoken.",
       "refuse": {
         "call-context": "outside_opening_hours"
+      }
+    },
+    "visit-started": {
+      "summary": "The booking is still confirmed, but its visit time has already arrived by the time the call connects - a retry that landed late. The notice is moot once the guest may be at the door, so call-context refuses reservation_not_active, the same word as a cancelled booking (TASK-1127 connect-time re-check).",
+      "refuse": {
+        "call-context": "reservation_not_active"
+      }
+    },
+    "token-scope-mismatch": {
+      "summary": "A token for one booking presented with a different booking's id. The backend declares this word, but at the snapshot commit NO route can emit it: every route takes the reservation id from the token and never passes a claimed id to the scope check. Canned here so the agent's handling of the word is exercised; a live backend will not produce it today.",
+      "refuse": {
+        "call-context": "token_scope_mismatch",
+        "call-fact": "token_scope_mismatch",
+        "call-event": "token_scope_mismatch"
+      }
+    },
+    "disclosure-unavailable": {
+      "summary": "The disclosure sentence could not be produced. The backend declares this word, but at the snapshot commit the disclosure is a constant, so no live call can produce it today. Canned here so the agent's handling of the word is exercised: no disclosure, no call.",
+      "refuse": {
+        "call-context": "disclosure_unavailable"
       }
     },
     "no-name": {
