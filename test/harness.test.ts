@@ -84,6 +84,20 @@ describe('🔴 sabotage — a bad agent must FAIL, or none of the above means an
         async hear() { return turn({ endCall: true }); },
     });
 
+    /**
+     * Reads the notice to a machine and THEN leaves the proper voicemail. The backend's voicemail
+     * repeats a notice beat, so the check has to cut the voicemail out before it looks for beats;
+     * this is the agent that would hide behind that cut if it were done carelessly (say, by
+     * skipping every beat the voicemail happens to contain).
+     */
+    const noticeThenVoicemail = (deps: { seam: SeamClient }): CallAgent => ({
+        async open() {
+            const c = await deps.seam.callContext();
+            return turn({ say: [c.disclosure_sentence, ...c.opening_script, c.voicemail_script], endCall: true });
+        },
+        async hear() { return turn({ endCall: true }); },
+    });
+
     /** Keeps talking after being asked to stop. */
     const ignoresStop = (deps: { seam: SeamClient }): CallAgent => ({
         async open() { const c = await deps.seam.callContext(); return turn({ say: [c.disclosure_sentence] }); },
@@ -104,6 +118,7 @@ describe('🔴 sabotage — a bad agent must FAIL, or none of the above means an
         ['who-pays', 'no_fabrication', inventsMoney, 'invented a comp clause'],
         ['unknown-question', 'logged_before_deferring', promisesWithoutLogging, 'promised a follow-up with no row'],
         ['phone-menu', 'no_notice_to_a_machine', talksToMachines, 'read the notice to a menu'],
+        ['voicemail', 'no_notice_to_a_machine', noticeThenVoicemail, 'read the notice to a voicemail before leaving the message'],
         ['stop-calling', 'stop_means_stop', ignoresStop, 'kept talking after being told to stop'],
         ['booking-cancelled', 'silent_on_refusal', speaksThroughRefusal, 'spoke on a refused call'],
     ];
