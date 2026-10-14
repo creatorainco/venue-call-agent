@@ -4,7 +4,7 @@
  * Everything on this side of the interface is built: a mock backend, a replay harness, an eval
  * rubric, a fabrication check, and a reference implementation that proves all of it runs. The
  * brain — the thing that actually holds a Gemini Live session open and turns audio into turns —
- * is TASK-970 and is deliberately not here.
+ * is the Gemini Live adapter task and is deliberately not here.
  *
  * 🔴 WHY THE INTERFACE HAS NO AUDIO IN IT. A turn is text in, text and tool calls out. That is not
  * a simplification for testing; it is the only shape in which the important properties are

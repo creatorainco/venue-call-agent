@@ -38,10 +38,30 @@
  * is the call over, so the conservative pin is the right default until our own latency run says
  * otherwise. THAT RUN IS THE FIRST TUNING TASK.
  *
+ * 🔴 THE PIN HAS A SHUTDOWN DATE, AND SO DOES THE ONE IT AVOIDS. Google's deprecations page
+ * (https://ai.google.dev/gemini-api/docs/deprecations, read 2026-10-14) lists BOTH this model and
+ * `LIVE_MODEL_UNDER_SUSPICION` below for shutdown on `LIVE_MODEL_SHUTDOWN`, with
+ * `LIVE_MODEL_REPLACEMENT` as the replacement. So the choice is no longer "2.5 or 3.1": neither
+ * survives the date, and the comparison the first tuning run has to make is the pin against the
+ * replacement. The models page still describes the 2.5 native-audio line as not deprecated, with
+ * access limited to existing users; the deprecations page is the one with a date on it, so it is
+ * the one this file believes.
+ *
+ * The value below is deliberately NOT changed here. Re-pinning is the measured outcome of that
+ * tuning run, not an edit made from a docs page. `test/liveDefaults.test.ts` fails the build once
+ * the shutdown date has passed with this pin still in place, so the deadline cannot slip by
+ * quietly.
+ *
  * An explicit version rather than the `-latest` alias: an alias that moves under a deployed voice
  * agent changes what a restaurant hears with no commit and no review.
  */
 export const LIVE_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
+
+/** The day Google's deprecations page says `LIVE_MODEL` stops answering. Read 2026-10-14. */
+export const LIVE_MODEL_SHUTDOWN = '2026-11-17';
+
+/** The replacement that page names for both Live models above. Unmeasured by us. */
+export const LIVE_MODEL_REPLACEMENT = 'gemini-3.8-live';
 
 /**
  * The alias the forum compared against, kept here so the comparison run has both ends.

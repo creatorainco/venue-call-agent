@@ -30,7 +30,7 @@
  * real backend as a drift signal, not a typo.
  *
  * 🔴 IT DIALS NOTHING AND REACHES NOTHING. A token is a string. Handing one to a service that can
- * place calls is TASK-973, and that is where the approval gate lives.
+ * place calls is the carrier and first-dial work, and that is where the approval gate lives.
  */
 
 import { createHmac } from 'node:crypto';

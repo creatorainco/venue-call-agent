@@ -1,7 +1,7 @@
 /**
  * The seam client, against the local mock. No database, no network, no credential, no phone.
  *
- * WHAT THIS SUITE IS FOR. Eleven refusals exist on the other side of a cloud boundary and every
+ * WHAT THIS SUITE IS FOR. Twelve refusals exist on the other side of a cloud boundary and every
  * one of them ends a call. Before this file they were readable and not runnable, which is the
  * state in which a refusal path quietly stops working and nobody finds out until a restaurant is
  * on the line. Each is now exercised by name.
@@ -122,7 +122,7 @@ describe('call-fact — a sentence, never a value', () => {
         assert.doesNotMatch(answer.say, /\$|dollar|free|comp|cover|meal|bill|pay/i);
     });
 
-    test('after TASK-972 the authored clause is quoted unedited', async () => {
+    test('once the comp clause is built, the authored clause is quoted unedited', async () => {
         const answer = await clientFor('comp-known').callFact('comp_terms');
         assert.equal(answer.known, true);
         assert.match(answer.say, /covering the meal/);

@@ -7,8 +7,8 @@ the things an agent gets wrong here specifically.
 
 1. **Never place a call.** Not to a restaurant, not to a colleague, not to a number we own. The
    first dial of any kind is a send switch and needs Peter's explicit yes for that act on that day
-   (TASK-973). "It is our own handset" has been tried as an argument and was overturned: whose
-   phone rings changes who is inconvenienced, not which switch was flipped.
+   (the carrier and first-dial work). "It is our own handset" has been tried as an argument and
+   was overturned: whose phone rings changes who is inconvenienced, not which switch was flipped.
 2. **Never write a product fact into `src/`.** No price, policy, venue name, offer term or spoken
    sentence. If a sentence is missing, the missing backend endpoint is the bug. `npm run
    check:no-facts` enforces it; the two declared exemptions are for code that *detects* that
@@ -20,7 +20,8 @@ the things an agent gets wrong here specifically.
 
 - It cannot see `platform-backend`. `contract/seam4.json` is a **snapshot** with the commit it came
   from. All three local copies of those shapes can agree perfectly while the real backend has moved
-  on. `npm run contract:derive -- <path-to-platform-backend>` is the only thing that can tell you.
+  on. `npm run contract:derive -- <path-to-platform-backend>` is the only thing that can tell you,
+  and it is a CreatoRain-engineer step: an outside contributor never runs it.
 - Read that repo with `git -C <path> show <ref>:<file>`. **Never** `git checkout` in it — that
   checkout usually belongs to another session and switching it destroys their work with no reflog.
 
@@ -40,8 +41,8 @@ Every guard ships with a control that must fail, and you run it and paste both o
 check proves nothing until you have watched it go red — "it protected everything" and "it never
 ran" are the same observation from outside. See `CONTRIBUTING.md`.
 
-If you pin behaviour you believe is wrong, say so in the test name and name the ticket. A test that
-quietly defends a bug is worse than no test.
+If you pin behaviour you believe is wrong, say so in the test name and name the open work that
+fixes it. A test that quietly defends a bug is worse than no test.
 
 ## Where the truth lives
 
@@ -52,4 +53,4 @@ quietly defends a bug is worse than no test.
 | what "tune it" means | `docs/TUNING.md` and `src/tuning/liveDefaults.ts` |
 | what is broken and known | `docs/LIMITS.md` |
 | what green does not prove | `docs/WHAT-CANNOT-BE-TESTED.md` |
-| the whole feature's state | Jira **TASK-967** |
+| what the backend does not do yet | `docs/LIMITS.md` §2–§5, and `known_divergences` in `contract/seam4.json` |

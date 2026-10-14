@@ -119,7 +119,7 @@
       "note": "asked_to_stop_calling is written SYNCHRONOUSLY before this responds. `say` is empty string for answerer_reported - the agent says nothing, it is a report to us.",
       "ledger": {
         "key": "attempt_id",
-        "note": "ONE ledger row per call (TASK-1127). The row in reservation_call_attempts is keyed by call_id = the attempt_id inside the token. The first event of a call writes the row; every later event of the same call folds into it (its note is appended) and the disposition only moves UP disposition_rank, so a late, weaker event can never undo a stop. A re-dial is a new call and MUST carry a token minted with a NEW attempt_id: reuse one and the second call's events fold into the first call's row, and the 3-per-day attempt count never sees it.",
+        "note": "ONE ledger row per call. The row in reservation_call_attempts is keyed by call_id = the attempt_id inside the token. The first event of a call writes the row; every later event of the same call folds into it (its note is appended) and the disposition only moves UP disposition_rank, so a late, weaker event can never undo a stop. A re-dial is a new call and MUST carry a token minted with a NEW attempt_id: reuse one and the second call's events fold into the first call's row, and the 3-per-day attempt count never sees it.",
         "disposition_rank": [
           "failed",
           "no_answer",
@@ -213,10 +213,10 @@
   "script_version": "venue-precall/v3",
   "known_divergences": [
     {
-      "id": "TASK-972",
-      "what": "comp_terms is wired to nothing on the deployed backend - the SQL selects NULL::text - so it always returns the honest refusal.",
-      "mock_default": "Scenario `happy` reproduces today: comp_terms refuses with reason not_agreed. Scenario `comp-known` returns an authored clause, which is what TASK-972 delivers.",
-      "why": "Both branches must be exercised. Today's is the one on production; tomorrow's is the one being built."
+      "id": "comp-clause",
+      "what": "comp_terms has no authored clause to return on the deployed backend yet, so it always returns the honest refusal.",
+      "mock_default": "Scenario `happy` reproduces today: comp_terms refuses with reason not_agreed. Scenario `comp-known` returns an authored clause, which is what the comp-clause backend change delivers.",
+      "why": "Both branches must be exercised. Today's is the one deployed; tomorrow's is the one being built."
     }
   ]
 }

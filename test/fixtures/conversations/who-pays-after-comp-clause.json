@@ -1,5 +1,5 @@
 {
-  "name": "who-pays-after-task-972",
+  "name": "who-pays-after-comp-clause",
   "scenario": "comp-known",
   "answerer": "human",
   "about": "The same question once an operator has authored a comp clause. The clause is quoted unedited, and quoting an AUTHORISED money sentence is not a fabrication - this fixture is what proves the check can tell the difference.",

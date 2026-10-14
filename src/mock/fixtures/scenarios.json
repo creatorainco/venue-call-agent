@@ -106,7 +106,7 @@
       "answerer": "human"
     },
     "comp-known": {
-      "summary": "As happy, but the campaign has an authored comp clause. This is the world AFTER TASK-972, and the only scenario in which the agent may say anything about money.",
+      "summary": "As happy, but the campaign has an authored comp clause. This is the world AFTER the comp-clause backend change, and the only scenario in which the agent may say anything about money.",
       "facts": {
         "comp_terms": {
           "known": true,
@@ -158,7 +158,7 @@
       }
     },
     "venue-stopped-by-another-booking": {
-      "summary": "On an earlier call about a DIFFERENT booking, someone at this venue asked us to stop calling. That request covers the venue, not the one booking it was made on, so this booking's call refuses venue_stopped too - the same word as a closed venue because the effect is the same: this venue is not rung (TASK-1127).",
+      "summary": "On an earlier call about a DIFFERENT booking, someone at this venue asked us to stop calling. That request covers the venue, not the one booking it was made on, so this booking's call refuses venue_stopped too - the same word as a closed venue because the effect is the same: this venue is not rung.",
       "refuse": {
         "call-context": "venue_stopped"
       }
@@ -170,7 +170,7 @@
       }
     },
     "visit-started": {
-      "summary": "The booking is still confirmed, but its visit time has already arrived by the time the call connects - a retry that landed late. The notice is moot once the guest may be at the door, so call-context refuses reservation_not_active, the same word as a cancelled booking (TASK-1127 connect-time re-check).",
+      "summary": "The booking is still confirmed, but its visit time has already arrived by the time the call connects - a retry that landed late. The notice is moot once the guest may be at the door, so call-context refuses reservation_not_active, the same word as a cancelled booking (the connect-time re-check).",
       "refuse": {
         "call-context": "reservation_not_active"
       }

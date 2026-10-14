@@ -13,12 +13,12 @@ outside what any test here can reach, with the reason no local substitute exists
 **1. That the credential arrives at all.** The call token travels as a TwiML `<Parameter>` inside
 `<Connect><Stream>` and reaches the agent in the WebSocket `start` frame. Nothing enforces that
 shape in either repository — the backend's own token header says enforcement is at the dial site,
-and there is no dial site. Owner: **TASK-973**.
+and there is no dial site. Owner: **the carrier and first-dial work**.
 
 **2. Answering-machine detection.** Whether the carrier's detector fires before or after our first
 word, and how often it is wrong on a busy restaurant. Get this backwards and the disclosure is
 spoken to a beep, or a person hears silence. No local substitute: it is a carrier feature with
-carrier timing. Owner: **TASK-973**.
+carrier timing. Owner: **the carrier and first-dial work**.
 
 **3. DTMF.** Navigating a real phone menu means sending tones. The `phone-menu` fixture tests the
 *decision* to ask for a person; it cannot test pressing 2.
@@ -56,12 +56,13 @@ judgement on the day, not a check.
 
 ## Things a test could cover and does not, yet
 
-**8. When a call may be placed.** The schedule refusals — venue closed, no real opening hours, the
-peak-hours exclusion, the 14:00–16:00 lull — are real, well-designed backend code and **no fixture
-here touches them.** They decide whether a call happens at all, and on production they would refuse
-for every venue today (0 of 13 have real opening hours). The first real call therefore needs a
-hand-filled row, which means the timing rule will not have been exercised by anything before it
-matters. Owner: the epic; the closest ticket is TASK-966.
+**8. When a call may be placed.** The agent's side is covered: the mock refuses
+`outside_opening_hours` (scenario `outside-opening-hours`) and the agent stops before speaking.
+The rules that *produce* that refusal — venue closed, opening hours missing, the peak-hours
+exclusion, the afternoon lull — are backend code, and **no test here exercises them.** They decide
+whether a call happens at all, and a venue without opening hours on record is refused, so the
+first real call needs hours entered for that venue by hand. The timing rule will not have been
+exercised by anything before it matters. Owner: the call-timing work.
 
 **9. Observability.** There is no logging, metric, trace or operator-visible surface for a call
 that goes wrong in production. This matters more here than in most features: **voice has no bounce
@@ -77,19 +78,19 @@ tool available and it should be the first thing built alongside it.
 exists so a transcriber other than the model can say what the model said. It is pinned to Google
 Cloud Speech-to-Text — the same vendor, likely the same project. Whether that counts as an
 independent witness of a Google model's speech is an open question nobody has asked, and its
-per-minute cost against the credit is unmeasured.
+per-minute cost is unmeasured.
 
 ---
 
-## Things believed true that are only merged
+## Things believed true that are only deployed
 
-The whole backend half of this feature is merged and, for most of it, on the production branch —
-and **none of it has been observed running.** Every iteration in the plan tops out at "CI green".
-The feature is dark on production by a flag that was measured absent, which means the safety
-conclusion holds one way only: nothing is happening. It does not tell you that the code works.
+The backend half of this feature is on the backend's main line and deployed — and switched off:
+every seam route answers `seam_disabled` until the call-token secret is set on the service, and
+**none of it has been observed running.** That safety conclusion holds one way only: nothing is
+happening. It does not tell you that the code works.
 
 That distinction — merged, deployed, flagged off, observed working — is four different states, and
-the epic keeps them apart on purpose. Do not collapse them when reporting progress.
+this page keeps them apart on purpose. Do not collapse them when reporting progress.
 
 
 ---
@@ -110,7 +111,7 @@ turn detector split in two.
 parameter names and the same units as the Live API's `automaticActivityDetection`, and it is not
 their algorithm — theirs is unpublished and runs on their side. A sweep here tells you how a
 setting behaves against a known pause structure. It does not predict their behaviour, and the file
-says so at the top. Owner: the first real measurement, **TASK-970**.
+says so at the top. Owner: the first real measurement, by **the Gemini Live adapter**.
 
 **13. Speech recognition, at all.** The far end's words are injected, not recognised. The audio
 envelope is real and is what the detector works on; the text is handed over once a turn ends.

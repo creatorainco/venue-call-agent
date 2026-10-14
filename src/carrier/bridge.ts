@@ -1,5 +1,5 @@
 /**
- * THE BRIDGE — audio on one side, words on the other. This is the shape TASK-970 fills in.
+ * THE BRIDGE — audio on one side, words on the other. This is the shape the Gemini Live adapter fills in.
  *
  * WHY IT IS WORTH NAMING SEPARATELY. Before this file the largest job on the feature was
  * described as "the Gemini Live adapter", which is a project, not a component. Split at this

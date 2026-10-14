@@ -16,6 +16,9 @@ import {
     LATENCY_PERCENTILES,
     LIVE_DEFAULTS,
     LIVE_MODEL,
+    LIVE_MODEL_REPLACEMENT,
+    LIVE_MODEL_SHUTDOWN,
+    LIVE_MODEL_UNDER_SUSPICION,
     MAX_CALL_SECONDS,
     SEAM_TIMEOUT_MS,
     VAD,
@@ -45,6 +48,34 @@ describe('🔴 fields that are silently ignored in the wrong place', () => {
         // An alias that moves under a deployed voice agent changes what a restaurant hears with
         // no commit and no review.
         assert.doesNotMatch(LIVE_MODEL, /-latest$/);
+    });
+});
+
+/**
+ * True when `pin` is still one Google has scheduled for shutdown and `today` is on or past that
+ * day. Pure, so the control below can hand it a date this build has not reached yet.
+ */
+function pinOutlivedItsModel(pin: string, today: string): boolean {
+    const scheduled = [LIVE_MODEL_UNDER_SUSPICION, 'gemini-2.5-flash-native-audio-preview-12-2025'];
+    return scheduled.includes(pin) && today >= LIVE_MODEL_SHUTDOWN;
+}
+
+describe('🔴 the pinned model has a published shutdown date', () => {
+    test('CONTROL — the day after shutdown, the current pin is caught', () => {
+        // Without this the check below could be a no-op that passes on every date.
+        assert.equal(pinOutlivedItsModel(LIVE_MODEL, '2026-11-18'), true);
+        assert.equal(pinOutlivedItsModel(LIVE_MODEL_REPLACEMENT, '2026-11-18'), false);
+    });
+
+    test('the build fails once the shutdown date passes with a scheduled model still pinned', () => {
+        // Re-pinning is the measured outcome of the first tuning run (docs/TUNING.md §3.2), not
+        // an edit made from a docs page. This test is what stops the deadline passing quietly.
+        const today = new Date().toISOString().slice(0, 10);
+        assert.equal(
+            pinOutlivedItsModel(LIVE_MODEL, today),
+            false,
+            `${LIVE_MODEL} was scheduled for shutdown on ${LIVE_MODEL_SHUTDOWN}; measure and re-pin (replacement: ${LIVE_MODEL_REPLACEMENT})`,
+        );
     });
 });
 

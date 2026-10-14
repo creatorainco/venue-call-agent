@@ -10,8 +10,8 @@ open the console and find out which of these is wrong — which is a different a
 starting at a blank page, and it is the honest state of it.
 
 🔴 **A DEPLOYED SERVICE IS NOT A DIALLING SERVICE.** Nothing here places a call, and a green
-deploy opens no gate. TASK-973 and Peter's per-act yes are a separate approval that this page
-does not touch.
+deploy opens no gate. The carrier and first-dial work, and Peter's per-act yes, are a separate
+approval that this page does not touch.
 
 ---
 
@@ -34,8 +34,8 @@ the two paths. Executable in order, in a console; the ordering is not cosmetic, 
 creates the account step 4 grants to.
 
 1. **A project with billing enabled.** Which project is itself an open question: nobody has
-   confirmed Cloud Run is enabled in the one that bills our AI usage. That is the approval-gated
-   item on TASK-967.
+   confirmed Cloud Run is enabled in the one that bills our AI usage. That is an approval-gated
+   console read.
 2. **Enable three APIs:** `run.googleapis.com`, `cloudbuild.googleapis.com`,
    `artifactregistry.googleapis.com`.
 3. **Grant the deployer** (the human, running gcloud locally): `roles/run.sourceDeveloper`,
@@ -72,7 +72,7 @@ gcloud run deploy venue-call-agent \
   --min 0 \
   --cpu-throttling \
   --no-allow-unauthenticated \
-  --set-env-vars GOOGLE_NODEJS_VERSION=22.18.0
+  --set-env-vars GOOGLE_NODEJS_VERSION=22
 ```
 
 | flag | why, and what it costs to get wrong |
@@ -93,7 +93,7 @@ Affinity only influences where a **new** connection lands, it is best-effort, it
 30-day cookie that a telephony media client does not carry, and — the part that bites — **it
 takes precedence over traffic splitting**, so it silently disables canary deploys.
 
-🔴 An earlier version of the epic said "session affinity must be on". That was wrong, and it is
+🔴 An earlier plan said "session affinity must be on". That was wrong, and it is
 corrected here and there.
 
 **An external load balancer, to get a longer connection.** It does not work. For backend services
@@ -184,12 +184,12 @@ all three are silent until the deploy fails.
 `gcloud run deploy --source` cannot produce a runnable container today. The cheapest fix is a
 **Procfile** — `web: node src/<entrypoint>.ts` — because it leaves the test-facing scripts alone
 and bypasses npm at runtime. It is deliberately not committed yet: there is no service entrypoint
-to point it at until TASK-970 writes one.
+to point it at until the Gemini Live adapter writes one.
 
 **2. `engines.node` is `">=22.18"`, and Google explicitly says avoid `>` specifiers.** The
 buildpack reads `engines.node` (or `GOOGLE_NODEJS_VERSION`, which wins) and may resolve that to
 Node 24 or 26 — a silent drift between the runtime CI tests on and the runtime production runs.
-Hence the env var in §2. Do not narrow `engines.node` itself; a developer with Node 24 should
+Hence the env var in §2, set to `22` to match `.nvmrc`, which is what CI reads. Do not narrow `engines.node` itself; a developer with Node 24 should
 still be able to work here.
 
 **3. The only HTTP server in the repo binds `127.0.0.1:8788`.** That is correct for
@@ -264,7 +264,7 @@ Not hedges — questions with no answer available from documentation, each with 
 
 | question | what settles it |
 |---|---|
-| Is Cloud Run enabled in the project that bills our AI usage? | one console read. **This is the approval-gated item on TASK-967.** |
+| Is Cloud Run enabled in the project that bills our AI usage? | one console read. **This is the approval-gated item.** |
 | Was the org created on or after 2024-05-03? | one console read. Decides whether SA keys are mintable and whether `roles/run.builder` must be granted by hand. |
 | Cold-start latency for this container | a first deploy. Decides whether `--min 1` (~$5–10/mo) is needed or `--min 0` is fine. |
 | Does a liveness probe consume the single concurrency slot? | an empirical test on a real service. Nothing in the docs says. |

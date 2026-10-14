@@ -124,10 +124,10 @@ describe('the mock and the snapshot', () => {
 
 describe('the known divergences are written down, not remembered', () => {
     test('the one live divergence from the deployed backend is declared', () => {
-        // TASK-968 left this list when the campaign rule shipped (2026-09-18) — it is a rule now,
+        // The campaign-status entry left this list when that rule shipped — it is a rule now,
         // `campaign_rule`, checked against the backend by `npm run contract:derive`.
         const ids = (contract.known_divergences as Array<{ id: string }>).map((d) => d.id).sort();
-        assert.deepEqual(ids, ['TASK-972']);
+        assert.deepEqual(ids, ['comp-clause']);
     });
 });
 

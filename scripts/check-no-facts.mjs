@@ -43,7 +43,6 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createHash } from 'node:crypto';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const SCAN_DIRS = ['src'];
@@ -59,38 +58,67 @@ const MAX_EXEMPT_FILES = 4;
  * a noisy guard gets switched off — which is the failure mode that actually loses the property.
  */
 /**
- * The venue rule holds SHA-256 digests, never the names themselves, so the list can sit in a public
- * repository without publishing it. A digest is of the name lowercased with everything but a-z
- * removed ("Some Noodle Bar" -> "somenoodlebar"); a line matches when any run of one to three
- * consecutive words hashes to one of them. One entry is the invented venue in CONTROL below, so the
- * positive control exercises this rule too. To add a name:
- *   node -e "console.log(require('crypto').createHash('sha256').update('somenoodlebar').digest('hex'))"
+ * The venue rule. Real venue names are NOT in this repository in any form — not even hashed: an
+ * unsalted digest of a short restaurant name is reversed by hashing a list of restaurants.
+ *
+ *   - ALWAYS: the invented venue in CONTROL below, so the positive control exercises this rule's
+ *     matcher on every run, with or without a list.
+ *   - WHEN `VENUE_NAME_LIST_FILE` names a file: one venue name per line, `#` starts a comment. That
+ *     is how a CreatoRain engineer runs the full check. The file lives OUTSIDE this repository and
+ *     is never committed. An outside contributor never needs it; unset, every other rule still runs.
+ *
+ * A name is compared lowercased with everything but a-z removed ("Some Noodle Bar" ->
+ * "somenoodlebar"); a line matches when any run of consecutive words, up to the longest listed
+ * name, spells one. A list that cannot be read, or holds no names, fails the run: a list that
+ * loaded nothing checks nothing, and would otherwise report clean.
  */
-const VENUE_DIGESTS = new Set([
-    '2a2038ced28c1b0a2513ddae31aa107218ce15954a65da86969683057a68c086',
-    '3b75f9e99c8bda196db96a40531593b51a945526eebdd6d2455d4d330bfe2c1a',
-    '468559bccf16155d8d0e35036d2130d3787777dda25d26852deb0f73d61a5215',
-    '47a33c7b3416b3defd33f713b2cf375165c1b6bf68759bc150fcbda5e29a4bfd',
-    '4983339b83b8b40c5690e04ff1227745c20adbc8e1d3b1ef052d14ec31ed99bb',
-    '50832721ade3a6792ce66339594e4d58a385c4f6658213ae207bc30737cc50f6',
-    '799acf7c4d38459be3efd9d8c1b3f2cf82b4971ba66cdd8cac3126f56e917f0a',
-    '7ef7ec797803041c90f853b7fb22a5cce83e677f827895f1454ce27336abd997',
-    '89ffacecede60b8ce07b2fd069a00fff2854f743d32856d282957b705dff344e',
-    'a1b5f2b30c26cd5c3acae705cd9fe0011cdd3a17a85591765fabeb060bd65084',
-    'a223e1d5fec9dcc9620b61a045acb3d9248fc64bc0d25519fa90c7f04d0962f5',
-    'cebfb5f249240bb992a6ad7582d7bf2dd9c42d6a28627cd556cbe399bb1f36a1',
-    'd005d76ca5c25f10c54ccc1eb1f417634bf5d82fe4b77446361ed593c981ef6b',
-    'ea9a5edcac1880ab3994b1eb70a85a872a476bd76e705ee8b23791974875c1c0',
-    'f44bd77da502bc3d393e3f9d9d7427c67e6e8f6edd874802d2c4aa504620d7b9',
-]);
+const CONTROL_VENUE = 'Nonesuch Noodles';
+const VENUE_LIST_ENV = 'VENUE_NAME_LIST_FILE';
+
+const venueNames = new Set();
+let longestVenueWords = 1;
+
+const wordsOf = (text) => text.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+
+function addVenue(name) {
+    const words = wordsOf(name);
+    if (!words.length) return false;
+    venueNames.add(words.join(''));
+    longestVenueWords = Math.max(longestVenueWords, words.length);
+    return true;
+}
+
+addVenue(CONTROL_VENUE);
+
+let listedVenues = 0;
+const venueListPath = process.env[VENUE_LIST_ENV];
+if (venueListPath) {
+    let listText;
+    try {
+        listText = readFileSync(venueListPath, 'utf8');
+    } catch {
+        console.error(`FAIL no-facts: ${VENUE_LIST_ENV} is set but the file cannot be read.`);
+        console.error('  Unset it to skip real venue names, or point it at the list. Refusing to report clean.');
+        process.exit(2);
+    }
+    for (const raw of listText.split(/\r?\n/)) {
+        const name = raw.replace(/#.*$/, '').trim();
+        if (name && addVenue(name)) listedVenues += 1;
+    }
+    if (!listedVenues) {
+        console.error(`FAIL no-facts: ${VENUE_LIST_ENV} names a file with no venue names in it.`);
+        console.error('  A list that loaded nothing checks nothing. Refusing to report clean.');
+        process.exit(2);
+    }
+}
 
 function isVenueName(line) {
-    const words = line.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+    const words = wordsOf(line);
     for (let i = 0; i < words.length; i++) {
         let run = '';
-        for (let n = 0; n < 3 && i + n < words.length; n++) {
+        for (let n = 0; n < longestVenueWords && i + n < words.length; n++) {
             run += words[i + n];
-            if (VENUE_DIGESTS.has(createHash('sha256').update(run).digest('hex'))) return true;
+            if (venueNames.has(run)) return true;
         }
     }
     return false;
@@ -178,6 +206,9 @@ for (const f of files) {
 }
 
 console.log(`no-facts: ${files.length} file(s) scanned; control tripped ${tripped.length} rule(s) (${tripped.join(', ')}).`);
+console.log(listedVenues
+    ? `no-facts: venue names: ${listedVenues} from ${VENUE_LIST_ENV}, plus the control.`
+    : `no-facts: venue names: the control only (${VENUE_LIST_ENV} unset; a CreatoRain engineer sets it).`);
 
 for (const e of exemptions) {
   console.log(`no-facts: EXEMPT ${e.file} from [${e.rules.join(', ')}] — ${e.reason}`);

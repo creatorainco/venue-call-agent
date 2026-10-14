@@ -1,7 +1,7 @@
 /**
  * A REFERENCE AGENT WITH NO MODEL IN IT.
  *
- * 🔴 THIS IS NOT THE DELIVERABLE. TASK-970 replaces it with something that holds a Gemini Live
+ * 🔴 THIS IS NOT THE DELIVERABLE. The Gemini Live adapter replaces it with something that holds a Gemini Live
  * session open and hears actual audio. This one matches keywords, and it would be embarrassing on
  * a real telephone.
  *

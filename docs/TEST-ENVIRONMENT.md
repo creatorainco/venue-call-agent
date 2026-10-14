@@ -3,10 +3,10 @@
 "Set up a test environment" is a phrase until somebody says what is being tested and what a green
 run would prove. There are four tiers here.
 
-**Two are built and need nothing at all. The third is built-and-waiting on one variable the org
-already holds. The fourth needs a decision that is not an engineer's to make.** An earlier
-version of this line said "three of them are built and need nothing", which its own table
-contradicted two rows later — tier 2 needs `GEMINI_API_KEY`, and a lookup is not nothing.
+**Two are built and need nothing at all. The third is built-and-waiting on one variable, a key
+a CreatoRain engineer mints on request. The fourth needs a decision that is not an engineer's to
+make.** An earlier version of this line said "three of them are built and need nothing", which its
+own table contradicted two rows later — tier 2 needs `GEMINI_API_KEY`, and a key is not nothing.
 
 Read this before asking for an account. Most of what looks like it needs one does not.
 
@@ -14,7 +14,7 @@ Read this before asking for an account. Most of what looks like it needs one doe
 |---|---|---|---|
 | **0 — the laptop** | the decision layer, the contract, every refusal, the codec | nothing | ✅ built |
 | **1 — the laptop, as a telephone** | turn-taking, dead air, barge-in, the wire | nothing | ✅ built |
-| **2 — a real model** | that the adapter works, and what it costs in seconds | `GEMINI_API_KEY` | ⏳ a lookup |
+| **2 — a real model** | that the adapter works, and what it costs in seconds | `GEMINI_API_KEY` | ⏳ a key, on request |
 | **3 — a real call** | everything that is actually a telephone | a carrier, and Peter's yes | 🔴 blocked, and correctly |
 
 ---
@@ -36,9 +36,11 @@ a failing call into a passing one. That the μ-law codec matches the standard's 
 
 **What it does not prove.** Anything with a clock or a loudspeaker in it. See tier 1.
 
-**Where the pieces are.** `src/mock/` is the backend stand-in: eighteen scenarios, all eleven
-refusals, its own journal at `/__mock/journal`. `npm run mock` leaves it running on :8788 for
-curl. `npm run mint-token -- --all` produces a valid, an expired and two wrong-scope tokens — it
+**Where the pieces are.** `src/mock/` is the backend stand-in: a named scenario for every
+refusal the backend can return (the list is `src/mock/fixtures/scenarios.json`), and its own
+journal at `/__mock/journal`. `npm run mock` leaves it running on :8788 for curl.
+`npm run mint-token -- --all` produces a valid token, an expired one, one for the wrong booking
+and one for the wrong attempt; the backend honours the last two, and the script prints why. It
 needs a signing literal, which is a string you invent rather than a credential anybody issues.
 
 **Tier 0½ — the same laptop, pointed at a REAL platform-backend.** Not a tier of its own because
@@ -99,12 +101,11 @@ how much we lose when we do. That no frame is the wrong length, that silence is 
 
 ## Tier 2 — a real model
 
-**This needs one environment variable and no new account.** `GEMINI_API_KEY` already exists in the
-org, under exactly that name, in the context hub's `.env`. It is a lookup, not a signup, and
-nobody had written that down until 2026-09-12.
+**This needs one environment variable and no new account.** A CreatoRain engineer mints a
+`GEMINI_API_KEY` for you on request.
 
 ```bash
-GEMINI_API_KEY=... npm run call -- --agent=live      # once TASK-970 lands one
+GEMINI_API_KEY=... npm run call -- --agent=live      # once the Gemini Live adapter exists
 ```
 
 **What it proves.** That the adapter opens a session, that audio survives the round trip, that
@@ -122,8 +123,8 @@ The detector's 800 ms is spent before the model has been asked anything. `--late
 put a figure in and see the sum today, with no key at all.
 
 ⚠️ **The second credential in `.env.example` is a different story.**
-`SPEECH_TO_TEXT_CREDENTIALS`, for the fabrication check's independent transcript, **exists nowhere
-in this org** and no ticket asks anyone to provision it. See `docs/LIMITS.md` §9. That is the only
+`SPEECH_TO_TEXT_CREDENTIALS`, for the fabrication check's independent transcript, **has not been
+provisioned.** See `docs/LIMITS.md` §9. That is the only
 missing thing on this page that will stop work rather than merely be wrong.
 
 ---
@@ -140,21 +141,13 @@ vendor. The fourth — that a frame is μ-law — holds for Twilio, Telnyx's def
 breaks on Vonage, which sends raw binary linear PCM and offers no μ-law at all. That leak is
 written at the interface with its fix, rather than left for whoever picks Vonage to discover.
 
-What is worth knowing before that conversation, because it changes its shape:
-
-- **The org already holds Twilio credentials** — `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
-  `TWILIO_API_KEY_SID`, `TWILIO_API_KEY_SECRET`, and a `TWILIO_TEST_ACCOUNT_SID`. So "we have no
-  carrier" is not the situation.
-- **Twilio is banned — for MESSAGING.** The product ledger's words are "Twilio banned for
-  messaging — Claw Messenger rail only" (Peter, 2026-07-07). Voice is not mentioned. This lane
-  would be the org's first Twilio **voice** use, and whether the messaging ban reaches it has
-  never been asked. It is a one-line question with a yes/no answer, and asking it is cheaper than
-  evaluating a second vendor.
+Which carrier is a product decision, not an engineering one, and it has not been made.
+`docs/LIMITS.md` §11 carries the one audio-quality trade that bears on it.
 
 **Peter's explicit yes, on the day, for that call.** This is not a formality and it has already
 been tested once: an earlier plan exempted a call to a handset we own, on the grounds that it was
 ours. That was overturned — whose phone rings changes who is inconvenienced, not which switch was
-flipped. Owner: **TASK-973**.
+flipped. Owner: **the carrier and first-dial work**.
 
 ---
 
@@ -169,8 +162,8 @@ produces an endpoint with nothing to connect to it.
 
 The deployment target is Google Cloud Run, and two facts about it are still unread — whether the
 API is enabled in the project that bills our AI usage, and what our concurrency ceiling actually
-is. Both need one signed-in console read. They are on **TASK-967** as the approval-gated item, and
-`docs/DEPLOY.md` carries the runnable checklist and the deploy definition itself.
+is. Both need one signed-in console read, which is approval-gated, and `docs/DEPLOY.md`
+carries the runnable checklist and the deploy definition itself.
 
 **Do not create anything in Google Cloud.** That needs a signed-in console and it is not an
 engineer's to do here.
