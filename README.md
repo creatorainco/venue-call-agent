@@ -69,7 +69,7 @@ src/
     scriptedStub.ts     a reference agent with NO MODEL. The baseline and the executable spec.
   audio/                μ-law, resampling, formats. The carrier side, provable with no carrier.
   carrier/              a telephone with no telephone in it:
-    leg.ts              the four things every carrier has in common. Nothing vendor-shaped.
+    leg.ts              the four things a telephone leg knows. One (μ-law framing) does not hold for every carrier; see its header.
     fakeLeg.ts          a leg on a virtual clock, whose far end waits for an answer
     vad.ts              turn detection — Google's parameter names, our arithmetic, said so
     bridge.ts           audio <-> words. THE SHAPE THE GEMINI LIVE ADAPTER FILLS IN.
@@ -130,7 +130,7 @@ spec to satisfy.
 | `phone-menu` | is a menu | notice withheld, two tries for a person, then voicemail |
 | `voicemail` | is a machine | one pass of the voicemail line, nothing asked back |
 | `wrong-number` | is not the restaurant | nothing further about the booking, call ends |
-| `wants-to-cancel` | wants the booking moved | a callback logged; the agent never implies it can |
+| `wants-to-cancel` | wants the booking cancelled | a callback logged; the agent never implies it can |
 | `booking-cancelled`, `campaign-closed` | — | refused **before a word is spoken** |
 | `credential-expires` | — | the seam refuses mid-call; the agent ends |
 | `they-hang-up` | hangs up mid-notice | partial transcript, no crash, no retry |
