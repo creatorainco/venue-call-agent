@@ -17,7 +17,10 @@
  * 🔴 THE RULE THIS ENCODES. A number in a document is a claim about the software, so either a
  * machine checks it or it does not go in. Two ways to satisfy that, both used here:
  *
- *   COUNT IT   — the conversation count and the sweep table are recomputed and compared.
+ *   COUNT IT   — the conversation count, the sweep table and the prose drawn from it, the
+ *                `--latency=900` expected output, the refusal and scenario counts, the token and
+ *                call lifetimes, and the Gemini model ids and shutdown date are recomputed or
+ *                read from the source and compared.
  *   DROP IT    — the test count is not published anywhere any more. It changes on every
  *                contribution, it tells a reader nothing they cannot get from `npm test`, and
  *                the line that actually matters — `# fail 0` — never rots.
@@ -31,14 +34,23 @@ import { join } from 'node:path';
 
 import { loadFixtures } from '../src/harness/fixtures.ts';
 import { runCalls, summarise } from '../src/carrier/run.ts';
-import { VAD } from '../src/tuning/liveDefaults.ts';
+import { DEAD_AIR_HARD_MS } from '../src/carrier/checks.ts';
+import { SEAM_REFUSAL_REASONS } from '../src/seam/types.ts';
+import {
+    LIVE_MODEL,
+    LIVE_MODEL_REPLACEMENT,
+    LIVE_MODEL_SHUTDOWN,
+    LIVE_MODEL_UNDER_SUSPICION,
+    MAX_CALL_SECONDS,
+    VAD,
+} from '../src/tuning/liveDefaults.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 /** Every page a person reads. Not the source; comments are prose and are allowed to be prose. */
 const PAGES = ['README.md', 'ONBOARDING.md', 'CONTRIBUTING.md', 'CLAUDE.md',
     'docs/TUNING.md', 'docs/LIMITS.md', 'docs/WHAT-CANNOT-BE-TESTED.md',
-    'docs/TEST-ENVIRONMENT.md', 'docs/DEPLOY.md'];
+    'docs/TEST-ENVIRONMENT.md', 'docs/DEPLOY.md', 'test/fixtures/README.md'];
 
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
 
@@ -46,6 +58,17 @@ const SPELLED: Record<number, string> = {
     12: 'twelve', 13: 'thirteen', 14: 'fourteen', 15: 'fifteen', 16: 'sixteen',
     17: 'seventeen', 18: 'eighteen', 19: 'nineteen', 20: 'twenty',
 };
+
+/** Every small number a page might spell out, word -> value. */
+const WORDS: Record<string, number> = {
+    one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+    eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17,
+    eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, sixty: 60,
+};
+const NUMBER = `(\\d[\\d,]*|${Object.keys(WORDS).join('|')})`;
+/** A matched number, digits or spelled; a group that did not match reads as NaN and so never agrees. */
+const valueOf = (token: string | undefined): number =>
+    token === undefined ? NaN : WORDS[token.toLowerCase()] ?? Number(token.replace(/,/g, ''));
 
 describe('the conversation count', () => {
     const actual = readdirSync(join(ROOT, 'test/fixtures/conversations')).filter((f) => f.endsWith('.json')).length;
@@ -193,5 +216,211 @@ describe('the turn-detector sweep table in docs/TUNING.md', () => {
             rows.some((r) => r.overSegmented === 0),
             'every rung over-segments, so the table shows no benefit either',
         );
+    });
+});
+
+describe('the prose drawn from the sweep table', () => {
+    // docs/TUNING.md argues from the table in words: how many times the talk-over column jumps
+    // below the knee, and how many residual frames remain above it. Those are numbers too.
+    const rowAt = async (silenceMs: number) => {
+        const rows = await runCalls({ vad: { ...VAD, silenceDurationMs: silenceMs } });
+        return summarise(rows.map((r) => r.audio));
+    };
+
+    it('"jumps N-fold" and "the N residual frames" are what the sweep prints', async () => {
+        const text = read('docs/TUNING.md');
+        const low = await rowAt(400);
+        const knee = await rowAt(600);
+        const fold = text.match(/talk-over column jumps (\w+)fold/);
+        const residual = text.match(/The (\w+) residual talk-over frames at 600 ms and above/);
+        assert.ok(fold && residual, 'the sentences this check reads are gone from docs/TUNING.md');
+        assert.equal(valueOf(fold[1]), low.talkOver / knee.talkOver, `"${fold[0]}" — the sweep says ${low.talkOver}/${knee.talkOver}`);
+        assert.equal(valueOf(residual[1]), knee.talkOver, `"${residual[0]}" — the sweep says ${knee.talkOver}`);
+    });
+});
+
+describe('the --latency=900 expected output', () => {
+    /** One printed result row, in the runner's own format. */
+    interface Line { fixture: string; detected: number; scripted: number; p50: number; max: number; talkOver: number; verdict: string }
+
+    const ROW = /^\s+([a-z][a-z0-9-]*)\s+(\d+)\/(\d+)\s+(\d+)ms \/ (\d+)ms\s+(\d+)f\s+((?:HARD|soft): [a-z_, ]+)\s*$/gm;
+    const TOTAL = /^\s+(\d+) hard failure\(s\) · (\d+) soft failure\(s\)\s*$/gm;
+
+    let truth: Promise<{ lines: Map<string, Line>; hard: number; soft: number }> | undefined;
+    function actual() {
+        truth ??= (async () => {
+            const rows = await runCalls({ latencyMs: 900 });
+            const lines = new Map<string, Line>();
+            let hard = 0;
+            let soft = 0;
+            for (const row of rows) {
+                // The same arithmetic as the runner's own report in src/carrier/run.ts.
+                const failedHard = [
+                    ...row.checks.filter((c) => c.severity === 'hard' && !c.passed).map((c) => c.id),
+                    ...row.score.checks.filter((c) => c.severity === 'hard' && !c.passed && !c.skipped).map((c) => c.name),
+                ];
+                const failedSoft = [
+                    ...row.checks.filter((c) => c.severity === 'soft' && !c.passed).map((c) => c.id),
+                    ...row.score.checks.filter((c) => c.severity === 'soft' && !c.passed && !c.skipped).map((c) => c.name),
+                ];
+                hard += failedHard.length;
+                soft += failedSoft.length;
+                const a = row.audio;
+                lines.set(row.fixture.name, {
+                    fixture: row.fixture.name,
+                    detected: a.detectedTurns,
+                    scripted: a.scriptedTurns,
+                    p50: a.percentiles.p50 ?? 0,
+                    max: a.maxDeadAirMs,
+                    talkOver: a.talkOverFrames,
+                    verdict: failedHard.length ? `HARD: ${failedHard.join(', ')}` : failedSoft.length ? `soft: ${failedSoft.join(', ')}` : 'clean',
+                });
+            }
+            return { lines, hard, soft };
+        })();
+        return truth;
+    }
+
+    /** What is wrong with one page's copy of the block. Pure, so the control can feed it a plant. */
+    function stale(page: string, text: string, t: { lines: Map<string, Line>; hard: number; soft: number }): string[] {
+        const wrong: string[] = [];
+        const printed = new Set<string>();
+        for (const m of text.matchAll(ROW)) {
+            const name = m[1] ?? '';
+            const got = t.lines.get(name);
+            printed.add(name);
+            const want = got ? `${got.detected}/${got.scripted} ${got.p50}ms / ${got.max}ms ${got.talkOver}f ${got.verdict}` : 'no such fixture';
+            const has = `${m[2]}/${m[3]} ${m[4]}ms / ${m[5]}ms ${m[6]}f ${(m[7] ?? '').trim()}`;
+            if (has !== want) wrong.push(`${page}: "${m[1]} ${has}" — the command prints "${want}"`);
+        }
+        for (const [name, line] of t.lines) {
+            if (line.verdict.startsWith('HARD') && !printed.has(name)) wrong.push(`${page}: omits the hard failure on ${name}`);
+        }
+        for (const m of text.matchAll(TOTAL)) {
+            if (Number(m[1]) !== t.hard || Number(m[2]) !== t.soft) {
+                wrong.push(`${page}: "${m[0].trim()}" — the command prints ${t.hard} hard · ${t.soft} soft`);
+            }
+        }
+        for (const m of text.matchAll(/`(\S+)` — reaches ([\d,]+) ms of dead air/g)) {
+            const got = t.lines.get(m[1] ?? '');
+            if (!got || got.max !== valueOf(m[2])) wrong.push(`${page}: "${m[0]}" — the command prints ${got?.max}`);
+        }
+        for (const m of text.matchAll(/the hard budget is ([\d,]+)/g)) {
+            if (valueOf(m[1]) !== DEAD_AIR_HARD_MS) wrong.push(`${page}: "${m[0]}" — src/carrier/checks.ts says ${DEAD_AIR_HARD_MS}`);
+        }
+        return wrong;
+    }
+
+    /** Only the part of a page between the `--latency=900` warning and the end of its code block. */
+    function blocks(text: string): string {
+        const out: string[] = [];
+        for (const m of text.matchAll(/`--latency=900` EXITS 1[\s\S]*?```[\s\S]*?```/g)) out.push(m[0]);
+        return out.join('\n');
+    }
+
+    it('is printed somewhere, or this check is checking nothing', () => {
+        const found = PAGES.map((p) => blocks(read(p))).filter((b) => [...b.matchAll(ROW)].length > 0);
+        assert.ok(found.length >= 1, 'no page prints the --latency=900 output any more; this check would pass by blindness');
+    });
+
+    it('reproduces, line for line, on every page that prints it', async () => {
+        const t = await actual();
+        const printing = PAGES.filter((p) => blocks(read(p)) !== '');
+        const wrong = printing.flatMap((p) => stale(p, blocks(read(p)), t));
+        assert.deepEqual(wrong, [], `the --latency=900 block has drifted:\n  ${wrong.join('\n  ')}`);
+    });
+
+    it('CONTROL — a planted stale block is caught on every field it checks', async () => {
+        const t = await actual();
+        const [name, line] = [...t.lines].find(([, l]) => l.verdict.startsWith('HARD')) ?? [];
+        assert.ok(name && line, 'nothing fails at 900 ms, so there is no block to plant against');
+        const planted = '`--latency=900` EXITS 1\n'
+            + `\`${name}\` — reaches ${line.max + 1} ms of dead air, and the hard budget is ${DEAD_AIR_HARD_MS + 1}.\n`
+            + '```\n'
+            + `  ${name}   ${line.detected}/${line.scripted}   ${line.p50}ms / ${line.max + 1}ms   ${line.talkOver}f   ${line.verdict}\n`
+            + `  ${t.hard + 1} hard failure(s) · ${t.soft} soft failure(s)\n`
+            + '```\n';
+        assert.equal(stale('planted', blocks(planted), t).length, 4, stale('planted', blocks(planted), t).join('\n'));
+        const omitted = '`--latency=900` EXITS 1\n```\n'
+            + `  ${t.hard} hard failure(s) · ${t.soft} soft failure(s)\n\`\`\`\n`;
+        assert.ok(stale('planted', blocks(omitted), t).some((w) => w.includes('omits')), 'a block missing its failing row was not caught');
+    });
+});
+
+describe('the refusal and scenario counts', () => {
+    const scenarios = Object.keys(JSON.parse(read('src/mock/fixtures/scenarios.json')).scenarios).length;
+    const refusals = SEAM_REFUSAL_REASONS.length;
+
+    function stale(page: string, text: string): string[] {
+        const wrong: string[] = [];
+        for (const m of text.matchAll(new RegExp(`\\b${NUMBER}\\s+(?:refusals?|refusal\\s+(?:words?|reasons?|paths?))\\b`, 'gi'))) {
+            if (valueOf(m[1]) !== refusals) wrong.push(`${page}: "${m[0]}" — src/seam/types.ts has ${refusals}`);
+        }
+        for (const m of text.matchAll(new RegExp(`\\b${NUMBER}\\s+(?:mock\\s+)?scenarios\\b`, 'gi'))) {
+            if (valueOf(m[1]) !== scenarios) wrong.push(`${page}: "${m[0]}" — the mock has ${scenarios}`);
+        }
+        return wrong;
+    }
+
+    it('is what every page says it is, where a page says it at all', () => {
+        const wrong = PAGES.flatMap((p) => stale(p, read(p)));
+        assert.deepEqual(wrong, [], `stale counts:\n  ${wrong.join('\n  ')}`);
+    });
+
+    it('CONTROL — the scanner sees a stale count, spelled or not', () => {
+        const planted = `${scenarios - 5} scenarios, all ${Object.keys(WORDS)[refusals - 2]} refusals, and ${refusals + 1} refusal words.`;
+        assert.equal(stale('planted', planted).length, 3, stale('planted', planted).join('\n'));
+        assert.deepEqual(stale('planted', `${scenarios} scenarios and ${refusals} refusals`), []);
+    });
+});
+
+describe('lifetimes printed in prose', () => {
+    it('the token lifetime and the call cap are what the code and the contract say', () => {
+        const ttlMinutes = Number(JSON.parse(read('contract/seam4.json')).token.ttl_ms) / 60_000;
+        const callMinutes = MAX_CALL_SECONDS / 60;
+        const wrong: string[] = [];
+        for (const page of PAGES) {
+            const text = read(page);
+            for (const m of text.matchAll(new RegExp(`expires in ${NUMBER} minutes`, 'gi'))) {
+                if (valueOf(m[1]) !== ttlMinutes) wrong.push(`${page}: "${m[0]}" — the token lives ${ttlMinutes}`);
+            }
+            for (const m of text.matchAll(new RegExp(`${NUMBER} minutes of call|calls are capped at ${NUMBER}`, 'gi'))) {
+                if (valueOf(m[1] ?? m[2]) !== callMinutes) wrong.push(`${page}: "${m[0]}" — MAX_CALL_SECONDS is ${MAX_CALL_SECONDS}`);
+            }
+        }
+        assert.deepEqual(wrong, [], wrong.join('\n'));
+    });
+});
+
+describe('the Gemini model ids and the shutdown date', () => {
+    function stale(page: string, text: string): string[] {
+        const wrong: string[] = [];
+        for (const m of text.matchAll(/shutdown on \**(\d{4}-\d{2}-\d{2})/g)) {
+            if (m[1] !== LIVE_MODEL_SHUTDOWN) wrong.push(`${page}: "${m[0]}" — LIVE_MODEL_SHUTDOWN is ${LIVE_MODEL_SHUTDOWN}`);
+        }
+        for (const m of text.matchAll(/gemini-[\d.]+-live\b(?!-)/g)) {
+            if (m[0] !== LIVE_MODEL_REPLACEMENT) wrong.push(`${page}: "${m[0]}" — LIVE_MODEL_REPLACEMENT is ${LIVE_MODEL_REPLACEMENT}`);
+        }
+        for (const m of text.matchAll(/\| model id \|[^|]*\|\s*`([^`]+)`/g)) {
+            if (m[1] !== LIVE_MODEL) wrong.push(`${page}: model id "${m[1]}" — LIVE_MODEL is ${LIVE_MODEL}`);
+        }
+        return wrong;
+    }
+
+    it('docs/TUNING.md names the pin, the avoided model, the replacement and the date', () => {
+        const text = read('docs/TUNING.md');
+        for (const v of [LIVE_MODEL, LIVE_MODEL_UNDER_SUSPICION, LIVE_MODEL_REPLACEMENT, LIVE_MODEL_SHUTDOWN]) {
+            assert.ok(text.includes(v), `docs/TUNING.md no longer mentions ${v}`);
+        }
+    });
+
+    it('every page that names them agrees with src/tuning/liveDefaults.ts', () => {
+        const wrong = PAGES.flatMap((p) => stale(p, read(p)));
+        assert.deepEqual(wrong, [], wrong.join('\n'));
+    });
+
+    it('CONTROL — a wrong date, replacement or pin is caught', () => {
+        const planted = 'for shutdown on **2026-12-01**, replaced by `gemini-9.9-live`.\n| model id | x | `gemini-old` | y |';
+        assert.equal(stale('planted', planted).length, 3, stale('planted', planted).join('\n'));
     });
 });
