@@ -19,6 +19,12 @@
     "human_callback:asked_to_stop_calling": "Understood — I've taken you off the call list. Sorry to have bothered you.",
     "answerer_reported": ""
   },
+  "builder_inputs": {
+    "$comment": "What the sentences below were rendered from, beyond what default_context already names (venue, brand, creator, spoken time). `npm run contract:derive` feeds these and default_context to the backend's own builders and diffs their output against this file. The mock server does not read this block.",
+    "party_size": 4,
+    "comp_terms": null,
+    "contact_email": null
+  },
   "default_facts": {
     "creator_name": {
       "known": true,
