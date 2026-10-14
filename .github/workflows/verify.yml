@@ -1,18 +1,17 @@
 # The build gate for venue-call-agent.
 #
-# 🔴 THIS RUN IS A REQUIRED CHECK, as of 2026-09-16. `main` and `dev` are protected and will not
-# merge without it green, plus one approving review. That became possible only because this
-# repository is public: on this org's free plan the same endpoints return 403 for a private repo,
-# which is why the comment here used to say the opposite, and why every other repository in the
-# org still has nothing but a human reading the result. `enforce_admins` is off, so an owner can
-# still merge past it — write the checks so that a red run is unmistakable, and read them.
+# 🔴 THIS RUN IS A REQUIRED CHECK on `main` and `dev`. Neither merges without it green, plus one
+# approving review. `enforce_admins` is off, so an owner can still merge past it — write the checks
+# so that a red run is unmistakable, and read them.
 #
-# Matches platform-backend's ci.yml where it can: same runner, same action versions, filtered
-# pull_request trigger, workflow_dispatch, npm ci against a committed lockfile, cache: npm.
+# Matches platform-backend's ci.yml where it can: same runner, filtered pull_request trigger,
+# workflow_dispatch, npm ci against a committed lockfile, cache: npm. The action majors are newer
+# (checkout@v7, setup-node@v7) because the v4 majors target Node 20, which GitHub has deprecated.
 #
 # It deviates in one place on purpose — the no-facts guard runs BEFORE `npm ci`, with no
-# dependencies installed and no secret present. That ordering is itself an assertion: this repo's
-# load-bearing invariant must be checkable by a machine that has been handed nothing.
+# dependencies installed. That ordering is itself an assertion: this repo's load-bearing invariant
+# must be checkable by a machine that has been handed nothing. The one thing the guard may be
+# handed is the private venue-name list, and every other rule runs the same without it.
 
 name: verify
 
@@ -31,7 +30,7 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # 🔴 FIRST, WITH NOTHING INSTALLED. Node is not even set up yet — the runner's own node runs
       # it. The guard has no dependencies by design, and proving that every run is what stops it
@@ -39,8 +38,20 @@ jobs:
       #
       # It runs its own positive control and fails if the control does not trip: a guard that
       # cannot detect a violation must never be allowed to report "clean".
+      #
+      # The real venue names come from the repository secret VENUE_NAMES, one per line, written to
+      # a file outside the checkout. GitHub withholds secrets from a fork's pull request, so that
+      # run checks the invented control name only; the push to `dev` after the merge checks the
+      # real list. The guard prints which of the two it did.
       - name: no product facts in this repository
-        run: node scripts/check-no-facts.mjs
+        env:
+          VENUE_NAMES: ${{ secrets.VENUE_NAMES }}
+        run: |
+          if [ -n "$VENUE_NAMES" ]; then
+            printf '%s\n' "$VENUE_NAMES" > "$RUNNER_TEMP/venue-names.txt"
+            export VENUE_NAME_LIST_FILE="$RUNNER_TEMP/venue-names.txt"
+          fi
+          node scripts/check-no-facts.mjs
 
       # Also before `npm ci`, and for the same reason: `npm run doctor` is the first thing a new
       # person runs on a fresh clone, so it has to work on a machine that has been handed
@@ -49,7 +60,7 @@ jobs:
       - name: the environment doctor can still see illness
         run: node scripts/doctor.mjs --control
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: npm
