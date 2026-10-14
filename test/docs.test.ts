@@ -244,7 +244,9 @@ describe('the --latency=900 expected output', () => {
     interface Line { fixture: string; detected: number; scripted: number; p50: number; max: number; talkOver: number; verdict: string }
 
     const ROW = /^\s+([a-z][a-z0-9-]*)\s+(\d+)\/(\d+)\s+(\d+)ms \/ (\d+)ms\s+(\d+)f\s+((?:HARD|soft): [a-z_, ]+)\s*$/gm;
-    const TOTAL = /^\s+(\d+) hard failure\(s\) · (\d+) soft failure\(s\)\s*$/gm;
+    // `\s*`, not `\s+`: the runner prints its total at column 0, and a block pasted exactly as
+    // printed must still be checked rather than skipped.
+    const TOTAL = /^\s*(\d+) hard failure\(s\) · (\d+) soft failure\(s\)\s*$/gm;
 
     let truth: Promise<{ lines: Map<string, Line>; hard: number; soft: number }> | undefined;
     function actual() {
@@ -344,6 +346,10 @@ describe('the --latency=900 expected output', () => {
         const omitted = '`--latency=900` EXITS 1\n```\n'
             + `  ${t.hard} hard failure(s) · ${t.soft} soft failure(s)\n\`\`\`\n`;
         assert.ok(stale('planted', blocks(omitted), t).some((w) => w.includes('omits')), 'a block missing its failing row was not caught');
+        const flush = '`--latency=900` EXITS 1\n```\n'
+            + `  ${name}   ${line.detected}/${line.scripted}   ${line.p50}ms / ${line.max}ms   ${line.talkOver}f   ${line.verdict}\n`
+            + `${t.hard + 1} hard failure(s) · ${t.soft} soft failure(s)\n\`\`\`\n`;
+        assert.ok(stale('planted', blocks(flush), t).some((w) => w.includes('hard failure(s)')), 'a wrong total at column 0, as the runner prints it, was not caught');
     });
 });
 
