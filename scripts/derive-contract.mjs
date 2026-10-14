@@ -409,7 +409,10 @@ const commit = execFileSync('git', ['-C', repoPath, 'rev-parse', '--short', ref]
 const rule = campaignRule(service, enumSrc, 'CALL_KEEPING_CAMPAIGN_STATUSES', 'CAMPAIGN_STATUS_ENUM');
 const facts = factsById(kb, 'VENUE_OPERATIONS_FACTS');
 const eventReturns = functionReturns(service, 'eventSentence');
-const nonEmpty = (xs) => xs.filter((s) => s !== '').sort();
+// The backend's eventSentence branches, in source order, and the mock key that answers each one.
+// Compared in this order and never sorted: a set comparison would pass a mock that gave one
+// kind's sentence to another (say, the call-back promise for an unanswered question).
+const EVENT_SENTENCE_KEYS = ['human_callback:asked_to_stop_calling', 'human_callback', 'answerer_reported', 'unanswered_question'];
 
 const observed = {
     'refusal reasons': unionMembers(service, 'VenueCallRefusalReason'),
@@ -429,7 +432,7 @@ const observed = {
     'sentence: disclosure (VENUE_CALL_DISCLOSURE)': wrap(constSentence(scriptSrc, 'VENUE_CALL_DISCLOSURE')),
     'sentence: who_we_are (VENUE_OPERATIONS_FACTS)': wrap(facts?.['who-we-are']),
     'sentence: what_the_creator_will_do (VENUE_OPERATIONS_FACTS)': wrap(facts?.['what-the-creator-will-do']),
-    'sentences: call-event replies (eventSentence)': eventReturns && nonEmpty(eventReturns),
+    'sentences: call-event replies, branch by branch (eventSentence)': eventReturns,
     'call-event: a report that says nothing (eventSentence returns \'\')': eventReturns && [String(eventReturns.includes(''))],
 };
 
@@ -452,7 +455,7 @@ const expected = {
     'sentence: disclosure (VENUE_CALL_DISCLOSURE)': [ctx.disclosure_sentence],
     'sentence: who_we_are (VENUE_OPERATIONS_FACTS)': [fixtures.default_facts.who_we_are.say],
     'sentence: what_the_creator_will_do (VENUE_OPERATIONS_FACTS)': [fixtures.default_facts.what_the_creator_will_do.say],
-    'sentences: call-event replies (eventSentence)': nonEmpty(Object.values(fixtures.event_sentences)),
+    'sentences: call-event replies, branch by branch (eventSentence)': EVENT_SENTENCE_KEYS.map((k) => fixtures.event_sentences[k] ?? `(no mock key ${k})`),
     'call-event: a report that says nothing (eventSentence returns \'\')': [String(Object.values(fixtures.event_sentences).includes(''))],
 };
 
