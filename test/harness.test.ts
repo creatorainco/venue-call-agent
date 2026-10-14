@@ -1,7 +1,7 @@
 /**
  * Does the grader actually grade?
  *
- * `npm run eval` reports 14 of 14 clean. That number means nothing on its own — a rubric whose
+ * `npm run eval` reports every conversation clean. That means nothing on its own — a rubric whose
  * checks never fire reports exactly the same thing. So this suite runs a DELIBERATELY BAD AGENT
  * through the same harness and asserts that each hard check catches its own failure.
  *

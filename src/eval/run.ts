@@ -1,7 +1,7 @@
 /**
  * `npm run eval` — run every recorded conversation and grade it.
  *
- * No phone, no cloud account, no booking, no audio. Fourteen calls in about a second.
+ * No phone, no cloud account, no booking, no audio. Every recorded conversation in about a second.
  *
  *     npm run eval                    every fixture, against the reference stub
  *     npm run eval -- --only=who      just the fixtures whose name contains "who"
