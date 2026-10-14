@@ -138,7 +138,8 @@ async function checkNode(version = process.versions.node) {
         return {
             state: 'broken',
             detail: `Node ${version}; this repository needs >= ${wanted}. `
-                + 'Below it, importing a .ts file throws and nothing in here runs. `nvm use` reads .nvmrc.',
+                + 'Below it, importing a .ts file throws and nothing in here runs. .nvmrc says 22, so '
+                + '`nvm install` fetches the newest 22.x; `nvm use` alone may pick an older 22 you already have.',
         };
     }
     return { state: 'ok', detail: `Node ${version} (>= ${wanted})` };
