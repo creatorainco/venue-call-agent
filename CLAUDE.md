@@ -32,8 +32,9 @@ the things an agent gets wrong here specifically.
   `erasableSyntaxOnly` is on so the typechecker catches them first.
 - Imports carry the `.ts` extension.
 - 4 spaces, single quotes, LF. Copied from platform-backend, not from the frontends.
-- No runtime dependencies. Two dev-only packages. Keep it that way unless there is a real reason —
-  the three-minute cold start is the point.
+- The Live transport uses the official `@google/genai` SDK, pinned to `2.22.0`, alongside two
+  dev-only packages. Discuss further runtime dependencies before adding them; keep the doctor
+  and no-facts guard runnable before installation.
 
 ## The testing rule, stated once
 

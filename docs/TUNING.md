@@ -132,11 +132,10 @@ here — and removes `LiveConnectConfig.generation_config`, which is not.
 marks the whole Live surface `@experimental`, including `connect()`, `sendToolResponse()` and
 `close()`. There is no deprecation guarantee on any of it. See `docs/LIMITS.md`.
 
-💡 **One cheap guard worth taking on day one.** This page says putting `model` in the config
-object gets it "silently ignored". That is only true because `LIVE_DEFAULTS` is an untyped object
-literal. Annotate it `: LiveConnectConfig` once the SDK is a dependency and the same mistake
-becomes `error TS2353: 'model' does not exist in type 'LiveConnectConfig'` — the whole class of
-misplaced-field bug turns from silent into a failed build, for one line.
+💡 **The session config now has a compile-time guard.** `LIVE_DEFAULTS` uses
+`satisfies LiveConnectConfig` from the pinned SDK. Putting `model` inside that config is a
+typecheck error; it belongs on the `live.connect` arguments. The transport's current status
+and remaining limitations are recorded in `docs/LIVE-TRANSPORT.md`.
 
 ---
 

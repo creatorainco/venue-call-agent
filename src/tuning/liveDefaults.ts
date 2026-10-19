@@ -55,6 +55,9 @@
  * An explicit version rather than the `-latest` alias: an alias that moves under a deployed voice
  * agent changes what a restaurant hears with no commit and no review.
  */
+import { EndSensitivity, Modality, StartSensitivity, TurnCoverage } from '@google/genai';
+import type { LiveConnectConfig } from '@google/genai';
+
 export const LIVE_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
 
 /** The day Google's deprecations page says `LIVE_MODEL` stops answering. Read 2026-10-14. */
@@ -124,7 +127,7 @@ export const VAD = {
  * lines, so "it worked before the model change" is exactly how this bites.
  */
 export const LIVE_DEFAULTS = {
-    responseModalities: ['AUDIO'] as const,
+    responseModalities: [Modality.AUDIO],
 
     speechConfig: {
         /**
@@ -139,13 +142,13 @@ export const LIVE_DEFAULTS = {
     realtimeInputConfig: {
         automaticActivityDetection: {
             disabled: VAD.disabled,
-            startOfSpeechSensitivity: VAD.startOfSpeechSensitivity,
-            endOfSpeechSensitivity: VAD.endOfSpeechSensitivity,
+            startOfSpeechSensitivity: StartSensitivity[VAD.startOfSpeechSensitivity],
+            endOfSpeechSensitivity: EndSensitivity[VAD.endOfSpeechSensitivity],
             prefixPaddingMs: VAD.prefixPaddingMs,
             silenceDurationMs: VAD.silenceDurationMs,
         },
         /** Send everything, including while the model is speaking — barge-in depends on it. */
-        turnCoverage: 'TURN_INCLUDES_ALL_INPUT' as const,
+        turnCoverage: TurnCoverage.TURN_INCLUDES_ALL_INPUT,
     },
 
     /**
@@ -169,7 +172,7 @@ export const LIVE_DEFAULTS = {
 
     /** Survive a transient disconnect without the restaurant hearing it. */
     sessionResumption: {},
-} as const;
+} satisfies LiveConnectConfig;
 
 /**
  * How long we wait for the seam mid-call.

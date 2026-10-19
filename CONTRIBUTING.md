@@ -80,9 +80,9 @@ than four — an exemption list that grows quietly is the same as no guard.
   erasure cannot express. They typecheck perfectly and throw at import. `tsconfig.json` sets
   `erasableSyntaxOnly` so the typechecker refuses them instead.
 - **Imports carry the `.ts` extension** — that is what Node resolves at runtime.
-- **No runtime dependencies.** There are none today and adding one should be a conversation: the
-  whole suite running on a clone with two dev-only packages is why an intern can start in three
-  minutes. `node:` built-ins cover everything so far, including the HTTP mock and the codec.
+- **Discuss runtime dependencies before adding them.** The Live transport uses the official
+  `@google/genai` SDK pinned to `2.22.0`; the mock, codec and setup guards still use Node built-ins.
+  Keep the doctor and no-facts guard runnable before `npm ci`. There are two dev-only packages.
 - **No lint step**, deliberately, and this is a stated deviation from the two reference repos. The
   strict typechecker plus `erasableSyntaxOnly` plus the guards cover what a lint config would catch
   here, and an untuned lint config produces noise that ends with the whole step being disabled. If
