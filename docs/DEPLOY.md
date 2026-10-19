@@ -54,9 +54,9 @@ creates the account step 4 grants to.
    repository named `cloud-run-source-deploy` is created automatically on first deploy, so it is
    **not** a prerequisite — one of the few things you can skip.
 
-⚠️ **A human deploying by hand needs `roles/run.sourceDeveloper`. The CI service account, per the
-action's own README, needs `roles/run.admin`.** Do not grant `run.admin` to a person because the
-CI documentation said so.
+⚠️ **Source deployment needs the source-build permissions above. The CI service account also
+uses the action's documented `roles/run.admin` baseline.** Run Admin does not replace the
+source-build roles. Do not grant it to a person just because the action documentation lists it.
 
 ---
 
@@ -72,7 +72,7 @@ gcloud run deploy venue-call-agent \
   --min 0 \
   --cpu-throttling \
   --no-allow-unauthenticated \
-  --set-env-vars GOOGLE_NODEJS_VERSION=22
+  --update-build-env-vars GOOGLE_NODEJS_VERSION=22
 ```
 
 | flag | why, and what it costs to get wrong |
@@ -189,7 +189,12 @@ to point it at until the Gemini Live adapter writes one.
 **2. `engines.node` is `">=22.18"`, and Google explicitly says avoid `>` specifiers.** The
 buildpack reads `engines.node` (or `GOOGLE_NODEJS_VERSION`, which wins) and may resolve that to
 Node 24 or 26 — a silent drift between the runtime CI tests on and the runtime production runs.
-Hence the env var in §2, set to `22` to match `.nvmrc`, which is what CI reads. Do not narrow `engines.node` itself; a developer with Node 24 should
+Hence the **build** env var in §2, set to `22` to match `.nvmrc`, which is what CI reads.
+A runtime `--set-env-vars` value does not select the buildpack's Node version. Use
+`--update-build-env-vars` to preserve other build settings. See the
+[Node buildpack documentation](https://docs.cloud.google.com/docs/buildpacks/nodejs) and
+[deploy flag reference](https://docs.cloud.google.com/sdk/gcloud/reference/run/deploy).
+Do not narrow `engines.node` itself; a developer with Node 24 should
 still be able to work here.
 
 **3. The only HTTP server in the repo binds `127.0.0.1:8788`.** That is correct for
@@ -209,6 +214,10 @@ calendar item rather than a surprise.
 ---
 
 ## 5. Deploying from GitHub Actions
+
+The ordered operator procedure is in [the deploy identity checklist](DEPLOY-IDENTITY.md).
+It separates federation, deployment, build and runtime identities and supplies scoped bindings.
+No workflow is enabled. The checklist supersedes the name-only trust example below.
 
 Pin the current majors — `google-github-actions/auth@v3` and
 `google-github-actions/deploy-cloudrun@v3`. The action shells out to `gcloud run deploy`, so
@@ -232,13 +241,15 @@ and planning around a key we may be unable to mint is how a deploy day gets lost
 out to predate that and the operator wants the fast path, the key variant is a three-line diff.
 
 **The CI path needs three things §1 does not list**, because §1 is the local-human minimum:
-`roles/run.admin` on the CI service account (not `run.sourceDeveloper`); `roles/iam.
-serviceAccountUser` granted to the CI service account **on the Compute Engine default service
-account**, per the action's own README; and the four WIF APIs below.
+`roles/run.admin` on the CI service account in addition to source-build permissions;
+`roles/iam.serviceAccountUser` on the identities it attaches for build and runtime; and the four
+WIF APIs below. The action README assumes the Compute Engine default runtime identity; the
+checklist instead explicitly selects dedicated build and runtime accounts.
 
 WIF needs four **more** APIs on top of §1: `iam.googleapis.com`,
 `cloudresourcemanager.googleapis.com`, `iamcredentials.googleapis.com`, `sts.googleapis.com`. The
-person configuring it needs `roles/iam.workloadIdentityPoolAdmin`.
+person configuring federation needs `roles/iam.workloadIdentityPoolAdmin`. API enablement,
+service-account creation and IAM changes require separate bootstrap permissions; see the checklist.
 
 🔴 **Forgetting `sts.googleapis.com` is the classic first-WIF failure** and it produces an opaque
 token-exchange error rather than a "please enable this API" message.
@@ -265,7 +276,7 @@ Not hedges — questions with no answer available from documentation, each with 
 | question | what settles it |
 |---|---|
 | Is Cloud Run enabled in the project that bills our AI usage? | one console read. **This is the approval-gated item.** |
-| Was the org created on or after 2024-05-03? | one console read. Decides whether SA keys are mintable and whether `roles/run.builder` must be granted by hand. |
+| Which organization policies and inherited grants apply? | an authorized policy inspection. Organization age alone does not prove effective access; the chosen build account needs builder permissions regardless. |
 | Cold-start latency for this container | a first deploy. Decides whether `--min 1` (~$5–10/mo) is needed or `--min 0` is fine. |
 | Does a liveness probe consume the single concurrency slot? | an empirical test on a real service. Nothing in the docs says. |
 | Is direct WIF (no service account) enough for `deploy-cloudrun`? | a real deploy. The auth README implies a service account is required for OAuth tokens; the action's example sets one. |
