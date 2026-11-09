@@ -204,6 +204,15 @@ export class TurnDetector {
     }
 }
 
+/**
+ * True when one frame is loud enough to START a turn under these settings. No run length and no
+ * hysteresis: this answers "was somebody talking in this frame", for counting talk-over, and must
+ * never be used to find a turn — that is `TurnDetector`'s job.
+ */
+export function isSpeechFrame(frame: Frame, settings: VadSettings): boolean {
+    return frameEnergy(frame) >= START_THRESHOLD[settings.startOfSpeechSensitivity];
+}
+
 /** RMS of a μ-law frame, in PCM16 units. Decodes through the real codec, not an approximation. */
 export function frameEnergy(frame: Frame): number {
     const pcm = decode(Buffer.from(frame));

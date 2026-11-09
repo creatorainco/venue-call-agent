@@ -65,6 +65,16 @@ export interface CallLegEvents {
     inbound(frame: Frame): void;
     /** The call is over. Fires exactly once. */
     hangup(reason: HangupReason): void;
+    /**
+     * Everything written before `mark(name)` has PLAYED. Not "was sent": played.
+     *
+     * 🔴 A MARK DISCARDED BY `clear()` NEVER FIRES. Twilio echoes every pending mark when it is
+     * sent a `clear`, so on Twilio an echo after a clear looks exactly like a played mark. A
+     * Twilio adapter knows which marks were pending when it sent the clear and must swallow
+     * those echoes; forwarding them would tell `OutputGate` that a disclosure was heard when it
+     * was thrown away. A mark pending when the call ends never fires either.
+     */
+    marked(name: string): void;
 }
 
 export interface CallLeg {
@@ -93,6 +103,18 @@ export interface CallLeg {
 
     /** How many frames are queued and unplayed. The only honest measure of how rude an interrupt will be. */
     queuedFrames(): number;
+
+    /**
+     * Queue a named marker behind everything written so far. `marked(name)` fires once all of it
+     * has played.
+     *
+     * The fifth thing, and the one that is not true of every carrier: Twilio and Plivo echo a
+     * mark, Telnyx and Vonage document no equivalent. It is here anyway because "the disclosure
+     * was heard" is a claim about playout, and without an acknowledgement from the far side of
+     * the queue the only honest answer is "it was sent". A carrier with no mark needs its adapter
+     * to derive one from its own playout clock, and must say so.
+     */
+    mark(name: string): void;
 
     /** End the call from our side. Idempotent. */
     hangup(reason: HangupReason): Promise<void>;

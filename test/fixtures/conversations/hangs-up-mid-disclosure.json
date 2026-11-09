@@ -1,0 +1,20 @@
+{
+  "name": "hangs-up-mid-disclosure",
+  "scenario": "happy",
+  "answerer": "human",
+  "about": "They put the phone down two seconds into the disclosure. The carrier never acknowledges its last frame, so the call reports disclosure_heard=false. That is a fact about them, not a failure of ours, and the hard check must say so rather than pass by assuming the disclosure played.",
+  "turns": [
+    "Hello?"
+  ],
+  "audio": {
+    "hangUpAtMs": 2000,
+    "about": "The far end hangs up 2 seconds in, part-way through the disclosure. Only `npm run call` reads this; the text harness ignores it."
+  },
+  "expect": {
+    "must_say_contains": [
+      "automated call"
+    ],
+    "must_end_call": false,
+    "max_sentences": 6
+  }
+}

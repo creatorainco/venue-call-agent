@@ -186,6 +186,14 @@ if (isEntryPoint(import.meta.url)) {
     console.log(`\n  across ${s.calls} call(s), ${s.turns} answered turn(s):`);
     console.log(`  dead air  p50 ${s.pct.p50 ?? 0}ms · p90 ${s.pct.p90 ?? 0}ms · p99 ${s.pct.p99 ?? 0}ms · max ${s.max}ms   (no mean, on purpose)`);
     console.log(`  talk-over ${s.talkOver} frame(s) · over-segmented ${s.overSegmented} · after hangup ${s.afterHangup}`);
+    // Read off the carrier mark, per call. A call refused before it spoke has no disclosure.
+    const disclosed = rows.filter((r) => r.audio.disclosureStarted);
+    const unheard = disclosed.filter((r) => !r.audio.disclosureHeard).map((r) => r.fixture.name);
+    const replayed = disclosed.reduce((n, r) => n + r.audio.disclosureReplays, 0);
+    const overDisclosure = disclosed.reduce((n, r) => n + r.audio.disclosureTalkOverFrames, 0);
+    console.log(`  disclosure heard in full ${disclosed.length - unheard.length}/${disclosed.length} · `
+        + `talked over ${overDisclosure} frame(s) · replayed ${replayed}`
+        + (unheard.length ? ` · not heard: ${unheard.join(', ')}` : ''));
     console.log(`\n${hard} hard failure(s) · ${soft} soft failure(s)`);
 
     if (hard) {
