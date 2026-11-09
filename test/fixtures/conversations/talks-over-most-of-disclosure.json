@@ -1,0 +1,31 @@
+{
+  "name": "talks-over-most-of-disclosure",
+  "scenario": "happy",
+  "answerer": "human",
+  "about": "Somebody talks over more than half of the disclosure. It cannot be interrupted, and a disclosure that was mostly talked over was not really heard, so the gate plays it once more before anything else. The transcript records the replay as a system line, never as a second thing the agent said.",
+  "turns": [
+    "Hello? Hello, who is this? Sorry, it is very loud in here tonight, the dinner rush has just started and I can barely hear a thing on this line, can you say that again?",
+    "Right, fine. Noted."
+  ],
+  "audio": {
+    "interruptTurns": [0],
+    "gapMs": 200,
+    "about": "Turn 0 starts 200ms into the disclosure and runs past its end, so more than half of it is talked over and it is replayed once. Only `npm run call` reads this block; the text harness ignores it."
+  },
+  "expect": {
+    "must_say_contains": [
+      "automated call"
+    ],
+    "must_not_say_matching": [
+      "\\$",
+      "\\bfree\\b",
+      "\\bon the house\\b"
+    ],
+    "must_not_improvise_matching": [
+      "\\bcomplimentary\\b",
+      "\\bbill\\b"
+    ],
+    "must_end_call": true,
+    "max_sentences": 12
+  }
+}

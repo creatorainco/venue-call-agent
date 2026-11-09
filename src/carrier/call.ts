@@ -34,9 +34,14 @@ import { VAD, LATENCY_PERCENTILES, MAX_CALL_SECONDS } from '../tuning/liveDefaul
 import { FakeCallLeg } from './fakeLeg.ts';
 import type { TimelineTurn } from './fakeLeg.ts';
 import { ScriptedBridge, sentenceDurationMs } from './bridge.ts';
+import { isSpeechFrame } from './vad.ts';
 import type { VadSettings } from './vad.ts';
 import { framesToMs, msToFrames } from './leg.ts';
 import type { HangupReason } from './leg.ts';
+import { OutputGate } from './outputGate.ts';
+import type { DisclosureRecord } from './outputGate.ts';
+import { canTransition } from '../state.ts';
+import type { CallState } from '../state.ts';
 
 export interface AudioCallOptions {
     /** Turn detection. Defaults to the pinned block in src/tuning/liveDefaults.ts. */
@@ -64,8 +69,31 @@ export interface AudioReport {
     maxDeadAirMs: number;
     /** How long after the call connected before we said anything at all. */
     openingDelayMs: number;
-    /** Frames in which BOTH ends were audible. Every one of them is us talking over somebody. */
+    /**
+     * Frames in which BOTH ends were audible, outside the protected disclosure. Every one of them
+     * is us talking over somebody when we could have stopped.
+     */
     talkOverFrames: number;
+    /**
+     * Frames in which both ends were audible while the disclosure was playing. Deliberate: the
+     * disclosure cannot be interrupted (src/carrier/outputGate.ts), so this is reported and is not
+     * a barge-in failure. If they talked over more than half of it, it was played once more.
+     */
+    disclosureTalkOverFrames: number;
+    /** A disclosure was started at all. False on a call refused before it spoke. */
+    disclosureStarted: boolean;
+    /**
+     * The carrier acknowledged the disclosure's last frame. Read off the mark, not the queue: false
+     * when the far end hung up before it finished, which is reported, not failed.
+     */
+    disclosureHeard: boolean;
+    /** Times the disclosure was played again because it was talked over. 0 or 1. */
+    disclosureReplays: number;
+    /**
+     * The far end hung up while the disclosure was still queued to play. The one excuse for
+     * `disclosureHeard: false`; a hangup after the disclosure had already stopped is not one.
+     */
+    disclosureCutByHangup: boolean;
     /** Frames the barge-in threw away. Zero on a call nobody interrupted. */
     clearedFrames: number;
     /** Frames written after the far end hung up. Must be zero. */
@@ -137,11 +165,41 @@ export function segmentsOf(text: string): number[] {
 /** A text fixture as an audio timeline: they speak, they wait for an answer, they speak again. */
 export function timelineFrom(fixture: Fixture): TimelineTurn[] {
     const interrupts = new Set(fixture.audio?.interruptTurns ?? []);
+    const gapMs = fixture.audio?.gapMs;
     return fixture.turns.map((text, i) => ({
         text,
         segmentsMs: segmentsOf(text),
         ...(interrupts.has(i) ? { startWhen: 'interrupt' as const } : {}),
+        ...(interrupts.has(i) && gapMs !== undefined ? { gapMs } : {}),
     }));
+}
+
+/**
+ * The call state after the agent's turn, read off what the turn DID rather than what it said.
+ *
+ * The gate needs a state to enforce; the agent owns the conversation. So the move is derived from
+ * the turn's tool calls and its shape, never from its words, and a move the machine does not allow
+ * is not taken: a voicemail reported after the notice is a misreading, and the call stays where it
+ * is rather than pretending a machine answered.
+ *
+ * `menu -> notice` is legal and not taken here. The scripted stub carries no signal for "a person
+ * came off the menu"; the agent's own state replaces this once the voicemail and menu flags in
+ * src/agent/scriptedStub.ts move into the machine.
+ */
+export function nextState(state: CallState, turn: AgentTurn): CallState {
+    if (state === 'idle' || state === 'connected' || state === 'ended') return state;
+    const answerer = turn.toolCalls.find((c) => c.name === 'report_answerer')?.args.answerer;
+    let next = state;
+    if (answerer === 'voicemail') {
+        if (canTransition(state, 'voicemail')) next = 'voicemail';
+    } else if (answerer === 'phone_menu') {
+        if (canTransition(state, 'menu')) next = 'menu';
+    } else if (answerer === undefined && turn.say.length > 0) {
+        if (state === 'disclosing') next = 'notice';
+        else if (state === 'notice' || state === 'qa') next = 'qa';
+    }
+    if (turn.endCall && (next === 'notice' || next === 'qa') && canTransition(state, 'closing')) next = 'closing';
+    return next;
 }
 
 export async function audioCall(
@@ -169,9 +227,18 @@ export async function audioCall(
             ...(options.trailingSilenceMs === undefined ? {} : { trailingSilenceMs: options.trailingSilenceMs }),
             maxMs: MAX_CALL_SECONDS * 1000,
         });
-        const bridge = new ScriptedBridge(leg, { vad, script: fixture.turns });
+        // Every outbound frame goes through the gate; the bridge cannot tell it is not the leg.
+        const gate = new OutputGate(leg, { isSpeech: (frame) => isSpeechFrame(frame, vad) });
+        gate.connect();
+        const bridge = new ScriptedBridge(gate, { vad, script: fixture.turns });
 
         const lines: TranscriptLine[] = [];
+        gate.onReplay((frames) => {
+            bridge.delay(frames);
+            // A system line, not an agent line: the agent said the disclosure once, and the gate
+            // replayed its audio. `spoken` stays a record of what the agent said.
+            lines.push({ who: 'system', text: 'disclosure replayed: the far end talked over more than half of it' });
+        });
         const toolCalls: ToolCall[] = [];
         const spoken: string[] = [];
         let ended = false;
@@ -200,9 +267,26 @@ export async function audioCall(
             // WOULD have said, filed as what it said, is the same class of untruth as counting
             // an interrupted sentence as delivered.
             const speakable = turn.say.length > 0 && !leg.ended;
-            if (speakable) {
+            if (gate.state !== 'connected' && !leg.ended) {
+                const next = nextState(gate.state, turn);
+                if (next !== gate.state) gate.enter(next);
+            }
+            if (speakable && gate.state === 'connected') {
+                // The first thing this call says is the disclosure (CallAgent.open() must begin
+                // with it; the rubric checks the words). It goes out as the protected range, and
+                // anything after it in the same turn is held until the carrier says it played.
+                // The latency pad is leading silence: the gate plays it but keeps it out of the
+                // protected range, so it is neither replayed nor counted as disclosure talk-over.
+                gate.beginDisclosure();
+                if (modelLatencyMs > 0) bridge.padSilence(modelLatencyMs);
+                bridge.speak(turn.say.slice(0, 1));
+                gate.endDisclosure();
+                if (turn.say.length > 1) bridge.speak(turn.say.slice(1));
+            } else if (speakable) {
                 if (modelLatencyMs > 0) bridge.padSilence(modelLatencyMs);
                 bridge.speak(turn.say);
+            }
+            if (speakable) {
                 for (const sentence of turn.say) {
                     spoken.push(sentence);
                     lines.push({ who: 'agent', text: sentence });
@@ -271,8 +355,10 @@ export async function audioCall(
                     // The agent hung up. Let its last sentence finish playing rather than cutting
                     // it off mid-word — a real dialler waits for the queue to drain before it
                     // tears the leg down, and a test that does not would score a truncated call.
-                    while (leg.queuedFrames() > 0 && leg.advance()) { /* drain */ }
-                    await leg.hangup('agent_ended');
+                    // The gate's count, not the leg's: audio held behind an unacknowledged
+                    // disclosure is still owed to the far end.
+                    while (gate.queuedFrames() > 0 && leg.advance()) { /* drain */ }
+                    await gate.hangup('agent_ended');
                     break;
                 }
                 if (!alive) break;
@@ -323,6 +409,7 @@ export async function audioCall(
                 endedBecause: hangupReason,
                 vad: bridge.vadDescription,
                 modelLatencyMs,
+                disclosure: gate.disclosure(),
             }),
         };
     } finally {
@@ -341,8 +428,11 @@ export function measure(
         endedBecause: HangupReason;
         vad: string;
         modelLatencyMs: number;
+        /** The gate's record. Absent for a rig with no gate, which then reports no disclosure. */
+        disclosure?: DisclosureRecord;
     },
 ): AudioReport {
+    const disclosure = ctx.disclosure ?? NO_DISCLOSURE;
     const audibleOut = leg.outbound.filter((f) => f.audible);
     const firstAudibleAfter = (frame: number): number | null => {
         for (const f of audibleOut) if (f.at > frame) return f.at;
@@ -368,7 +458,12 @@ export function measure(
     const heard = bridge.heard();
     const inboundAudible = new Set(leg.inbound.filter((f) => f.audible).map((f) => f.at));
     let talkOver = 0;
-    for (const f of audibleOut) if (inboundAudible.has(f.at)) talkOver += 1;
+    let disclosureTalkOver = 0;
+    for (const f of audibleOut) {
+        if (!inboundAudible.has(f.at)) continue;
+        if (disclosure.protectedFrames.has(f.at)) disclosureTalkOver += 1;
+        else talkOver += 1;
+    }
 
     return {
         deadAirMs,
@@ -376,8 +471,15 @@ export function measure(
         maxDeadAirMs: deadAirMs.length ? Math.max(...deadAirMs) : 0,
         openingDelayMs: audibleOut.length ? framesToMs(audibleOut[0]!.at) : 0,
         talkOverFrames: talkOver,
-        clearedFrames: leg.cleared,
-        writtenAfterHangup: leg.writtenAfterHangup,
+        disclosureTalkOverFrames: disclosureTalkOver,
+        disclosureStarted: disclosure.started,
+        disclosureHeard: disclosure.heard,
+        disclosureReplays: disclosure.replays,
+        disclosureCutByHangup: disclosure.cutByHangup,
+        clearedFrames: leg.cleared + disclosure.heldCleared,
+        // The gate drops a write after the end before the leg can count it. The write is still
+        // the bug — a loop that kept generating audio — so both counts are charged.
+        writtenAfterHangup: leg.writtenAfterHangup + disclosure.droppedAfterEnd,
         framesIn: leg.inbound.length,
         framesOut: leg.outbound.length,
         audibleOutFrames: audibleOut.length,
@@ -402,6 +504,16 @@ export function measure(
         modelLatencyMs: ctx.modelLatencyMs,
     };
 }
+
+const NO_DISCLOSURE: DisclosureRecord = Object.freeze({
+    started: false,
+    heard: false,
+    replays: 0,
+    cutByHangup: false,
+    protectedFrames: new Set<number>(),
+    droppedAfterEnd: 0,
+    heldCleared: 0,
+});
 
 /** p50 / p90 / p99, nearest-rank. Deliberately no mean — see docs/TUNING.md §3.1. */
 export function percentiles(values: readonly number[]): Record<string, number> {

@@ -1,0 +1,22 @@
+{
+  "name": "talks-over-disclosure-then-hangs-up-late",
+  "scenario": "happy",
+  "answerer": "human",
+  "about": "Somebody says hello over the disclosure and puts the phone down seconds after it has finished, part-way through the notice. The disclosure played in full, so it was heard. This fixture keeps the hangup excuse narrow: if a bug ever clears the disclosure, the gate fails closed into silence and the restaurant hangs up into it, and that later hangup must not excuse a disclosure that had already stopped playing. No must_end_call: the text harness ends this call itself and the audio run is ended by the far end, and neither is what this fixture grades.",
+  "turns": [
+    "Hello? Hello, who is this?",
+    "Right, fine. Noted."
+  ],
+  "audio": {
+    "interruptTurns": [0],
+    "gapMs": 200,
+    "hangUpAtMs": 10000,
+    "about": "Turn 0 starts 200ms into the disclosure; the far end hangs up at 10 seconds, about three seconds after the disclosure finishes. Only `npm run call` reads this block; the text harness ignores it."
+  },
+  "expect": {
+    "must_say_contains": [
+      "automated call"
+    ],
+    "max_sentences": 12
+  }
+}

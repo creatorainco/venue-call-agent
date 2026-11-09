@@ -56,10 +56,10 @@ Then the conversations, twice — once as transcripts, once as telephone calls:
 
 ```bash
 npm run eval
-# 15/15 conversations clean · 0 hard failure(s) · 0 soft failure(s)
+# 19/19 conversations clean · 0 hard failure(s) · 0 soft failure(s)
 
 npm run call
-#   across 15 call(s), ...
+#   across 19 call(s), ...
 # 0 hard failure(s) · N soft failure(s)
 ```
 
@@ -188,7 +188,7 @@ npm run call -- --sweep=200,400,600,800,1000,1200
 npm run call -- --latency=900     # and what the model's own delay adds on top
 ```
 
-🔴 **`--latency=900` EXITS 1 TODAY, AND THAT IS THE INSTRUMENT WORKING.** One of the fifteen
+🔴 **`--latency=900` EXITS 1 TODAY, AND THAT IS THE INSTRUMENT WORKING.** One of the nineteen
 calls — `phone-menu` — reaches 8,680 ms of dead air once the model is assumed to take 900 ms,
 and the hard budget is 4,000. Nothing is broken: the command is telling you that at that latency
 this feature has a call in it a person would think had dropped. Do not "fix" it by widening the
@@ -196,7 +196,7 @@ budget; the budget is the requirement. Expected output, so nobody mistakes it fo
 
 ```
   phone-menu                  2/2     1720ms / 8680ms    0f         HARD: dead_air_within_hard_budget
-1 hard failure(s) · 5 soft failure(s)
+1 hard failure(s) · 6 soft failure(s)
 ```
 
 

@@ -195,9 +195,29 @@ export class ScriptedBridge implements SpeechBridge {
         const dropped = this.leg.queuedFrames();
         if (!dropped) return;
         this.leg.clear();
-        // Frames 0..this.frame have gone out, so that is this.frame + 1 played.
-        this.settle(this.frame + 1);
-        this.queuedUntilFrame = this.frame;
+        // Frames 0..this.frame have gone out, so that is this.frame + 1 played. Whatever the leg
+        // kept after the clear still plays: `OutputGate` keeps an unacknowledged disclosure, and
+        // settling that as cut would report a sentence the restaurant hears in full as lost.
+        const kept = this.leg.queuedFrames();
+        const audibleUntil = this.frame + 1 + kept;
+        for (const entry of this.spoken) {
+            if (entry.settled || entry.queuedAtFrame + entry.frames <= audibleUntil) continue;
+            entry.heardFrames = Math.min(entry.frames, Math.max(0, audibleUntil - entry.queuedAtFrame));
+            entry.settled = true;
+        }
+        this.queuedUntilFrame = audibleUntil - 1;   // inclusive; see speak()
+    }
+
+    /**
+     * Audio was inserted below the bridge — `OutputGate` replaying a talked-over disclosure — so
+     * every sentence that had not started yet starts `frames` later. Without this the accounting
+     * of what was heard drifts by the length of the disclosure on exactly the calls that matter.
+     */
+    delay(frames: number): void {
+        for (const entry of this.spoken) {
+            if (!entry.settled && entry.queuedAtFrame > this.frame) entry.queuedAtFrame += frames;
+        }
+        this.queuedUntilFrame += frames;
     }
 
     /**

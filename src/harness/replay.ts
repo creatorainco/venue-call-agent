@@ -53,6 +53,11 @@ export interface FixtureAudio {
      * fail. There is a unit test with a planted fault as well; this is the graded one.
      */
     interruptTurns?: number[];
+    /**
+     * How long after we START speaking an interrupting turn cuts in. Omit for the fake leg's
+     * default (400 ms). Applies only to `interruptTurns`; a turn that waits is unaffected.
+     */
+    gapMs?: number;
     /** The far end hangs up at this point in call time, mid-anything. */
     hangUpAtMs?: number;
     /** Prose, for a reader. Ignored by everything. */

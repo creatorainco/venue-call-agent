@@ -141,7 +141,8 @@ export class FakeCallLeg implements CallLeg {
     private readonly handlers: {
         inbound: Array<CallLegEvents['inbound']>;
         hangup: Array<CallLegEvents['hangup']>;
-    } = { inbound: [], hangup: [] };
+        marked: Array<CallLegEvents['marked']>;
+    } = { inbound: [], hangup: [], marked: [] };
 
     private readonly turns: readonly TimelineTurn[];
     private readonly amplitude: number;
@@ -151,6 +152,8 @@ export class FakeCallLeg implements CallLeg {
     private readonly patienceFrames: number;
 
     private queue: Frame[] = [];
+    /** Marks not yet reached, with how many queued frames still play before each. */
+    private marks: Array<{ name: string; ahead: number }> = [];
     private tick = 0;
     private done = false;
 
@@ -189,6 +192,10 @@ export class FakeCallLeg implements CallLeg {
     cleared = 0;
     /** Frames written after the call ended. Must always be zero; kept so a test can prove it. */
     writtenAfterHangup = 0;
+    /** Every mark playout reached, with the frame its last audio played in. */
+    readonly marksReached: Array<{ name: string; at: number }> = [];
+    /** Marks `clear()` threw away. They never fire, on this leg or (see leg.ts) on any adapter. */
+    readonly marksCleared: string[] = [];
 
     constructor(options: FakeLegOptions) {
         this.id = options.id ?? 'fake-leg';
@@ -218,10 +225,22 @@ export class FakeCallLeg implements CallLeg {
     clear(): void {
         this.cleared += this.queue.length;
         this.queue = [];
+        for (const m of this.marks) this.marksCleared.push(m.name);
+        this.marks = [];
     }
 
     queuedFrames(): number {
         return this.queue.length;
+    }
+
+    /**
+     * A mark behind everything queued. It fires in the frame the last of that audio plays, after
+     * that frame's inbound handlers, so a handler running on that frame still sees it pending.
+     * Placed on an empty queue, it fires on the next frame. Placed after the end, it never fires.
+     */
+    mark(name: string): void {
+        if (this.done) return;
+        this.marks.push({ name, ahead: this.queue.length });
     }
 
     async hangup(reason: HangupReason): Promise<void> {
@@ -279,9 +298,21 @@ export class FakeCallLeg implements CallLeg {
             return false;
         }
 
-        this.inbound.push({ at: this.tick, audible: !isSilent(inbound) });
+        // The frame really played, so every mark behind it is one frame nearer. Counted only
+        // here, after the timeline check above: a tick that never happens plays nothing.
+        if (playing !== undefined) for (const m of this.marks) if (m.ahead > 0) m.ahead -= 1;
+        const due = this.marks.filter((m) => m.ahead === 0);
+        this.marks = this.marks.filter((m) => m.ahead > 0);
+
+        const at = this.tick;
+        this.inbound.push({ at, audible: !isSilent(inbound) });
         this.tick += 1;
         for (const handler of this.handlers.inbound) handler(inbound);
+        for (const m of due) {
+            if (this.done) break;
+            this.marksReached.push({ name: m.name, at });
+            for (const handler of this.handlers.marked) handler(m.name);
+        }
         return !this.done;
     }
 
@@ -370,6 +401,7 @@ export class FakeCallLeg implements CallLeg {
         if (this.done) return;
         this.done = true;
         this.queue = [];
+        // Pending marks are not cleared and not reached: the far end left before the audio did.
         for (const handler of this.handlers.hangup) handler(reason);
     }
 }
