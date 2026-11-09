@@ -41,7 +41,7 @@ has measured.
 
 | knob | where | value | what it changes |
 |---|---|---|---|
-| model id | argument to `live.connect`, **not** the config object | `gemini-2.5-flash-native-audio-preview-12-2025` | everything. Put it in the config object and it is silently ignored |
+| model id | argument to `live.connect`, **not** the config object | `gemini-3.8-live` | everything. Put it in the config object and it is silently ignored |
 
 Native-audio versus half-cascade is the first real choice: native audio gives more natural prosody
 and expressive speech; half-cascade (a text model plus TTS) is generally steadier under tool use.
@@ -151,34 +151,30 @@ any tool call inside it. Report **p50, p90, p99 and max**. Never a mean — a me
 calls this feature must not make. Record the model id, the full VAD block and the fixture, or two
 runs are not comparable.
 
-### 3.2 Settle the model question first — before 17 November 2026
+### 3.2 The model pin and its dates
 
-🔴 **The pin has a shutdown date.** Google's deprecations page
-(https://ai.google.dev/gemini-api/docs/deprecations, read 2026-10-14) lists **both** the pinned
-`gemini-2.5-flash-native-audio-preview-12-2025` **and** the model it avoids,
-`gemini-3.1-flash-live-preview`, for shutdown on **2026-11-17**, and names `gemini-3.8-live` as the
-replacement for both. Google's models page still calls the 2.5 native-audio line not deprecated,
-with access limited to existing users; the deprecations page is the one with a date, so plan to
-it. `LIVE_MODEL_SHUTDOWN` and `LIVE_MODEL_REPLACEMENT` in `src/tuning/liveDefaults.ts` hold both
-values, and `test/liveDefaults.test.ts` fails the build on that date if the pin has not moved.
+**Re-pinned 2026-11-09 to `gemini-3.8-live`, from Google's pages, not from a measurement.** The old
+pin, `gemini-2.5-flash-native-audio-preview-12-2025`, and the model it avoided,
+`gemini-3.1-flash-live-preview`, were both scheduled for shutdown on **2026-11-17**, and both name
+`gemini-3.8-live` as their replacement, so no measured choice was left before that date. Sources,
+both read 2026-11-09: https://aistudio.google.com/docs/deprecations (no shutdown date announced for
+`gemini-3.8-live`) and https://docs.cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions
+(its retirement no earlier than **2027-09-25**, "September 25, 2027 or later").
 
-So the comparison to run is the pinned model against **`gemini-3.8-live`**, on the same fixture,
-recording everything in §3.1. Re-pinning is the outcome of that measurement, not an edit made from
-a docs page — which is why the value in `src/tuning/liveDefaults.ts` has not been changed.
+`LIVE_MODEL`, `LIVE_MODEL_EARLIEST_RETIREMENT` and `RETIRED_LIVE_MODELS` in
+`src/tuning/liveDefaults.ts` hold these values. `test/liveDefaults.test.ts` fails the build on the
+pin's earliest retirement day, and on any re-pin to a retired model, so the next deadline cannot
+pass quietly either. It is a required gate, never a warning.
 
-**Why the pin avoided `gemini-3.1-flash-live-preview`** — still worth knowing, because it is the
-kind of failure to look for in the replacement. A forum thread (two posters, no Google reply, last
-post 2026-09-05) reports it at 9–15 s TTFA against ~2 s for the 2.5 native-audio line. On a
-telephone nine seconds after "hello" is the call over. It is not our measurement.
+Live is the challenger, not the first-call brain: the closed-mouth cascade is. The loopback soak
+measures `gemini-3.8-live` against the cascade on the same fixture, recording everything in §3.1.
 
-**Independent second signal, found 2026-09-12 and older than the latency thread.**
-`google-gemini/cookbook` issue **#1197** (opened 2026-04-16, still open, no Google response)
-reports four production voice-call defects on `gemini-3.1-flash-live-preview`, the first being
-**greeting stuttering when interrupted** — a barge-in defect, which is the exact mechanism this
-lane depends on and the one `npm run call` grades. Two unrelated reports, months apart, both
-against `gemini-3.1-flash-live-preview`, both on things a telephone call cannot tolerate. Neither
-says anything about `gemini-3.8-live`, which nobody here has measured; the replacement starts with
-no evidence either way, and the measurement is the deciding move.
+**What to look for in it, from the models it replaces.** A forum thread (two posters, no Google
+reply, last post 2026-09-05) reported `gemini-3.1-flash-live-preview` at 9–15 s TTFA against ~2 s
+for the 2.5 native-audio line, and `google-gemini/cookbook` issue **#1197** (opened 2026-04-16)
+reported **greeting stuttering when interrupted**, a barge-in defect, on the same model. Neither
+is our measurement and neither says anything about `gemini-3.8-live`; they are the failures the
+soak checks for first.
 
 ### 3.3 Sweep silence duration around the documented default
 

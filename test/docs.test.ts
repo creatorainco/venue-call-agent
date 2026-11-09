@@ -38,10 +38,9 @@ import { DEAD_AIR_HARD_MS } from '../src/carrier/checks.ts';
 import { SEAM_REFUSAL_REASONS } from '../src/seam/types.ts';
 import {
     LIVE_MODEL,
-    LIVE_MODEL_REPLACEMENT,
-    LIVE_MODEL_SHUTDOWN,
-    LIVE_MODEL_UNDER_SUSPICION,
+    LIVE_MODEL_EARLIEST_RETIREMENT,
     MAX_CALL_SECONDS,
+    RETIRED_LIVE_MODELS,
     VAD,
 } from '../src/tuning/liveDefaults.ts';
 
@@ -398,14 +397,19 @@ describe('lifetimes printed in prose', () => {
     });
 });
 
-describe('the Gemini model ids and the shutdown date', () => {
+describe('the Gemini model ids and their dates', () => {
+    const shutdownDates = new Set(Object.values(RETIRED_LIVE_MODELS));
+
     function stale(page: string, text: string): string[] {
         const wrong: string[] = [];
         for (const m of text.matchAll(/shutdown on \**(\d{4}-\d{2}-\d{2})/g)) {
-            if (m[1] !== LIVE_MODEL_SHUTDOWN) wrong.push(`${page}: "${m[0]}" — LIVE_MODEL_SHUTDOWN is ${LIVE_MODEL_SHUTDOWN}`);
+            if (!shutdownDates.has(m[1] ?? '')) wrong.push(`${page}: "${m[0]}" — RETIRED_LIVE_MODELS holds ${[...shutdownDates].join(', ')}`);
+        }
+        for (const m of text.matchAll(/retire(?:s|ment)? no earlier than \**(\d{4}-\d{2}-\d{2})/g)) {
+            if (m[1] !== LIVE_MODEL_EARLIEST_RETIREMENT) wrong.push(`${page}: "${m[0]}" — LIVE_MODEL_EARLIEST_RETIREMENT is ${LIVE_MODEL_EARLIEST_RETIREMENT}`);
         }
         for (const m of text.matchAll(/gemini-[\d.]+-live\b(?!-)/g)) {
-            if (m[0] !== LIVE_MODEL_REPLACEMENT) wrong.push(`${page}: "${m[0]}" — LIVE_MODEL_REPLACEMENT is ${LIVE_MODEL_REPLACEMENT}`);
+            if (m[0] !== LIVE_MODEL) wrong.push(`${page}: "${m[0]}" — LIVE_MODEL is ${LIVE_MODEL}`);
         }
         for (const m of text.matchAll(/\| model id \|[^|]*\|\s*`([^`]+)`/g)) {
             if (m[1] !== LIVE_MODEL) wrong.push(`${page}: model id "${m[1]}" — LIVE_MODEL is ${LIVE_MODEL}`);
@@ -413,9 +417,9 @@ describe('the Gemini model ids and the shutdown date', () => {
         return wrong;
     }
 
-    it('docs/TUNING.md names the pin, the avoided model, the replacement and the date', () => {
+    it('docs/TUNING.md names the pin, its earliest retirement and every retired model', () => {
         const text = read('docs/TUNING.md');
-        for (const v of [LIVE_MODEL, LIVE_MODEL_UNDER_SUSPICION, LIVE_MODEL_REPLACEMENT, LIVE_MODEL_SHUTDOWN]) {
+        for (const v of [LIVE_MODEL, LIVE_MODEL_EARLIEST_RETIREMENT, ...Object.keys(RETIRED_LIVE_MODELS)]) {
             assert.ok(text.includes(v), `docs/TUNING.md no longer mentions ${v}`);
         }
     });
@@ -425,8 +429,8 @@ describe('the Gemini model ids and the shutdown date', () => {
         assert.deepEqual(wrong, [], wrong.join('\n'));
     });
 
-    it('CONTROL — a wrong date, replacement or pin is caught', () => {
-        const planted = 'for shutdown on **2026-12-01**, replaced by `gemini-9.9-live`.\n| model id | x | `gemini-old` | y |';
-        assert.equal(stale('planted', planted).length, 3, stale('planted', planted).join('\n'));
+    it('CONTROL — a wrong shutdown date, retirement date, live id or pin is caught', () => {
+        const planted = 'for shutdown on **2026-12-01**, replaced by `gemini-9.9-live`; retires no earlier than **2030-01-01**.\n| model id | x | `gemini-old` | y |';
+        assert.equal(stale('planted', planted).length, 4, stale('planted', planted).join('\n'));
     });
 });
