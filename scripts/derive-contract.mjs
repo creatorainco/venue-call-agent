@@ -57,6 +57,7 @@ const SOURCES = {
     service: 'src/infrastructure/services/venueCall.service.ts',
     kb: 'src/helpers/emails/venueOperationsKb.ts',
     script: 'src/helpers/location/venueCallScript.ts',
+    compLine: 'src/helpers/emails/venueCompLine.ts',
     routes: 'src/infrastructure/routes/reservations.routes.ts',
     token: 'src/helpers/location/venueCallToken.ts',
     record: 'src/helpers/location/venueCallRecord.ts',
@@ -245,12 +246,25 @@ const enumObject = (text, name) => {
  * Copy TypeScript files out of git into a fresh temporary directory and import them. Node erases
  * the types; a type-only import is erased with them. Returns the modules keyed as given, or a
  * string saying why it could not — never a partial set.
+ *
+ * `aliases` maps a backend import specifier (`@helpers/emails/venueCompLine`, with or without
+ * `.js`) to the name of ANOTHER file in `files`, and only that exact specifier is rewritten to
+ * the sibling copy. v4 of the script gained one real import, the fixed comp sentence (C-225), and
+ * without this the builders stopped loading. Any import NOT named here is left alone and still
+ * fails to load, which is reported as COULD NOT EXTRACT, never as clean.
  */
-const loadTs = async (files) => {
+const loadTs = async (files, aliases = {}) => {
     const dir = mkdtempSync(join(tmpdir(), 'derive-contract-'));
     try {
         writeFileSync(join(dir, 'package.json'), '{"type":"module"}\n');
-        for (const [name, text] of Object.entries(files)) writeFileSync(join(dir, `${name}.ts`), text);
+        const rewrite = (text) => Object.entries(aliases).reduce(
+            (out, [spec, name]) => out.replace(
+                new RegExp(`(from\\s+)(['"])${spec.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}(?:\\.js)?\\2`, 'g'),
+                `$1$2./${name}.ts$2`,
+            ),
+            text,
+        );
+        for (const [name, text] of Object.entries(files)) writeFileSync(join(dir, `${name}.ts`), rewrite(text));
         const out = {};
         for (const name of Object.keys(files)) out[name] = await import(pathToFileURL(join(dir, `${name}.ts`)).href);
         return out;
@@ -310,6 +324,13 @@ const positiveControl = async () => {
     const loaded = await loadTs({
         sample: 'import type { Nothing } from \'@nowhere/at-all\';\nexport const answer = (n: number): string => `n=${n}`;\n',
     });
+    const aliased = await loadTs({
+        word: 'export const WORD = \'plugh\';\n',
+        user: 'import { WORD } from \'@fake/place/word.js\';\nexport const said = `${WORD}!`;\n',
+    }, { '@fake/place/word': 'word' });
+    const unmapped = await loadTs({
+        user: 'import { WORD } from \'@fake/place/word.js\';\nexport const said = WORD;\n',
+    }, { '@fake/place/other': 'other' });
     const checks = [
         ['unionMembers', unionMembers(SAMPLE, 'FakeReason'), ['alpha', 'beta']],
         ['arrayMembers', arrayMembers(SAMPLE, 'FAKE_TOPICS'), ['delta', 'gamma']],
@@ -327,6 +348,8 @@ const positiveControl = async () => {
         ['campaignRule (unresolvable member)',
             campaignRule(SAMPLE.replace('FAKE_ENUM.ON', 'FAKE_ENUM.GONE'), ENUM_SAMPLE, 'FAKE_KEEPERS', 'FAKE_ENUM'), null],
         ['loadTs (type-only import erased)', typeof loaded === 'string' ? loaded : loaded.sample.answer(7), 'n=7'],
+        ['loadTs (named alias resolved to a sibling copy)', typeof aliased === 'string' ? aliased : aliased.user.said, 'plugh!'],
+        ['loadTs (an import nobody mapped still fails)', typeof unmapped, 'string'],
     ];
     return checks.filter(([, got, want]) => JSON.stringify(got) !== JSON.stringify(want));
 };
@@ -391,6 +414,9 @@ const show = (file) => {
 const service = show(SOURCES.service);
 const kb = show(SOURCES.kb);
 const scriptSrc = show(SOURCES.script);
+// Read only when the script imports it: refs before v4 (C-225) have no such file.
+const COMP_LINE_IMPORT = '@helpers/emails/venueCompLine';
+const compLineSrc = scriptSrc.includes(COMP_LINE_IMPORT) ? show(SOURCES.compLine) : null;
 const routes = show(SOURCES.routes);
 const tokenSrc = show(SOURCES.token);
 const recordSrc = show(SOURCES.record);
@@ -468,7 +494,12 @@ if (noExec) {
     console.log('--no-exec: the backend\'s sentence builders were NOT run. The opening, voicemail,');
     console.log('system instruction and fact answers are unverified on this run, not verified.\n');
 } else {
-    const mods = await loadTs({ venueCallScript: scriptSrc, venueOperationsKb: kb });
+    const mods = compLineSrc === null
+        ? await loadTs({ venueCallScript: scriptSrc, venueOperationsKb: kb })
+        : await loadTs(
+            { venueCallScript: scriptSrc, venueOperationsKb: kb, venueCompLine: compLineSrc },
+            { [COMP_LINE_IMPORT]: 'venueCompLine' },
+        );
     const S = typeof mods === 'string' ? null : mods.venueCallScript;
     const K = typeof mods === 'string' ? null : mods.venueOperationsKb;
     const usable = S && K && typeof S.buildVenueCallScript === 'function'

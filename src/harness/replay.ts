@@ -68,6 +68,12 @@ export interface FixtureExpectations {
     must_say_contains?: string[];
     /** Patterns that must NOT appear in anything the agent said. */
     must_not_say_matching?: string[];
+    /**
+     * Patterns that may appear ONLY inside a sentence the backend supplied on this call, quoted.
+     * For words the backend itself may say (the v4 opening's comp sentence) but the agent must
+     * never say in its own words. Holds a pattern, never the sentence: the backend owns that.
+     */
+    must_not_improvise_matching?: string[];
     /** Whether the agent must have hung up by the end. */
     must_end_call?: boolean;
     /** The call must end before a single word is spoken (a refusal case). */

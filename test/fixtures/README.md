@@ -22,6 +22,7 @@ fixture is checked into a repository while a real booking is somebody's dinner.
     "must_not_call":   [{ "route": "/call-fact" }],
     "must_say_contains":      ["don't want to guess"],
     "must_not_say_matching":  ["\\$", "\\bfree\\b"],
+    "must_not_improvise_matching": ["\\bcomplimentary\\b"],  // allowed only inside a backend sentence
     "must_end_call": true,
     "must_not_speak_at_all": false,   // for the refusal fixtures
     "max_sentences": 9,               // soft
@@ -32,6 +33,11 @@ fixture is checked into a repository while a real booking is somebody's dinner.
 
 `scenario` names an entry in `src/mock/fixtures/scenarios.json`. That file is where the canned
 backend responses live; this one only says what the venue says and what must be true afterwards.
+
+`must_not_say_matching` bans a word outright. `must_not_improvise_matching` is for a word the
+backend itself may say: since `venue-precall/v4` the opening carries the backend's fixed comp
+sentence, so "complimentary" is fine quoted and a hard failure in the agent's own words. It holds a
+pattern, never the sentence; whether the sentence is spoken at all is the backend's call.
 
 ## Two things the format deliberately does not let you do
 

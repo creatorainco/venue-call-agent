@@ -69,6 +69,13 @@ paying?" gets the honest deferral on every call. The mock's default scenario rep
 `comp-known` scenario is the world after the clause exists. `contract/seam4.json` records it under
 `known_divergences` as `comp-clause`.
 
+Since `venue-precall/v4` (backend C-225) the opening's third beat and the voicemail carry ONE fixed
+comp sentence written in the backend, not per campaign. That does not change the above: the
+`comp_terms` answer still defers. The mock copies the sentence verbatim from the backend's builders
+and nothing in `src/` or the fixtures holds it; the fixtures allow the word only inside a backend
+sentence (`must_not_improvise_matching`). Whether that sentence is spoken at all is an open product
+question for the backend, which may drop it in a later script version; re-derive when it does.
+
 ⚠️ Do not reach for other prose on the campaign because it is the only text available. A bot
 telling a restaurant its comp is a line of product marketing copy is exactly the fabrication this
 design exists to prevent. **Owner: the comp-clause backend change.**

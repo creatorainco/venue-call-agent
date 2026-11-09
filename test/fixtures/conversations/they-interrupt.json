@@ -19,8 +19,11 @@
     "must_not_say_matching": [
       "\\$",
       "\\bfree\\b",
-      "\\bcomplimentary\\b",
       "\\bon the house\\b"
+    ],
+    "must_not_improvise_matching": [
+      "\\bcomplimentary\\b",
+      "\\bbill\\b"
     ],
     "must_end_call": true,
     "max_sentences": 12
