@@ -22,7 +22,7 @@
     "mint-token": "node scripts/mint-token.mjs"
   },
   "devDependencies": {
-    "@types/node": "^22.15.3",
+    "@types/node": "^26.6.6",
     "@types/ws": "8.18.2",
     "typescript": "^5.9.2"
   },
