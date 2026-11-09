@@ -60,6 +60,33 @@ export function audioChecks(report: AudioReport): AudioCheck[] {
               + 'audio nobody hears, on a call somebody is billed for, from a loop that did not stop',
     });
 
+    // Zero hangups is a line left open, billed by the minute; two is a loop that lost track of its
+    // own hangup. Both ends of the boundary are planted in the control below.
+    checks.push({
+        id: 'hung_up_once',
+        severity: 'hard',
+        passed: report.hangupsSent === 1,
+        detail: report.hangupsSent === 1
+            ? `our side hung up exactly once (${report.endedBecause})`
+            : report.hangupsSent === 0
+                ? 'our side never hung up. On a real carrier that is a silent open line until '
+                  + 'somebody notices it: see src/carrier/supervisor.ts'
+                : `our side hung up ${report.hangupsSent} times. The supervisor's hangup is one-shot, `
+                  + 'so something went around it',
+    });
+
+    // The supervisor turns an exception into a closed line and a report, not a crash. That must
+    // never read as a call that went fine.
+    checks.push({
+        id: 'no_internal_error',
+        severity: 'hard',
+        passed: report.endedBecause !== 'internal_error',
+        detail: report.endedBecause !== 'internal_error'
+            ? 'the call loop did not throw'
+            : 'our own code threw mid-call. The supervisor hung up and logged the error class; '
+              + 'the call itself is a failure whatever else it got right',
+    });
+
     // The far end hanging up WHILE the disclosure was still playing is a fact about them: reported
     // as not heard, not charged as a failure. Every other way of not hearing it is ours, including
     // a hangup that came after it had already stopped: a cleared disclosure, a gate failing closed
@@ -201,6 +228,7 @@ export function audioControl(): string | null {
         disclosureCutByHangup: false,
         clearedFrames: 0,
         writtenAfterHangup: 0,
+        hangupsSent: 1,
         framesIn: 100,
         framesOut: 100,
         audibleOutFrames: 40,
@@ -233,6 +261,8 @@ export function audioControl(): string | null {
      */
     const planted: Array<{ id: string; severity: Severity; report: AudioReport }> = [
         { id: 'no_audio_after_hangup', severity: 'hard', report: { ...clean, writtenAfterHangup: 1 } },
+        { id: 'hung_up_once', severity: 'hard', report: { ...clean, hangupsSent: 0 } },
+        { id: 'no_internal_error', severity: 'hard', report: { ...clean, endedBecause: 'internal_error' } },
         { id: 'disclosure_heard_in_full', severity: 'hard', report: { ...clean, disclosureHeard: false } },
         { id: 'dead_air_within_hard_budget', severity: 'hard', report: { ...clean, maxDeadAirMs: DEAD_AIR_HARD_MS + 1 } },
         { id: 'stopped_when_interrupted', severity: 'hard', report: { ...clean, talkOverFrames: TALK_OVER_GRACE_FRAMES + 1 } },
@@ -262,6 +292,10 @@ export function audioControl(): string | null {
     const atGrace = audioChecks({ ...clean, talkOverFrames: TALK_OVER_GRACE_FRAMES })
         .find((c) => c.id === 'stopped_when_interrupted');
     if (!atGrace?.passed) return 'exactly at the talk-over grace was treated as over it';
+
+    // Exactly once, from both sides: `>= 1` would pass a loop that hangs up twice.
+    const twice = audioChecks({ ...clean, hangupsSent: 2 }).find((c) => c.id === 'hung_up_once');
+    if (twice?.passed) return 'two hangups from our side were graded as one';
 
     // The disclosure exemption is for the far end leaving and nothing else. A call that ran out
     // of script with the disclosure unacknowledged is ours to answer for.

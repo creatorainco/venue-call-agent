@@ -50,7 +50,9 @@ export type HangupReason =
     | 'far_end_hung_up'      // they hung up on us
     | 'timeline_exhausted'   // a fake leg ran out of script — a test artefact, never a real call
     | 'call_too_long'        // the cap in src/tuning/liveDefaults.ts
-    | 'transport_failed';    // the socket died under us. Not the same as either party leaving.
+    | 'transport_failed'     // the socket died under us. Not the same as either party leaving.
+    | 'seam_stopped'         // the backend refused or could not be reached, so we stopped
+    | 'internal_error';      // our own code threw; src/carrier/supervisor.ts closed the line anyway
 
 /**
  * One frame of telephone audio.
