@@ -39,9 +39,10 @@ export const MODEL_AUDIO: { in: AudioFormat; out: AudioFormat } = {
 /**
  * 🔴 WHAT THE CARRIER SPEAKS — AN ASSUMPTION, NOT A DECISION, and the difference matters.
  *
- * No carrier is connected. Twilio has been suspended since 2026-07-22, no dialler exists in the
- * backend, and a grep across every venue-call file for `mulaw|g711|8000|pcmu|opus|codec|sample
- * rate` returns nothing — the only transport statement anywhere in the codebase is a note in
+ * No carrier is connected. The Twilio account (suspended 2026-07-22, reactivated 2026-09-25) has
+ * never been wired to this service, no dialler exists in the backend, and a grep across every
+ * venue-call file for `mulaw|g711|8000|pcmu|opus|codec|sample rate` returns nothing — the only
+ * transport statement anywhere in the codebase is a note in
  * `venueCallToken.ts` that the token travels as a TwiML `<Parameter>` inside `<Connect><Stream>`.
  *
  * These values are the G.711 μ-law/8 kHz/20 ms that every North American carrier media stream

@@ -31,46 +31,47 @@
  * type and is then silently dropped, which is the whole class of bug this file is arranged to
  * avoid — so it is exported separately and the test asserts it is not in the other object.
  *
- * WHY THIS ID AND NOT THE NEWER ONE. A forum thread (discuss.ai.google.dev/180918, last post
- * 2026-09-05, two posters, no Google reply) reports `gemini-3.1-flash-live-preview` taking 9–15
- * seconds to first audio, against 1.9–2.4 for the 2.5 native-audio line. That is two strangers on
- * a forum and not a measurement of ours — but on a telephone a nine-second silence after "hello"
- * is the call over, so the conservative pin is the right default until our own latency run says
- * otherwise. THAT RUN IS THE FIRST TUNING TASK.
+ * 🔴 RE-PINNED 2026-11-09, FROM A DOCS PAGE, BECAUSE THE DATE LEFT NO MEASURED CHOICE. The old pin
+ * (`gemini-2.5-flash-native-audio-preview-12-2025`) and the model it avoided
+ * (`gemini-3.1-flash-live-preview`) are both scheduled for shutdown on 2026-11-17, and both name
+ * this model as their replacement:
+ *   https://aistudio.google.com/docs/deprecations (read 2026-11-09): `gemini-3.8-live`, released
+ *     2026-09-15, "No shutdown date announced".
+ *   https://docs.cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions (read
+ *     2026-11-09): `gemini-3.8-live`, retirement "September 25, 2027 or later".
+ * Nobody here has measured it on a telephone. Live is also no longer the first-call brain: the
+ * closed-mouth cascade is, and Live is the challenger the loopback soak measures against it. So
+ * this pin keeps the tests and the challenger honest; it is not a tuning result.
  *
- * 🔴 THE PIN HAS A SHUTDOWN DATE, AND SO DOES THE ONE IT AVOIDS. Google's deprecations page
- * (https://ai.google.dev/gemini-api/docs/deprecations, read 2026-10-14) lists BOTH this model and
- * `LIVE_MODEL_UNDER_SUSPICION` below for shutdown on `LIVE_MODEL_SHUTDOWN`, with
- * `LIVE_MODEL_REPLACEMENT` as the replacement. So the choice is no longer "2.5 or 3.1": neither
- * survives the date, and the comparison the first tuning run has to make is the pin against the
- * replacement. The models page still describes the 2.5 native-audio line as not deprecated, with
- * access limited to existing users; the deprecations page is the one with a date on it, so it is
- * the one this file believes.
- *
- * The value below is deliberately NOT changed here. Re-pinning is the measured outcome of that
- * tuning run, not an edit made from a docs page. `test/liveDefaults.test.ts` fails the build once
- * the shutdown date has passed with this pin still in place, so the deadline cannot slip by
- * quietly.
- *
- * An explicit version rather than the `-latest` alias: an alias that moves under a deployed voice
+ * An explicit version rather than a `-latest` alias: an alias that moves under a deployed voice
  * agent changes what a restaurant hears with no commit and no review.
  */
-export const LIVE_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
-
-/** The day Google's deprecations page says `LIVE_MODEL` stops answering. Read 2026-10-14. */
-export const LIVE_MODEL_SHUTDOWN = '2026-11-17';
-
-/** The replacement that page names for both Live models above. Unmeasured by us. */
-export const LIVE_MODEL_REPLACEMENT = 'gemini-3.8-live';
+export const LIVE_MODEL = 'gemini-3.8-live';
 
 /**
- * The alias the forum compared against, kept here so the comparison run has both ends.
- * Do not deploy an alias. Use it to reproduce a published figure and nothing else.
+ * The earliest day Google says each pinnable Live model may retire, keyed by model id so a re-pin
+ * cannot keep the old model's date: re-pin to an id with no row here and the build fails.
+ * `gemini-3.8-live`: the Vertex page's "September 25, 2027 or later", read 2026-11-09.
  */
-export const LIVE_MODEL_ALIAS_FOR_COMPARISON = 'gemini-2.5-flash-native-audio-latest';
+export const LIVE_MODEL_RETIREMENTS: Readonly<Record<string, string>> = {
+    'gemini-3.8-live': '2027-09-25',
+};
 
-/** The one we are avoiding, named so the comparison is repeatable rather than folkloric. */
-export const LIVE_MODEL_UNDER_SUSPICION = 'gemini-3.1-flash-live-preview';
+/**
+ * The pin's own earliest retirement. `test/liveDefaults.test.ts` fails the build from this day,
+ * which forces somebody to re-read both pages rather than find out from a dead call.
+ */
+export const LIVE_MODEL_EARLIEST_RETIREMENT: string = LIVE_MODEL_RETIREMENTS[LIVE_MODEL] ?? '';
+
+/**
+ * Google's shutdown list for the Live models we have pinned or avoided, written as literals on
+ * purpose: it is Google's list and must never follow the pin. Re-pinning to any of these fails the
+ * build once its date has passed.
+ */
+export const RETIRED_LIVE_MODELS: Readonly<Record<string, string>> = {
+    'gemini-2.5-flash-native-audio-preview-12-2025': '2026-11-17',
+    'gemini-3.1-flash-live-preview': '2026-11-17',
+};
 
 /**
  * Voice activity detection — where almost all the audible tuning lives.

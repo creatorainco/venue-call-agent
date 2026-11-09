@@ -5,8 +5,9 @@ honest path from a fresh laptop to changing something real.
 
 Everything in **Part 1** is already done for you. Read it, run it, and if any command fails, that
 is a bug in the setup and not in you — open an issue on this repository rather than working
-around it. One failure is deliberate: from **2026-11-17** `npm run verify` fails until the pinned
-Gemini model moves (Part 4, item 2).
+around it. One failure is deliberate: the pinned Gemini model retires no earlier than
+**2027-09-25**, and from that day `npm run verify` fails until somebody re-reads Google's pages and
+re-pins (Part 4, item 2).
 
 ---
 
@@ -203,11 +204,11 @@ Do that first — it costs a second and it tells you what "acceptable" has to me
 measure the model. Read the top of `src/carrier/vad.ts` before quoting a number from it: the
 detector it sweeps is ours, not Google's.
 
-The first task is a measurement, not a change, and it has a deadline: Google has scheduled the
-pinned model, and the one it is pinned *away* from, for shutdown on **2026-11-17**, with
-`gemini-3.8-live` named as the replacement. So measure time to first audio on the pinned model and
-on the replacement; re-pinning is what that measurement decides. `docs/TUNING.md` §3.2 has the
-sources, and `test/liveDefaults.test.ts` fails the build on that date if the pin has not moved.
+The first task is a measurement, not a change. The Live model was re-pinned on 2026-11-09 to
+`gemini-3.8-live`, because the two earlier Live models were scheduled for shutdown on
+**2026-11-17**; nobody has measured it on a phone yet. So measure time to first audio on it against
+the cascade. `docs/TUNING.md` §3.2 has the sources. The pin retires no earlier than **2027-09-25**, and
+`test/liveDefaults.test.ts` fails the build from that day.
 
 ### 3. Test the agent
 

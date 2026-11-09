@@ -16,10 +16,9 @@ import {
     LATENCY_PERCENTILES,
     LIVE_DEFAULTS,
     LIVE_MODEL,
-    LIVE_MODEL_REPLACEMENT,
-    LIVE_MODEL_SHUTDOWN,
-    LIVE_MODEL_UNDER_SUSPICION,
+    LIVE_MODEL_EARLIEST_RETIREMENT,
     MAX_CALL_SECONDS,
+    RETIRED_LIVE_MODELS,
     SEAM_TIMEOUT_MS,
     VAD,
 } from '../src/tuning/liveDefaults.ts';
@@ -52,35 +51,49 @@ describe('🔴 fields that are silently ignored in the wrong place', () => {
 });
 
 /**
- * True when `pin` is still one Google has scheduled for shutdown and `today` is on or past that
- * day. Pure, so the control below can hand it a date this build has not reached yet.
- *
- * The scheduled list names the 2.5 model as a literal, NOT as `LIVE_MODEL`, on purpose: it is
- * Google's list, and it must not follow the pin. Written as `LIVE_MODEL`, re-pinning to the
- * replacement would put the replacement on the list and fail the build forever.
+ * The day `pin` stops being safe to ship: Google's shutdown date for a retired model, or the
+ * earliest retirement Google gives for the current pin. Undefined for a model with neither.
  */
-function pinOutlivedItsModel(pin: string, today: string): boolean {
-    const scheduled = [LIVE_MODEL_UNDER_SUSPICION, 'gemini-2.5-flash-native-audio-preview-12-2025'];
-    return scheduled.includes(pin) && today >= LIVE_MODEL_SHUTDOWN;
+function deadlineOf(pin: string): string | undefined {
+    return RETIRED_LIVE_MODELS[pin] ?? (pin === LIVE_MODEL ? LIVE_MODEL_EARLIEST_RETIREMENT : undefined);
 }
 
-describe('🔴 the pinned model has a published shutdown date', () => {
-    test('CONTROL — the day after shutdown, the current pin is caught', () => {
-        // Without this the check below could be a no-op that passes on every date.
-        assert.equal(pinOutlivedItsModel(LIVE_MODEL, '2026-11-18'), true);
-        assert.equal(pinOutlivedItsModel(LIVE_MODEL_REPLACEMENT, '2026-11-18'), false);
+/**
+ * True when `pin` has a known deadline and `today` is on or past it. Pure, so the controls below
+ * can hand it a date this build has not reached yet.
+ */
+function pinOutlivedItsModel(pin: string, today: string): boolean {
+    const deadline = deadlineOf(pin);
+    return deadline !== undefined && today >= deadline;
+}
+
+describe('🔴 the pinned model has a published deadline', () => {
+    test('CONTROL — the day after the 2026-11-17 shutdown, the old pin is caught', () => {
+        // Without this the check below could be a no-op that passes on every date. The old pin is
+        // a literal here, not LIVE_MODEL: that is the model this control must keep catching.
+        assert.equal(pinOutlivedItsModel('gemini-2.5-flash-native-audio-preview-12-2025', '2026-11-18'), true);
+        assert.equal(pinOutlivedItsModel('gemini-3.1-flash-live-preview', '2026-11-18'), true);
+        assert.equal(pinOutlivedItsModel(LIVE_MODEL, '2026-11-18'), false);
     });
 
-    test('the build fails once the shutdown date passes with a scheduled model still pinned', () => {
-        // Re-pinning is the measured outcome of the first tuning run (docs/TUNING.md §3.2), not
-        // an edit made from a docs page. This test is what stops the deadline passing quietly.
-        // DELIBERATE: from the shutdown date (a UTC calendar day) this fails `npm run verify`,
-        // and so CI, on every pull request until the pin moves, hotfixes included.
+    test('CONTROL — the current pin is caught on its own earliest retirement day', () => {
+        assert.equal(pinOutlivedItsModel(LIVE_MODEL, LIVE_MODEL_EARLIEST_RETIREMENT), true);
+    });
+
+    test('the current pin is not on Google\'s shutdown list and has a dated deadline', () => {
+        assert.equal(RETIRED_LIVE_MODELS[LIVE_MODEL], undefined, `${LIVE_MODEL} is on the shutdown list`);
+        assert.match(LIVE_MODEL_EARLIEST_RETIREMENT, /^\d{4}-\d{2}-\d{2}$/);
+    });
+
+    test('the build fails once the pinned model\'s deadline passes', () => {
+        // DELIBERATE, and a required gate, never a warning: from the deadline (a UTC calendar day)
+        // this fails `npm run verify`, and so CI, on every pull request until somebody re-reads
+        // Google's two pages (docs/TUNING.md §3.2) and re-pins, hotfixes included.
         const today = new Date().toISOString().slice(0, 10);
         assert.equal(
             pinOutlivedItsModel(LIVE_MODEL, today),
             false,
-            `${LIVE_MODEL} was scheduled for shutdown on ${LIVE_MODEL_SHUTDOWN}; measure and re-pin (replacement: ${LIVE_MODEL_REPLACEMENT})`,
+            `${LIVE_MODEL} reached its deadline ${deadlineOf(LIVE_MODEL)}; re-read Google's deprecations and model-versions pages and re-pin`,
         );
     });
 });
