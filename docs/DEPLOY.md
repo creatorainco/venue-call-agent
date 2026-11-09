@@ -1,13 +1,11 @@
 # Deploying this service — the definition, and the checklist behind it
 
-🔴 **NOTHING ON THIS PAGE HAS BEEN EXECUTED.** Every flag, role, API and price below was read out
-of Google's own documentation on **2026-09-12** and cross-checked by a second pass that was asked
-to refute it. Not one line has been run against a real project, because that needs a signed-in
-console and that is not an engineer's to do here.
-
-So treat this as **the research already done, not the work already done**. The remaining job is to
-open the console and find out which of these is wrong — which is a different afternoon from
-starting at a blank page, and it is the honest state of it.
+🔴 **NO SERVICE HAS BEEN DEPLOYED FROM THIS PAGE YET.** The research behind it was read out of
+Google's own documentation on **2026-09-12**. §1, §2 and §5 were rewritten on **2026-11-09**
+(TASK-3748) against what the project actually holds: the runtime identity exists, a throwaway
+public probe service answered an anonymous WebSocket upgrade and was deleted, and the GitHub
+federation pool exists but does not yet trust this repository. The container, the build and the
+deploy workflow are later steps of the same ticket.
 
 🔴 **A DEPLOYED SERVICE IS NOT A DIALLING SERVICE.** Nothing here places a call, and a green
 deploy opens no gate. The carrier and first-dial work, and the repository owner's per-act yes, are a separate
@@ -28,61 +26,78 @@ endpoint with nothing to connect to it.
 
 ## 1. What must exist before the first deploy can succeed
 
-**This is the minimum for a HUMAN running `gcloud` locally.** The GitHub Actions path needs more
-on top of it — §5 — and calling this list "complete" would be wrong: it is complete for one of
-the two paths. Executable in order, in a console; the ordering is not cosmetic, because step 2
-creates the account step 4 grants to.
+Project **`creatorain-27e9e`**, region **`us-central1`** by default (a soak compares `us-east4`,
+nearer the carrier's Ashburn edge). In order; the ordering is not cosmetic, because each identity
+is granted on the one before it.
 
-1. **A project with billing enabled.** Which project is itself an open question: nobody has
-   confirmed Cloud Run is enabled in the one that bills our AI usage. That is an approval-gated
-   console read.
-2. **Enable three APIs:** `run.googleapis.com`, `cloudbuild.googleapis.com`,
-   `artifactregistry.googleapis.com`.
-3. **Grant the deployer** (the human, running gcloud locally): `roles/run.sourceDeveloper`,
-   `roles/serviceusage.serviceUsageConsumer`, `roles/iam.serviceAccountUser`.
-4. **Grant `roles/run.builder`** to `PROJECT_NUMBER-compute@developer.gserviceaccount.com`.
-   ⚠️ **This is the single most likely first-deploy failure**, and it surfaces as a Cloud *Build*
-   permission error rather than a Cloud Run one, which sends people looking in the wrong place.
-   The documentation states it as an **unconditional** prerequisite on every project — an earlier
-   draft of this page said it was only needed on organizations created after 2024-05-03, and that
-   was wrong. (What changed on **2024-05-03** is separate and worth knowing anyway: the
-   `iam.automaticIamGrantsForDefaultServiceAccounts` constraint is enforced by default on newer
-   organizations, so the default service account no longer arrives with Editor.) Enabling
-   `run.googleapis.com` in step 2 is what creates that account, so this step cannot come first;
-   give it a couple of minutes to propagate.
-5. **Pick a region** supported by both Artifact Registry and Cloud Build. An Artifact Registry
-   repository named `cloud-run-source-deploy` is created automatically on first deploy, so it is
-   **not** a prerequisite — one of the few things you can skip.
-
-⚠️ **A human deploying by hand needs `roles/run.sourceDeveloper`. The CI service account, per the
-action's own README, needs `roles/run.admin`.** Do not grant `run.admin` to a person because the
-CI documentation said so.
+1. **APIs.** `run`, `cloudbuild`, `artifactregistry`, `speech`, `texttospeech`, `aiplatform`,
+   `iamcredentials` and `sts` are enabled (`speech` since TASK-3744; a streaming recognition of
+   8 kHz μ-law has been run against it).
+2. **The runtime identity, `venue-call-runtime@creatorain-27e9e.iam.gserviceaccount.com`.** It
+   exists. It holds `roles/speech.client` and `roles/aiplatform.user`, and the deploy step adds
+   `roles/logging.logWriter` and `roles/monitoring.metricWriter`. Nothing else: it holds no carrier
+   credential, no backend secret and no API key, because the design gives the agent none.
+3. **A build identity, `venue-call-build@`, and one Artifact Registry repository** for the image.
+   Not created yet.
+4. **The default compute service account is disabled in this project, and stays disabled.** Every
+   build names its service account explicitly. A build that does not fails with "Provided service
+   account ... is disabled", which looks like a Cloud Build fault and is not.
 
 ---
 
 ## 2. The service definition, flag by flag, with the reason for each
 
+The image is built from a `Dockerfile` in this repository (Node pinned by digest, a non-root
+user, `npm ci --omit=dev`), not from `--source` buildpacks: the Node version and the user are then
+pinned in a reviewed file instead of resolved on the day of the build.
+
 ```bash
-gcloud run deploy venue-call-agent \
-  --source . \
-  --region "$REGION" \
-  --timeout 3600 \
+gcloud run deploy venue-call-agent-dev \
+  --project creatorain-27e9e \
+  --region us-central1 \
+  --image "$IMAGE" \
+  --service-account venue-call-runtime@creatorain-27e9e.iam.gserviceaccount.com \
+  --allow-unauthenticated \
+  --timeout 600 \
   --concurrency 1 \
   --max-instances 5 \
-  --min 0 \
-  --cpu-throttling \
-  --no-allow-unauthenticated \
-  --set-env-vars GOOGLE_NODEJS_VERSION=22
+  --min-instances 0 \
+  --cpu-boost \
+  --cpu-throttling
 ```
 
 | flag | why, and what it costs to get wrong |
 |---|---|
-| `--timeout 3600` | A WebSocket on Cloud Run **is an HTTP request** and dies at the service request timeout. The default is **300 s — five minutes — and a venue call can outlive that.** 3600 s is the documented maximum. |
-| `--concurrency 1` | One call per connection per instance. Each open socket saturates its instance and Cloud Run starts another for the next call, so there is no queueing logic to write. |
-| `--max-instances 5` | With concurrency 1 this is the ceiling on simultaneous calls — a **soft** one; see below. Also the blast radius if something ever loops. Set it on purpose; the default is 100 per revision. |
-| `--min 0` | Accept cold starts and pay nothing between calls. `--min 1` costs roughly **$5–10/month** for a warm instance. Which is right depends on a cold-start figure nobody has measured, because no container exists yet. |
+| `--service-account` | The runtime identity from §1, so the service never runs as a default account. Speech, synthesis and the intent model authenticate through it with Application Default Credentials; there is no key in the container. |
+| `--allow-unauthenticated` | The carrier connects with a plain WebSocket and **cannot present a Google identity token**, so an IAM-gated service refuses every call at the edge. Authentication is the application's instead — see below. |
+| `--timeout 600` | A WebSocket on Cloud Run **is an HTTP request** and dies at the service request timeout. The default is 300 s, which a call can outlive; 600 s clears the call cap (`MAX_CALL_SECONDS` in `src/tuning/liveDefaults.ts`) with room for the close, and a socket that somehow outlives the cap is cut rather than billed for an hour. `test/docs.test.ts` holds it above the cap. |
+| `--concurrency 1` | One call per instance. Each open socket saturates its instance and Cloud Run starts another for the next call, so there is no queueing logic to write. |
+| `--max-instances 5` | With concurrency 1 this is the ceiling on simultaneous calls — a **soft** one; see below. Also the blast radius if something ever loops. |
+| `--min-instances 0` | Accept cold starts and pay nothing between calls. A warm instance is a monthly cost (§3), so it waits for the owner's yes; the soak measures the cold start that decides it. |
+| `--cpu-boost` | Extra CPU while an instance starts, which is when the disclosure has to be ready. Cuts the cold start without paying for a warm instance. |
 | `--cpu-throttling` | Request-based billing — the default, stated explicitly so nobody "fixes" it. See §3. |
-| `GOOGLE_NODEJS_VERSION` | See §4. Without it the buildpack may run a different Node than CI does. |
+
+### Why a public service is still not an open one
+
+Every gate is in the application, and every one closes by default:
+
+- The only WebSocket path is `/stream`, with no query string; anything else gets no upgrade.
+  `GET /healthz` answers 200 with no detail.
+- The backend mints a per-attempt token and hands it to the carrier inside the stream
+  instructions. It arrives in the stream's `start` message as a custom parameter. The agent never
+  reads it: it passes it, opaque, to the backend's call-context endpoint.
+- A socket that has not been accepted by the backend within **3 s** is closed. At most **2** such
+  unaccepted sockets per instance, and a **64 KB** frame ceiling.
+- **No speech, synthesis or model session opens before the backend accepts the token.** A stranger
+  who finds the URL costs one short socket and nothing on the Google bill.
+
+If an organization policy ever refuses the public binding (`run.managed.requireInvokerIam`), the
+fallback is `--no-invoker-iam-check` on this one service, not a token-minting proxy. The probe
+recorded in TASK-3744 found the binding allowed.
+
+The public binding (`allUsers` as invoker) is set **once**, by an owner, not by CI: the deploy
+identity in §5 can deploy revisions but cannot change who may invoke the service, and the binding
+survives every later revision.
 
 ### Two flags NOT to set, and why they look right
 
@@ -93,20 +108,11 @@ Affinity only influences where a **new** connection lands, it is best-effort, it
 30-day cookie that a telephony media client does not carry, and — the part that bites — **it
 takes precedence over traffic splitting**, so it silently disables canary deploys.
 
-🔴 An earlier plan said "session affinity must be on". That was wrong, and it is
-corrected here and there.
-
 **An external load balancer, to get a longer connection.** It does not work. For backend services
 with serverless NEG backends the timeout is a fixed, non-configurable 60 minutes, and setting
 `timeoutSec` is a hard error: *"Timeout sec is not supported for a backend service with
 Serverless network endpoint groups."* If a call ever needs more than 60 minutes, Cloud Run is the
-wrong host — that is an architecture change, not a config one. (Our cap is six minutes, so this
-is a fence, not a problem.)
-
-⚠️ **The docs contradict themselves on whether 3600 is inclusive.** One page says "can be extended
-up to 60 minutes (3600 seconds)", another says "must be less than 60 minutes", and the console
-says "1 to 3600". Write 3600; if the API refuses it, use 3599 and do not go looking for a bug in
-our configuration.
+wrong host — that is an architecture change, not a config one.
 
 ⚠️ **`--concurrency 1` is the opposite of what Google's WebSockets page recommends** — verbatim,
 *"Google recommends that you increase the maximum concurrency setting for your container to a
@@ -115,12 +121,11 @@ down here so they read this first. Their example is chat: many idle sockets on o
 Ours is a call: continuous CPU-bound audio, one human on the line, and one bad neighbour is a
 restaurant hearing stutter.
 
-🔴 **`--max-instances` is a SOFT ceiling, not a hard cap**, and an earlier draft of this page
-called it a hard one. The max-instances documentation says Cloud Run may briefly exceed it during
-traffic spikes. So it is a scaling limit and a cost damper — useful, and not a guarantee about
-the number of simultaneous calls or about spend. The documented mechanism for a genuine hard stop
-is a **Cloud Billing budget spend cap** (Preview), which pauses the workload. If "this can never
-cost more than $X" is ever a requirement, that is the lever, not this flag.
+🔴 **`--max-instances` is a SOFT ceiling, not a hard cap.** The max-instances documentation says
+Cloud Run may briefly exceed it during traffic spikes. So it is a scaling limit and a cost
+damper — useful, and not a guarantee about the number of simultaneous calls or about spend. The
+documented mechanism for a genuine hard stop is a **Cloud Billing budget spend cap** (Preview),
+which pauses the workload.
 
 ⚠️ Do not add an aggressive liveness probe alongside `--concurrency 1`. Probes always get CPU and
 are billed but carry no request charge; whether one **consumes the single concurrency slot** is
@@ -174,87 +179,79 @@ closing the socket instead.
 
 ---
 
-## 4. Three things in this repository that would break the first deploy
+## 4. What in this repository the first deploy depends on
 
-Found by reading the container contract against what is actually here. None is hard to fix and
-all three are silent until the deploy fails.
+**1. The entrypoint.** The container's command runs Node on the server entrypoint directly, with no
+npm in between, and `npm start` points at the same file. Both arrive with the server itself
+(TASK-3748 step 2); until then there is nothing to start, and a `start` script pointing at a file
+that does not exist would fail the references check, correctly.
 
-**1. There is no `start` script and no Procfile.** The Node buildpack's entrypoint is
-`scripts.start`, falling back to `npm start`. `package.json` has neither, so
-`gcloud run deploy --source` cannot produce a runnable container today. The cheapest fix is a
-**Procfile** — `web: node src/<entrypoint>.ts` — because it leaves the test-facing scripts alone
-and bypasses npm at runtime. It is deliberately not committed yet: there is no service entrypoint
-to point it at until the Gemini Live adapter writes one.
+**2. The Node version is pinned by the image, not by `engines.node`.** `engines.node` is
+`">=22.18"` so a developer on Node 24 can still work here; do not narrow it. The `Dockerfile` pins
+a Node 22 base image by digest, which is what makes the runtime the same one CI tests on (`.nvmrc`).
+The buildpack-era workaround (`GOOGLE_NODEJS_VERSION`) is not needed and not set.
 
-**2. `engines.node` is `">=22.18"`, and Google explicitly says avoid `>` specifiers.** The
-buildpack reads `engines.node` (or `GOOGLE_NODEJS_VERSION`, which wins) and may resolve that to
-Node 24 or 26 — a silent drift between the runtime CI tests on and the runtime production runs.
-Hence the env var in §2, set to `22` to match `.nvmrc`, which is what CI reads. Do not narrow `engines.node` itself; a developer with Node 24 should
-still be able to work here.
-
-**3. The only HTTP server in the repo binds `127.0.0.1:8788`.** That is correct for
+**3. The only HTTP server in the repo today binds `127.0.0.1:8788`.** That is correct for
 `src/mock/server.ts`, which must never be reachable. It is also exactly the `listen()` call
 somebody will copy into the real service, and Cloud Run requires **`0.0.0.0` on `$PORT`**
-(default 8080), listening within four minutes of start. Whatever entrypoint gets written must
-read `process.env.PORT ?? 8080` and bind all interfaces.
+(default 8080), listening within four minutes of start. The entrypoint must read
+`process.env.PORT ?? 8080` and bind all interfaces.
+
+**4. Three runtime dependencies, pinned exactly.** `ws` (Node 22 has a WebSocket client and no
+server), `@google-cloud/speech` (streaming recognition is gRPC only) and `google-auth-library`
+(Application Default Credentials for the REST calls). Synthesis and the intent model go over REST
+with `fetch`. `test/dependencies.test.ts` keeps the set closed and the lockfile in step; the image
+installs them with `npm ci --omit=dev`.
 
 **And one thing that is already right:** Node 22 runs this repository's TypeScript with no build
 step, verified by running it rather than by reading release notes. So there is no compile stage,
-no `dist/`, no two-stage Dockerfile, and `typescript` and `@types/node` are genuinely dev-only.
+no `dist/`, no two-stage Dockerfile, and `typescript` and the `@types/*` packages are genuinely
+dev-only.
 
-⚠️ **Node 22 buildpack support has an end date: 2027-04-30 (deprecation), 2027-10-31
-(decommission).** That is inside the plausible life of this service. Written here so it is a
-calendar item rather than a surprise.
+⚠️ **Node 22 reaches end of life on 2027-04-30.** That is inside the plausible life of this
+service. Written here so it is a calendar item rather than a surprise.
 
 ---
 
 ## 5. Deploying from GitHub Actions
 
-Pin the current majors — `google-github-actions/auth@v3` and
-`google-github-actions/deploy-cloudrun@v3`. The action shells out to `gcloud run deploy`, so
-everything in §2 goes through its `flags:` input and the definition stays one YAML block.
+A workflow on push to `dev` only authenticates through Workload Identity Federation and runs
+`gcloud builds submit` with the build identity named; the build pushes the image and deploys
+`venue-call-agent-dev`. That is the same shape as the other CreatoRain repositories' Cloud Build
+gates. The workflow and the build file are TASK-3748 step 4.
 
-⚠️ **Do not copy Google's own example workflow for this.** The published example still pins
-`auth@v0`, `deploy-cloudrun@v0` and `checkout@v2` — three majors stale. Use the README usage block
-from `deploy-cloudrun@v3` instead. The example file's *header comment* is still worth reading: it
-is the most compact statement of the APIs and roles a from-source deploy needs.
-
-### The credential: a key, or federation
-
-By Google's own step counts: a **service-account JSON key** is 3 steps, **direct Workload Identity
-Federation** is 5, and **WIF through a service account** — the configuration the action's own
-README documents — is 7.
-
-**Recommend WIF through a service account, and not primarily because of the secret.** On any
-Google Cloud organization created on or after **2024-05-03**, service-account key creation is
-blocked by default by an enforced org policy. The "3-step fast path" may simply not be available,
-and planning around a key we may be unable to mint is how a deploy day gets lost. If the org turns
-out to predate that and the operator wants the fast path, the key variant is a three-line diff.
-
-**The CI path needs three things §1 does not list**, because §1 is the local-human minimum:
-`roles/run.admin` on the CI service account (not `run.sourceDeveloper`); `roles/iam.
-serviceAccountUser` granted to the CI service account **on the Compute Engine default service
-account**, per the action's own README; and the four WIF APIs below.
-
-WIF needs four **more** APIs on top of §1: `iam.googleapis.com`,
-`cloudresourcemanager.googleapis.com`, `iamcredentials.googleapis.com`, `sts.googleapis.com`. The
-person configuring it needs `roles/iam.workloadIdentityPoolAdmin`.
-
-🔴 **Forgetting `sts.googleapis.com` is the classic first-WIF failure** and it produces an opaque
-token-exchange error rather than a "please enable this API" message.
+**No key, and no second pool.** Service-account keys are blocked by default on organizations
+created on or after 2024-05-03, and the project already has the `github-ci` pool with its
+`creatorainco` provider. That provider lists the repositories it trusts, and this one is not on
+the list yet: adding it, and pinning the condition to pushes to `dev`, is an owner's change.
 
 🔴 **The provider MUST carry an attribute condition, and this is not a lint nit.** Without it, any
-GitHub repository on earth can enter the pool:
+GitHub repository on earth can enter the pool. The existing provider conditions on the owner id
+and a repository list; the binding below is then scoped to this repository alone:
 
 ```
---attribute-condition="assertion.repository_owner == 'creatorainco'"
+principalSet://iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-ci/attribute.repository/creatorainco/venue-call-agent
 ```
 
-and the IAM binding must be scoped to this repository alone:
+### Who holds what
 
-```
-principalSet://iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL/attribute.repository/creatorainco/venue-call-agent
-```
+Each identity holds only what its one job needs, granted on the narrowest resource that works.
+
+| identity | role | granted on | why |
+|---|---|---|---|
+| this repository, via the pool | `roles/iam.workloadIdentityUser` | the dispatch account | lets a `dev` push act as that account and nothing else |
+| the dispatch account | `cloudbuild.builds.create` (the project's custom build-starter role) | the project | starts a build; cannot change one |
+| the dispatch account | `roles/iam.serviceAccountUser` | `venue-call-build@` only | names the build identity on the build |
+| `venue-call-build@` | `roles/artifactregistry.writer` | the one repository | pushes the image |
+| `venue-call-build@` | `roles/run.developer` | the one service | deploys a revision; **cannot** change who may invoke it |
+| `venue-call-build@` | `roles/iam.serviceAccountUser` | `venue-call-runtime@` only | runs the revision as the runtime identity |
+| `venue-call-build@` | `roles/logging.logWriter` | the project | build logs |
+
+No identity here gets project-wide Cloud Run administration, and no identity can act as any
+account other than the one named in its row. The one-time public binding in §2 is an owner's.
+
+🔴 **Forgetting `sts.googleapis.com` is the classic first-federation failure** and it produces an
+opaque token-exchange error rather than a "please enable this API" message. It is enabled here.
 
 ---
 
@@ -264,12 +261,7 @@ Not hedges — questions with no answer available from documentation, each with 
 
 | question | what settles it |
 |---|---|
-| Is Cloud Run enabled in the project that bills our AI usage? | one console read. **This is the approval-gated item.** |
-| Was the org created on or after 2024-05-03? | one console read. Decides whether SA keys are mintable and whether `roles/run.builder` must be granted by hand. |
-| Cold-start latency for this container | a first deploy. Decides whether `--min 1` (~$5–10/mo) is needed or `--min 0` is fine. |
+| Cold-start latency for this container, and whether it delays the disclosure | the soak (TASK-3749). Decides whether a warm instance is worth its monthly cost; that spend is the owner's yes. |
 | Does a liveness probe consume the single concurrency slot? | an empirical test on a real service. Nothing in the docs says. |
-| Is direct WIF (no service account) enough for `deploy-cloudrun`? | a real deploy. The auth README implies a service account is required for OAuth tokens; the action's example sets one. |
-| Does the eventual carrier need a custom domain, a static egress IP, or IP allowlisting? | picking a carrier. Cloud Run gives a `*.run.app` URL; anything beyond that is extra deploy surface. |
+| Does closing the socket end the call, or does the carrier run what follows the stream? | a test call. Decides whether the agent's hang-up needs a carrier write it does not hold. |
 | Would Cloud Run **worker pools** — which take TCP connections rather than HTTP requests — suit a media stream better? | unresearched. It may change the 60-minute ceiling entirely. |
-
-**Do not create anything in Google Cloud to answer these.** Surface them; the console is the repository owner's.

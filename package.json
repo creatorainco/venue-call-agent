@@ -23,6 +23,12 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
+    "@types/ws": "8.18.2",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@google-cloud/speech": "8.2.1",
+    "google-auth-library": "11.3.2",
+    "ws": "8.22.1"
   }
 }
