@@ -184,9 +184,9 @@ describe('barge-in', () => {
             trailingSilenceMs: 2_000,
         });
         const bridge = new ScriptedBridge(leg, { vad: VAD, script: ['no wait'] });
-        leg.on('inbound', (f) => { bridge.push(f); });
+        leg.on('inbound', (f) => { bridge.sendAudio(f); });
         // A long answer, so there is plenty queued to throw away.
-        bridge.speak(['This is a deliberately long sentence so that the outbound queue is deep enough for an interruption to matter at all.']);
+        void bridge.speak([{ id: 's1', text: 'This is a deliberately long sentence so that the outbound queue is deep enough for an interruption to matter at all.' }]);
         const queuedBefore = leg.queuedFrames();
         while (leg.advance()) { /* run it out */ }
 
@@ -209,9 +209,9 @@ describe('barge-in', () => {
         });
         const bridge = new ScriptedBridge(leg, { vad: VAD, script: ['no wait'] });
         // The planted fault: barge-in is disabled. Everything else is identical.
-        bridge.bargeIn = () => { /* deliberately deaf */ };
-        leg.on('inbound', (f) => { bridge.push(f); });
-        bridge.speak(['This is a deliberately long sentence so that the outbound queue is deep enough for an interruption to matter at all.']);
+        bridge.interrupt = () => { /* deliberately deaf */ };
+        leg.on('inbound', (f) => { bridge.sendAudio(f); });
+        void bridge.speak([{ id: 's1', text: 'This is a deliberately long sentence so that the outbound queue is deep enough for an interruption to matter at all.' }]);
         while (leg.advance()) { /* run it out */ }
 
         assert.equal(leg.cleared, 0);
@@ -370,7 +370,7 @@ describe('turn COLLAPSE, the direction that used to be unmeasurable', () => {
             trailingSilenceMs: 4_000,
         });
         const bridge = new ScriptedBridge(leg, { vad: vadWith(silenceDurationMs), script: ['first', 'second'] });
-        leg.on('inbound', (f) => { bridge.push(f); });
+        leg.on('inbound', (f) => { bridge.sendAudio(f); });
         while (leg.advance()) { /* run it out */ }
         // A call loop hangs up however the call ended (src/carrier/supervisor.ts); this rig is one.
         void leg.hangup('timeline_exhausted');
@@ -416,7 +416,7 @@ describe('turn COLLAPSE, the direction that used to be unmeasurable', () => {
             hangUpAtMs: 900,   // 300ms after they stop, well inside an 800ms window
         });
         const bridge = new ScriptedBridge(leg, { vad: VAD, script: ['wait—'] });
-        leg.on('inbound', (f) => { bridge.push(f); });
+        leg.on('inbound', (f) => { bridge.sendAudio(f); });
         while (leg.advance()) { /* until they hang up */ }
         const r = measure(leg, bridge, {
             answeredAfterFrame: [], silenceDurationMs: VAD.silenceDurationMs, scriptedTurns: 1,
@@ -437,7 +437,7 @@ describe('silence must not score perfectly', () => {
             trailingSilenceMs: 10_000,
         });
         const bridge = new ScriptedBridge(leg, { vad: VAD, script: ['hello?'] });
-        leg.on('inbound', (f) => { bridge.push(f); });
+        leg.on('inbound', (f) => { bridge.sendAudio(f); });
         while (leg.advance()) { /* say absolutely nothing */ }
 
         const answeredAt = leg.truth[0]!.endFrame;
