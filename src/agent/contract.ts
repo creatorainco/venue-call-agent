@@ -85,8 +85,11 @@ export interface CallTranscript {
     /** Every sentence the agent spoke, flattened, in order. */
     spoken: string[];
     ended: boolean;
-    /** Why the call stopped: the agent hung up, the fixture ran out, or a refusal ended it. */
-    endedBecause: 'agent_ended' | 'transcript_exhausted' | 'seam_refusal' | 'seam_unavailable';
+    /**
+     * Why the call stopped: the agent hung up, the fixture ran out, a refusal ended it, or our own
+     * code threw (`internal_error`: only an audio call has a supervisor to catch it).
+     */
+    endedBecause: 'agent_ended' | 'transcript_exhausted' | 'seam_refusal' | 'seam_unavailable' | 'internal_error';
     /** Set when the seam ended it. */
     refusalReason?: string;
 }

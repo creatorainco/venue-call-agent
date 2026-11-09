@@ -196,6 +196,12 @@ export class FakeCallLeg implements CallLeg {
     readonly marksReached: Array<{ name: string; at: number }> = [];
     /** Marks `clear()` threw away. They never fire, on this leg or (see leg.ts) on any adapter. */
     readonly marksCleared: string[] = [];
+    /**
+     * Every `hangup()` our side sent, in order, including one sent after the far end had already
+     * left. Exactly one per call is the supervisor's contract (src/carrier/supervisor.ts); zero is
+     * a line left open, two is a loop that does not know it already hung up.
+     */
+    readonly hangupsSent: HangupReason[] = [];
 
     constructor(options: FakeLegOptions) {
         this.id = options.id ?? 'fake-leg';
@@ -244,6 +250,7 @@ export class FakeCallLeg implements CallLeg {
     }
 
     async hangup(reason: HangupReason): Promise<void> {
+        this.hangupsSent.push(reason);
         this.end(reason);
     }
 

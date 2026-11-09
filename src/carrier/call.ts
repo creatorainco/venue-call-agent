@@ -39,6 +39,7 @@ import type { VadSettings } from './vad.ts';
 import { framesToMs, msToFrames } from './leg.ts';
 import type { HangupReason } from './leg.ts';
 import { OutputGate } from './outputGate.ts';
+import { CallSupervisor } from './supervisor.ts';
 import type { DisclosureRecord } from './outputGate.ts';
 import { canTransition } from '../state.ts';
 import type { CallState } from '../state.ts';
@@ -59,7 +60,20 @@ export interface AudioCallOptions {
     /** The far end hangs up at this point in call time. */
     hangUpAtMs?: number;
     trailingSilenceMs?: number;
+    /**
+     * The call cap the supervisor enforces. Defaults to `MAX_CALL_SECONDS`. A test lowers it to
+     * reach the cap without six minutes of script; the fake leg's own stop sits past it.
+     */
+    maxCallMs?: number;
+    /** Where the gate and the supervisor write their one-line events. Defaults to stderr. */
+    log?: (line: string) => void;
 }
+
+/**
+ * How far past the cap the fake leg's own hard stop sits. The supervisor owns the cap; this is a
+ * backstop for a loop that ignores it, and a call that reaches it was never stopped by us.
+ */
+const FAKE_LEG_BACKSTOP_MS = 60_000;
 
 export interface AudioReport {
     /** Milliseconds from the far end's last audible sound to our next audible byte, per turn. */
@@ -98,6 +112,11 @@ export interface AudioReport {
     clearedFrames: number;
     /** Frames written after the far end hung up. Must be zero. */
     writtenAfterHangup: number;
+    /**
+     * How many times our side hung up. Must be exactly one: zero is a line left open, the bug
+     * src/carrier/supervisor.ts exists for; two is a loop that lost track of its own hangup.
+     */
+    hangupsSent: number;
     framesIn: number;
     framesOut: number;
     audibleOutFrames: number;
@@ -209,6 +228,7 @@ export async function audioCall(
 ): Promise<AudioCallResult> {
     const vad = options.vad ?? VAD;
     const modelLatencyMs = options.modelLatencyMs ?? 0;
+    const maxCallMs = options.maxCallMs ?? MAX_CALL_SECONDS * 1000;
 
     const mock = await startMockSeam({
         port: 0,
@@ -225,10 +245,19 @@ export async function audioCall(
             turns: options.timeline ?? timelineFrom(fixture),
             ...(hangUpAtMs === undefined ? {} : { hangUpAtMs }),
             ...(options.trailingSilenceMs === undefined ? {} : { trailingSilenceMs: options.trailingSilenceMs }),
-            maxMs: MAX_CALL_SECONDS * 1000,
+            maxMs: maxCallMs + FAKE_LEG_BACKSTOP_MS,
         });
         // Every outbound frame goes through the gate; the bridge cannot tell it is not the leg.
-        const gate = new OutputGate(leg, { isSpeech: (frame) => isSpeechFrame(frame, vad) });
+        const gate = new OutputGate(leg, {
+            isSpeech: (frame) => isSpeechFrame(frame, vad),
+            ...(options.log ? { log: options.log } : {}),
+        });
+        // Every way out of the call goes through the supervisor, which hangs up exactly once.
+        const supervisor = new CallSupervisor(gate, {
+            clock: () => leg.elapsedMs,
+            maxCallMs,
+            ...(options.log ? { log: options.log } : {}),
+        });
         gate.connect();
         const bridge = new ScriptedBridge(gate, { vad, script: fixture.turns });
 
@@ -315,65 +344,86 @@ export async function audioCall(
                     ended = true;
                     endedBecause = 'seam_refusal';
                     refusalReason = error.reason;
+                    supervisor.stop('seam_stopped');
                     return false;
                 }
                 if (error instanceof SeamUnavailable) {
                     lines.push({ who: 'system', text: `seam unavailable: ${error.detail}` });
                     ended = true;
                     endedBecause = 'seam_unavailable';
+                    supervisor.stop('seam_stopped');
                     return false;
                 }
+                // Anything else is ours. The supervisor catches it, logs it redacted and hangs up.
                 throw error;
             }
         };
 
         const startedAt = process.hrtime.bigint();
 
-        // The line was answered. Everything after this happens in call time.
-        const opened = await guard(() => agent.open());
+        // The live part of the call. However it leaves — a goodbye, a refusal, the cap, the far end,
+        // or an exception — the supervisor's `finally` hangs up, once.
+        await supervisor.run(async () => {
+            // The line was answered. Everything after this happens in call time.
+            const opened = await guard(() => agent.open());
 
-        if (opened) {
-            let pending: { text: string; lastAudibleFrame: number } | null = null;
-            leg.on('inbound', (frame) => {
-                const turn = bridge.push(frame);
-                if (turn) pending = { text: turn.text, lastAudibleFrame: turn.lastAudibleFrame };
-            });
+            if (opened) {
+                let pending: { text: string; lastAudibleFrame: number } | null = null;
+                leg.on('inbound', (frame) => {
+                    const turn = bridge.push(frame);
+                    if (turn) pending = { text: turn.text, lastAudibleFrame: turn.lastAudibleFrame };
+                });
 
-            while (!leg.ended) {
-                const alive = leg.advance();
-                // `!leg.ended` again: `advance()` may have closed the line during this very
-                // frame, and a turn detected on the frame before it is a turn there is now
-                // nobody left to answer.
-                if (pending && !leg.ended) {
-                    const turn: { text: string; lastAudibleFrame: number } = pending;
-                    pending = null;
-                    lines.push({ who: 'venue', text: turn.text });
-                    answeredAfterFrame.push(turn.lastAudibleFrame);
-                    if (!(await guard(() => agent.hear(turn.text)))) break;
+                while (!leg.ended) {
+                    const alive = leg.advance();
+                    // The cap is the supervisor's, not the leg's: a real carrier leg has no clock of
+                    // its own. A turn they finished on this frame is not answered past the cap.
+                    if (!leg.ended && supervisor.overCap()) {
+                        supervisor.stop('call_too_long');
+                        break;
+                    }
+                    // `!leg.ended` again: `advance()` may have closed the line during this very
+                    // frame, and a turn detected on the frame before it is a turn there is now
+                    // nobody left to answer.
+                    if (pending && !leg.ended) {
+                        const turn: { text: string; lastAudibleFrame: number } = pending;
+                        pending = null;
+                        lines.push({ who: 'venue', text: turn.text });
+                        answeredAfterFrame.push(turn.lastAudibleFrame);
+                        if (!(await guard(() => agent.hear(turn.text)))) break;
+                    }
+                    if (ended) {
+                        // The agent hung up. Let its last sentence finish playing rather than cutting
+                        // it off mid-word — a real dialler waits for the queue to drain before it
+                        // tears the leg down, and a test that does not would score a truncated call.
+                        // The gate's count, not the leg's: audio held behind an unacknowledged
+                        // disclosure is still owed to the far end.
+                        while (gate.queuedFrames() > 0 && !supervisor.overCap() && leg.advance()) { /* drain */ }
+                        await supervisor.hangup(supervisor.overCap() ? 'call_too_long' : 'agent_ended');
+                        break;
+                    }
+                    if (!alive) break;
                 }
-                if (ended) {
-                    // The agent hung up. Let its last sentence finish playing rather than cutting
-                    // it off mid-word — a real dialler waits for the queue to drain before it
-                    // tears the leg down, and a test that does not would score a truncated call.
-                    // The gate's count, not the leg's: audio held behind an unacknowledged
-                    // disclosure is still owed to the far end.
-                    while (gate.queuedFrames() > 0 && leg.advance()) { /* drain */ }
-                    await gate.hangup('agent_ended');
-                    break;
-                }
-                if (!alive) break;
-            }
 
-            // Anything the far end was still saying when the leg stopped — but only if the
-            // line is still up. If they hung up mid-sentence there is no one to reply to, and
-            // this was the largest of the 85 leaks: it called the agent and spoke the answer
-            // into a closed socket.
-            const last = leg.ended ? null : bridge.flush();
-            if (last && !ended) {
-                lines.push({ who: 'venue', text: last.text });
-                answeredAfterFrame.push(last.lastAudibleFrame);
-                await guard(() => agent.hear(last.text));
+                // Anything the far end was still saying when the leg stopped — but only if the
+                // line is still up. If they hung up mid-sentence there is no one to reply to, and
+                // this was the largest of the 85 leaks: it called the agent and spoke the answer
+                // into a closed socket.
+                const last = leg.ended ? null : bridge.flush();
+                if (last && !ended && supervisor.stopping === null) {
+                    lines.push({ who: 'venue', text: last.text });
+                    answeredAfterFrame.push(last.lastAudibleFrame);
+                    await guard(() => agent.hear(last.text));
+                }
             }
+        });
+
+        if (supervisor.failed) {
+            // The message is not copied in: it may carry what somebody said. The class name is in
+            // the supervisor's log line.
+            lines.push({ who: 'system', text: 'internal error: the supervisor hung up' });
+            ended = true;
+            endedBecause = 'internal_error';
         }
 
         // The call is over. Whatever was still queued never played, so charge it honestly rather
@@ -406,7 +456,7 @@ export async function audioCall(
                 answeredAfterFrame,
                 silenceDurationMs: vad.silenceDurationMs,
                 scriptedTurns: fixture.turns.length,
-                endedBecause: hangupReason,
+                endedBecause: supervisor.failed ? 'internal_error' : hangupReason,
                 vad: bridge.vadDescription,
                 modelLatencyMs,
                 disclosure: gate.disclosure(),
@@ -480,6 +530,7 @@ export function measure(
         // The gate drops a write after the end before the leg can count it. The write is still
         // the bug — a loop that kept generating audio — so both counts are charged.
         writtenAfterHangup: leg.writtenAfterHangup + disclosure.droppedAfterEnd,
+        hangupsSent: leg.hangupsSent.length,
         framesIn: leg.inbound.length,
         framesOut: leg.outbound.length,
         audibleOutFrames: audibleOut.length,

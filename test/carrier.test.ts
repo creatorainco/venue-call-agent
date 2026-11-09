@@ -222,7 +222,7 @@ describe('barge-in', () => {
 
         const check = audioChecks({
             deadAirMs: [], percentiles: {}, maxDeadAirMs: 0, openingDelayMs: 0,
-            talkOverFrames: overlap, clearedFrames: 0, writtenAfterHangup: 0,
+            talkOverFrames: overlap, clearedFrames: 0, writtenAfterHangup: 0, hangupsSent: 1,
             disclosureTalkOverFrames: 0, disclosureStarted: false, disclosureHeard: false, disclosureReplays: 0,
             disclosureCutByHangup: false,
             framesIn: leg.inbound.length, framesOut: leg.outbound.length, audibleOutFrames: 0,
@@ -372,6 +372,8 @@ describe('turn COLLAPSE, the direction that used to be unmeasurable', () => {
         const bridge = new ScriptedBridge(leg, { vad: vadWith(silenceDurationMs), script: ['first', 'second'] });
         leg.on('inbound', (f) => { bridge.push(f); });
         while (leg.advance()) { /* run it out */ }
+        // A call loop hangs up however the call ended (src/carrier/supervisor.ts); this rig is one.
+        void leg.hangup('timeline_exhausted');
         return measure(leg, bridge, {
             answeredAfterFrame: [],
             silenceDurationMs,
