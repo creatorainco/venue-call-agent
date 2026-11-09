@@ -191,8 +191,8 @@ utterances got split in two. Against a 500 ms mid-utterance thinking pause:
 <!-- SWEEP-TABLE:START -->
 | silence | p50 dead air | talk-over (frames) | over-segmented |
 |---|---|---|---|
-| 200 ms | 220 ms | 39 | 2 |
-| 400 ms | 420 ms | 39 | 2 |
+| 200 ms | 220 ms | 39 | 5 |
+| 400 ms | 420 ms | 39 | 5 |
 | 600 ms | 620 ms | 3 | 0 |
 | 800 ms | 820 ms | 3 | 0 |
 | 1000 ms | 1020 ms | 3 | 0 |
@@ -284,7 +284,7 @@ You can put a figure in and see the whole sum without a Google account:
 npm run call -- --latency=900     # assume 900ms to first audio byte
 ```
 
-🔴 **`--latency=900` EXITS 1 TODAY, AND THAT IS THE INSTRUMENT WORKING.** One of the seventeen
+🔴 **`--latency=900` EXITS 1 TODAY, AND THAT IS THE INSTRUMENT WORKING.** One of the nineteen
 calls — `phone-menu` — reaches 8,680 ms of dead air once the model is assumed to take 900 ms,
 and the hard budget is 4,000. Nothing is broken: the command is telling you that at that latency
 this feature has a call in it a person would think had dropped. Do not "fix" it by widening the
@@ -292,7 +292,7 @@ budget; the budget is the requirement. Expected output, so nobody mistakes it fo
 
 ```
   phone-menu   2/2   1720ms / 8680ms   0f   HARD: dead_air_within_hard_budget
-  1 hard failure(s) · 5 soft failure(s)
+  1 hard failure(s) · 6 soft failure(s)
 ```
 
 

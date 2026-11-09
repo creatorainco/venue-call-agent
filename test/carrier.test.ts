@@ -224,6 +224,7 @@ describe('barge-in', () => {
             deadAirMs: [], percentiles: {}, maxDeadAirMs: 0, openingDelayMs: 0,
             talkOverFrames: overlap, clearedFrames: 0, writtenAfterHangup: 0,
             disclosureTalkOverFrames: 0, disclosureStarted: false, disclosureHeard: false, disclosureReplays: 0,
+            disclosureCutByHangup: false,
             framesIn: leg.inbound.length, framesOut: leg.outbound.length, audibleOutFrames: 0,
             detectedTurns: 1, scriptedTurns: 1, overSegmented: 0,
             missedTurns: 0, unansweredTurns: 0,

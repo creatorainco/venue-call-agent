@@ -28,10 +28,21 @@
  * ONE REPLAY. If the far end spoke over more than half of the protected range, the same frames are
  * played once more, under a fresh mark, before anything held is released. The gate holds frames,
  * never words, so it cannot fabricate a sentence: what it replays is what the backend supplied.
+ *
+ * LEADING SILENCE IS NOT THE DISCLOSURE. Silent frames written after `beginDisclosure()` and before
+ * the first audible one (the model's latency) go to the leg but not into the range: they are not
+ * replayed, they do not count toward "talked over more than half", and talk during them is not
+ * talk over the disclosure, because nothing of it was playing yet.
+ *
+ * 🔴 A HANGUP EXCUSES ONLY A DISCLOSURE STILL PLAYING. `disclosure().cutByHangup` is true only
+ * when the far end hung up while the leg still had audio queued ahead of the disclosure's mark.
+ * A disclosure that stopped playing earlier — cleared by a bug, the gate then failing closed and
+ * the confused restaurant hanging up into the silence — is not excused by that later hangup.
  */
 
 import { canTransition, mayEmitAudio } from '../state.ts';
 import type { CallState } from '../state.ts';
+import { MULAW_SILENCE } from '../audio/format.ts';
 import type { CallLeg, CallLegEvents, Frame, HangupReason } from './leg.ts';
 
 export interface OutputGateOptions {
@@ -55,6 +66,12 @@ export interface DisclosureRecord {
     heard: boolean;
     /** How many times the range was played again because it was talked over. At most one. */
     replays: number;
+    /**
+     * The far end hung up while the disclosure was still queued to play: its mark pending AND the
+     * leg still holding audio ahead of it at the last frame before the hangup. Only this excuses
+     * an unheard disclosure. A pending mark over an empty queue is a mark something threw away.
+     */
+    cutByHangup: boolean;
     /** Call frames in which protected audio was playing. Talk-over in these is not a barge-in failure. */
     protectedFrames: ReadonlySet<number>;
     /** Writes refused because the call had ended. Each is a frame the loop should never have made. */
@@ -85,6 +102,11 @@ export class OutputGate implements CallLeg {
     private replays = 0;
     /** Inbound frames of far-end speech while the current range plays. */
     private overlap = 0;
+    /** Frames the leg plays before the current range starts: leading silence, earlier audio. */
+    private untilRange = 0;
+    /** The leg's queue depth at the last frame, sampled while a mark is pending. */
+    private lastQueued = 0;
+    private cutByHangup = false;
     private held: Held[] = [];
     private inboundFrames = 0;
     private readonly protectedAt = new Set<number>();
@@ -99,7 +121,13 @@ export class OutputGate implements CallLeg {
         this.log = options.log ?? ((line) => { process.stderr.write(`${line}\n`); });
         leg.on('inbound', (frame) => this.onInbound(frame));
         leg.on('marked', (name) => this.onMarked(name));
-        leg.on('hangup', () => this.end());
+        leg.on('hangup', (reason) => {
+            // Read before end(): `pendingMark` survives it, `protecting` does not.
+            if (reason === 'far_end_hung_up' && this.current !== 'ended') {
+                this.cutByHangup = this.protecting || (this.pendingMark !== null && this.lastQueued > 0);
+            }
+            this.end();
+        });
     }
 
     get state(): CallState { return this.current; }
@@ -171,7 +199,8 @@ export class OutputGate implements CallLeg {
             return;
         }
         if (this.protecting) {
-            this.range.push(frame);
+            // Leading silence plays, but it is not the disclosure: see the header.
+            if (this.range.length > 0 || !isSilentFrame(frame)) this.range.push(frame);
             this.leg.write(frame);
             return;
         }
@@ -191,11 +220,15 @@ export class OutputGate implements CallLeg {
     /**
      * Barge-in. While the disclosure is unacknowledged this drops only what is held behind it; the
      * range itself keeps playing. Afterwards it is the leg's `clear()`, unchanged.
+     *
+     * Held marks go with the held frames. A mark marks audio, and that audio was thrown away: the
+     * leg contract (leg.ts) is that a mark discarded by `clear()` never fires, and releasing it
+     * later would report audio as played that nobody heard.
      */
     clear(): void {
         if (this.disclosurePending) {
             for (const item of this.held) if ('frame' in item) this.heldCleared += 1;
-            this.held = this.held.filter((item) => 'mark' in item);
+            this.held = [];
             return;
         }
         this.leg.clear();
@@ -227,6 +260,7 @@ export class OutputGate implements CallLeg {
             started: this.started,
             heard: this.started && this.acknowledged && !this.disclosurePending,
             replays: this.replays,
+            cutByHangup: this.cutByHangup,
             protectedFrames: this.protectedAt,
             droppedAfterEnd: this.dropped,
             heldCleared: this.heldCleared,
@@ -240,9 +274,12 @@ export class OutputGate implements CallLeg {
         this.current = to;
     }
 
+    /** Call with the range already on the leg, so whatever else is queued is ahead of it. */
     private placeMark(): void {
         this.markSeq += 1;
         this.pendingMark = `disclosure:${this.markSeq}`;
+        this.lastQueued = this.leg.queuedFrames();
+        this.untilRange = Math.max(0, this.lastQueued - this.range.length);
         this.leg.mark(this.pendingMark);
     }
 
@@ -252,6 +289,12 @@ export class OutputGate implements CallLeg {
         // Marks fire after a frame's inbound handlers, so a range still pending here was playing in
         // this frame, its last frame included.
         if (this.pendingMark === null || this.current === 'ended') return;
+        this.lastQueued = this.leg.queuedFrames();
+        // Frames ahead of the range played in this frame, not the disclosure.
+        if (this.untilRange > 0) {
+            this.untilRange -= 1;
+            return;
+        }
         this.protectedAt.add(at);
         if (this.isSpeech(frame)) this.overlap += 1;
     }
@@ -279,4 +322,10 @@ export class OutputGate implements CallLeg {
             else this.leg.mark(item.mark);
         }
     }
+}
+
+/** Every byte the μ-law silence byte. Not `every(b => b === 0)`: 0x00 is full-scale negative. */
+function isSilentFrame(frame: Frame): boolean {
+    for (const byte of frame) if (byte !== MULAW_SILENCE) return false;
+    return true;
 }

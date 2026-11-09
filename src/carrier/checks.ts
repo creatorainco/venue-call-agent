@@ -60,10 +60,12 @@ export function audioChecks(report: AudioReport): AudioCheck[] {
               + 'audio nobody hears, on a call somebody is billed for, from a loop that did not stop',
     });
 
-    // The far end hanging up before the disclosure finished is a fact about them: reported as
-    // not heard, not charged as a failure. Every other way of not hearing it is ours.
+    // The far end hanging up WHILE the disclosure was still playing is a fact about them: reported
+    // as not heard, not charged as a failure. Every other way of not hearing it is ours, including
+    // a hangup that came after it had already stopped: a cleared disclosure, a gate failing closed
+    // into silence, and a confused restaurant putting the phone down is the failure this exists for.
     const disclosureOk = !report.disclosureStarted || report.disclosureHeard
-        || report.endedBecause === 'far_end_hung_up';
+        || report.disclosureCutByHangup;
     checks.push({
         id: 'disclosure_heard_in_full',
         severity: 'hard',
@@ -73,9 +75,12 @@ export function audioChecks(report: AudioReport): AudioCheck[] {
             : report.disclosureHeard
                 ? `the carrier acknowledged the disclosure's last frame`
                   + (report.disclosureReplays ? ' (played twice: they talked over the first)' : '')
-                : report.endedBecause === 'far_end_hung_up'
+                : report.disclosureCutByHangup
                     ? 'they hung up before the disclosure finished: disclosure_heard=false, not a failure'
-                    : 'the disclosure was never acknowledged as played and the far end did not hang up. '
+                    : 'the disclosure was never acknowledged as played'
+                      + (report.endedBecause === 'far_end_hung_up'
+                          ? ', and it had stopped playing before they hung up. '
+                          : ' and the far end did not hang up. ')
                       + 'Something cleared it or cut it short, and the restaurant may have heard us '
                       + 'without being told this is an automated call.',
     });
@@ -193,6 +198,7 @@ export function audioControl(): string | null {
         disclosureStarted: true,
         disclosureHeard: true,
         disclosureReplays: 0,
+        disclosureCutByHangup: false,
         clearedFrames: 0,
         writtenAfterHangup: 0,
         framesIn: 100,
@@ -259,9 +265,15 @@ export function audioControl(): string | null {
 
     // The disclosure exemption is for the far end leaving and nothing else. A call that ran out
     // of script with the disclosure unacknowledged is ours to answer for.
-    const theyLeft = audioChecks({ ...clean, disclosureHeard: false, endedBecause: 'far_end_hung_up' })
-        .find((c) => c.id === 'disclosure_heard_in_full');
+    const theyLeft = audioChecks({
+        ...clean, disclosureHeard: false, endedBecause: 'far_end_hung_up', disclosureCutByHangup: true,
+    }).find((c) => c.id === 'disclosure_heard_in_full');
     if (!theyLeft?.passed) return 'a far-end hangup mid-disclosure was charged as our failure';
+    // A hangup that came after the disclosure had stopped playing excuses nothing.
+    const leftLater = audioChecks({
+        ...clean, disclosureHeard: false, endedBecause: 'far_end_hung_up', disclosureCutByHangup: false,
+    }).find((c) => c.id === 'disclosure_heard_in_full');
+    if (leftLater?.passed) return 'a late hangup excused a disclosure that had already stopped playing';
     const ranOut = audioChecks({ ...clean, disclosureHeard: false, endedBecause: 'timeline_exhausted' })
         .find((c) => c.id === 'disclosure_heard_in_full');
     if (ranOut?.passed) return 'an unacknowledged disclosure passed on a call the far end did not end';

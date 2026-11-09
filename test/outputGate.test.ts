@@ -6,7 +6,9 @@
  *
  *   1. Revert the protected range — make `OutputGate.clear()` a plain `leg.clear()`. The
  *      `talks-over-disclosure-200ms` fixture must go red on `disclosure_heard_in_full`, and the
- *      unit test of a barge-in over the disclosure must go red with it.
+ *      unit test of a barge-in over the disclosure must go red with it. So must
+ *      `talks-over-disclosure-then-hangs-up-late`: there the far end hangs up after the cleared
+ *      disclosure has stopped playing, and that later hangup must not excuse it.
  *   2. Plant a write after `ended` — let `OutputGate.write()` pass a frame to the leg once the
  *      call is over. The "nothing after the end" tests must go red.
  *
@@ -17,6 +19,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { FakeCallLeg, isSilent, speechFrame } from '../src/carrier/fakeLeg.ts';
+import { silentCarrierFrame } from '../src/audio/format.ts';
 import type { TimelineTurn } from '../src/carrier/fakeLeg.ts';
 import { spokenFrame } from '../src/carrier/bridge.ts';
 import { OutputGate } from '../src/carrier/outputGate.ts';
@@ -209,6 +212,48 @@ describe('the disclosure cannot be interrupted (sabotage 1)', () => {
         const d = gate.disclosure();
         assert.equal(d.started, true);
         assert.equal(d.heard, false);
+        assert.equal(d.cutByHangup, true, 'the hangup came while the disclosure was still playing');
+    });
+
+    it('a hangup after the disclosure stopped playing excuses nothing', () => {
+        // Something below the gate threw the disclosure away (a bug, or a carrier clear). The gate
+        // fails closed, the line goes quiet, and the far end hangs up into the silence.
+        const leg = new FakeCallLeg({ turns: [], trailingSilenceMs: 60_000, hangUpAtMs: 600 });
+        const gate = gateOn(leg);
+        disclose(gate, 10);
+        gate.write(spokenFrame(99));
+        run(leg, 3);
+        leg.clear();
+        run(leg, 100);
+        assert.ok(leg.ended);
+        const d = gate.disclosure();
+        assert.equal(d.heard, false);
+        assert.equal(gate.disclosurePending, true, 'the cleared mark fired, so this tests nothing');
+        assert.equal(d.cutByHangup, false, 'a late hangup excused a disclosure that had stopped playing');
+    });
+
+    it('a hangup after the disclosure was heard is not a cut', () => {
+        const leg = new FakeCallLeg({ turns: [], trailingSilenceMs: 60_000, hangUpAtMs: 600 });
+        const gate = gateOn(leg);
+        disclose(gate, 10);
+        run(leg, 100);
+        assert.equal(gate.disclosure().heard, true);
+        assert.equal(gate.disclosure().cutByHangup, false);
+    });
+
+    it('a mark held behind the disclosure is thrown away with the audio it marks', () => {
+        const leg = quietLeg();
+        const gate = gateOn(leg);
+        const fired: string[] = [];
+        leg.on('marked', (name) => { fired.push(name); });
+        disclose(gate, 10);
+        for (let i = 0; i < 5; i += 1) gate.write(spokenFrame(100 + i));
+        gate.mark('reply');
+        run(leg, 3);
+        gate.clear();
+        run(leg, 50);
+        assert.equal(gate.disclosure().heard, true);
+        assert.deepEqual(fired, ['disclosure:1'], 'a mark whose audio was cleared fired on release');
     });
 
     it('only the latest range\'s own mark releases it', () => {
@@ -262,6 +307,43 @@ describe('one replay when the disclosure was talked over', () => {
         assert.deepEqual(replays, [50]);
         assert.equal(gate.disclosure().replays, 1);
     });
+
+    it('leading silence (model latency) is not the disclosure: not replayed, not counted', () => {
+        // They talk for 400 ms (20 frames) during 20 frames of leading silence, then stop. Of the
+        // 30-frame disclosure itself nothing is talked over. Counting the silence into the range
+        // made that 20 of 50 talked over, and replayed audio nobody had talked over.
+        const leg = quietLeg([{ text: 'hello?', segmentsMs: [400], startWhen: { atMs: 0 } }]);
+        const gate = gateOn(leg);
+        const replays: number[] = [];
+        gate.onReplay((frames) => { replays.push(frames); });
+        gate.connect();
+        gate.beginDisclosure();
+        for (let i = 0; i < 20; i += 1) gate.write(silentCarrierFrame());
+        for (let i = 0; i < 30; i += 1) gate.write(spokenFrame(i));
+        gate.endDisclosure();
+        run(leg, 100);
+        const d = gate.disclosure();
+        assert.deepEqual(replays, [], 'talk over the leading silence replayed the disclosure');
+        assert.equal(d.heard, true);
+        assert.deepEqual([...d.protectedFrames], Array.from({ length: 30 }, (_, i) => 20 + i));
+    });
+
+    it('a replay after leading silence plays the disclosure only, not the silence again', () => {
+        const leg = quietLeg([{ text: 'hello?', segmentsMs: [1_200], startWhen: { atMs: 400 } }]);
+        const gate = gateOn(leg);
+        const replays: number[] = [];
+        gate.onReplay((frames) => { replays.push(frames); });
+        gate.connect();
+        gate.beginDisclosure();
+        for (let i = 0; i < 20; i += 1) gate.write(silentCarrierFrame());
+        for (let i = 0; i < 30; i += 1) gate.write(spokenFrame(i));
+        gate.endDisclosure();
+        run(leg, 200);
+        assert.deepEqual(replays, [30]);
+        // 20 silent, 30 disclosure, then the 30-frame replay straight after: no second silence.
+        const audibleAt = leg.outbound.filter((f) => f.audible).map((f) => f.at);
+        assert.deepEqual(audibleAt, Array.from({ length: 60 }, (_, i) => 20 + i));
+    });
 });
 
 describe('the gate inside a whole call', () => {
@@ -289,18 +371,53 @@ describe('the gate inside a whole call', () => {
         assert.equal(audio.disclosureStarted, true);
         assert.equal(audio.disclosureHeard, false);
         const check = audioChecks(audio).find((c) => c.id === 'disclosure_heard_in_full');
+        assert.equal(audio.disclosureCutByHangup, true);
         assert.equal(check?.passed, true);
         assert.match(check?.detail ?? '', /disclosure_heard=false/);
     });
 
-    it('every recorded conversation hears its disclosure in full, unless they hang up first', async () => {
+    it('talks-over-disclosure-then-hangs-up-late: heard in full, and the late hangup is no excuse', async () => {
+        const fixture = loadFixtures('talks-over-disclosure-then-hangs-up-late')[0];
+        assert.ok(fixture, 'the fixture is gone; a late hangup can excuse a cleared disclosure again');
+        const { audio } = await audioCall(fixture, agentFactory('stub'));
+        assert.equal(audio.endedBecause, 'far_end_hung_up', 'the far end did not hang up; the fixture tests nothing');
+        assert.ok(audio.disclosureTalkOverFrames > 0, 'nobody talked over the disclosure');
+        assert.equal(audio.disclosureHeard, true);
+        assert.equal(audio.disclosureCutByHangup, false, 'the hangup landed inside the disclosure, not after it');
+        assert.deepEqual(audioChecks(audio).filter((c) => c.severity === 'hard' && !c.passed).map((c) => c.id), []);
+    });
+
+    it('talks-over-most-of-disclosure: replayed once in a whole call, and the transcript still holds', async () => {
+        const fixture = loadFixtures('talks-over-most-of-disclosure')[0];
+        assert.ok(fixture, 'the fixture is gone; no whole call exercises the replay');
+        const { audio, replay } = await audioCall(fixture, agentFactory('stub'));
+        assert.equal(audio.disclosureReplays, 1);
+        assert.equal(audio.disclosureHeard, true);
+        assert.equal(audio.unheardSentences, 0, 'the replay threw the bridge accounting off (bridge.delay)');
+        assert.equal(audio.cutShortSentences, 0);
+        assert.deepEqual(audioChecks(audio).filter((c) => !c.passed).map((c) => c.id), []);
+        assert.equal(replay.transcript.spoken.filter((s) => s === replay.allowedSentences[0]).length, 1,
+            'the replay was filed as a second thing the agent said');
+    });
+
+    it('the latency pad stays out of the protected range', async () => {
+        const fixture = loadFixtures('talks-over-disclosure-200ms')[0];
+        assert.ok(fixture);
+        const bare = (await audioCall(fixture, agentFactory('stub'))).audio;
+        const slow = (await audioCall(fixture, agentFactory('stub'), { modelLatencyMs: 900 })).audio;
+        assert.equal(slow.disclosureReplays, 0);
+        assert.equal(slow.disclosureHeard, true);
+        assert.equal(slow.disclosureTalkOverFrames, bare.disclosureTalkOverFrames);
+    });
+
+    it('every recorded conversation hears its disclosure in full, unless they hang up during it', async () => {
         const make = agentFactory('stub');
         for (const fixture of loadFixtures()) {
             const { audio } = await audioCall(fixture, make);
             if (!audio.disclosureStarted) continue;   // refused before it spoke
             assert.ok(
-                audio.disclosureHeard || audio.endedBecause === 'far_end_hung_up',
-                `${fixture.name}: the disclosure was not heard and the far end did not leave`,
+                audio.disclosureHeard || audio.disclosureCutByHangup,
+                `${fixture.name}: the disclosure was not heard and the far end did not leave during it`,
             );
         }
     });

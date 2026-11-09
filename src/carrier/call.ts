@@ -89,6 +89,11 @@ export interface AudioReport {
     disclosureHeard: boolean;
     /** Times the disclosure was played again because it was talked over. 0 or 1. */
     disclosureReplays: number;
+    /**
+     * The far end hung up while the disclosure was still queued to play. The one excuse for
+     * `disclosureHeard: false`; a hangup after the disclosure had already stopped is not one.
+     */
+    disclosureCutByHangup: boolean;
     /** Frames the barge-in threw away. Zero on a call nobody interrupted. */
     clearedFrames: number;
     /** Frames written after the far end hung up. Must be zero. */
@@ -270,6 +275,8 @@ export async function audioCall(
                 // The first thing this call says is the disclosure (CallAgent.open() must begin
                 // with it; the rubric checks the words). It goes out as the protected range, and
                 // anything after it in the same turn is held until the carrier says it played.
+                // The latency pad is leading silence: the gate plays it but keeps it out of the
+                // protected range, so it is neither replayed nor counted as disclosure talk-over.
                 gate.beginDisclosure();
                 if (modelLatencyMs > 0) bridge.padSilence(modelLatencyMs);
                 bridge.speak(turn.say.slice(0, 1));
@@ -468,6 +475,7 @@ export function measure(
         disclosureStarted: disclosure.started,
         disclosureHeard: disclosure.heard,
         disclosureReplays: disclosure.replays,
+        disclosureCutByHangup: disclosure.cutByHangup,
         clearedFrames: leg.cleared + disclosure.heldCleared,
         // The gate drops a write after the end before the leg can count it. The write is still
         // the bug — a loop that kept generating audio — so both counts are charged.
@@ -501,6 +509,7 @@ const NO_DISCLOSURE: DisclosureRecord = Object.freeze({
     started: false,
     heard: false,
     replays: 0,
+    cutByHangup: false,
     protectedFrames: new Set<number>(),
     droppedAfterEnd: 0,
     heldCleared: 0,
