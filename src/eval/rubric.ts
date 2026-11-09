@@ -12,7 +12,7 @@
  * stop. Collapsing those into one number is how the second one gets averaged away by the first.
  */
 
-import { checkFabrication, fabricationControl, type FabricationReport } from './fabrication.ts';
+import { checkFabrication, fabricationControl, unquotedSentences, type FabricationReport } from './fabrication.ts';
 import type { ReplayResult } from '../harness/replay.ts';
 
 export type Severity = 'hard' | 'soft';
@@ -208,6 +208,14 @@ export function score(result: ReplayResult): FixtureScore {
         checks.push(!re.test(said)
             ? pass(`never says /${pattern}/`, 'hard', 'absent')
             : fail(`never says /${pattern}/`, 'hard', `matched: ${JSON.stringify((re.exec(said) ?? [''])[0])}`));
+    }
+    const improvised = unquotedSentences(transcript.spoken, allowedSentences);
+    for (const pattern of fixture.expect.must_not_improvise_matching ?? []) {
+        const re = new RegExp(pattern, 'i');
+        const offenders = improvised.filter((s) => re.test(s));
+        checks.push(offenders.length === 0
+            ? pass(`quoted_only /${pattern}/`, 'hard', 'said only inside a sentence the backend supplied, if at all')
+            : fail(`quoted_only /${pattern}/`, 'hard', `in the agent's own words: ${offenders.map((s) => JSON.stringify(s)).join('; ')}`));
     }
     if (fixture.expect.must_end_call !== undefined) {
         checks.push(transcript.ended === fixture.expect.must_end_call

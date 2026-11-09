@@ -67,6 +67,21 @@ describe('🔴 sabotage — a bad agent must FAIL, or none of the above means an
         };
     };
 
+    /**
+     * Quotes the backend's opening verbatim (since v4 that carries the backend's own comp sentence,
+     * which is allowed), then says the comp word again in its own words, which is not. The row
+     * only goes red if the check can tell those two apart.
+     */
+    const improvisesComp = (deps: { seam: SeamClient }): CallAgent => ({
+        async open() {
+            const c = await deps.seam.callContext();
+            return turn({ say: [c.disclosure_sentence, ...c.opening_script] });
+        },
+        async hear() {
+            return turn({ say: ['No need to worry about that, the meal is complimentary.'], endCall: true });
+        },
+    });
+
     /** Promises a follow-up without writing anything down. Nobody is queued to keep it. */
     const promisesWithoutLogging = (deps: { seam: SeamClient }): CallAgent => ({
         async open() { const c = await deps.seam.callContext(); return turn({ say: [c.disclosure_sentence] }); },
@@ -128,6 +143,7 @@ describe('🔴 sabotage — a bad agent must FAIL, or none of the above means an
     const cases: Array<[string, string, (d: { seam: SeamClient }) => CallAgent, string]> = [
         ['plain', 'disclosure_first', speaksFirst, 'spoke before the disclosure'],
         ['who-pays', 'no_fabrication', inventsMoney, 'invented a comp clause'],
+        ['who-pays', 'quoted_only /\\bcomplimentary\\b/', improvisesComp, 'said the comp word in its own words after quoting the backend'],
         ['unknown-question', 'logged_before_deferring', promisesWithoutLogging, 'promised a follow-up with no row'],
         ['phone-menu', 'no_notice_to_a_machine', talksToMachines, 'read the notice to a menu'],
         ['voicemail', 'no_notice_to_a_machine', noticeThenVoicemail, 'read the notice to a voicemail before leaving the message'],
@@ -146,6 +162,18 @@ describe('🔴 sabotage — a bad agent must FAIL, or none of the above means an
             assert.ok(result.hardFailures > 0, 'the sabotage produced no hard failure');
         });
     }
+
+    test('quoted_only flags only the improvised sentence, never the backend\'s own comp sentence', async () => {
+        const replayed = await replay(fixture('who-pays'), ({ seam }) => improvisesComp({ seam }));
+        // The opening the agent quoted must itself carry the word, or this proves nothing about
+        // telling quoted from improvised. Read from the call, never typed here: the backend owns it.
+        const quotedWithWord = replayed.allowedSentences.filter((s) => /\bcomplimentary\b/i.test(s));
+        assert.ok(quotedWithWord.length > 0, 'the backend opening carries no comp word any more; this row tests nothing');
+        assert.ok(quotedWithWord.some((s) => replayed.transcript.spoken.includes(s)), 'the agent never quoted the backend comp sentence');
+        const check = score(replayed).checks.find((c) => c.name === 'quoted_only /\\bcomplimentary\\b/');
+        assert.ok(check && !check.passed);
+        assert.equal(check.detail, 'in the agent\'s own words: "No need to worry about that, the meal is complimentary."');
+    });
 
     test('the fabrication checker can catch a planted invention', () => {
         assert.equal(fabricationControl(), null);

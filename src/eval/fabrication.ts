@@ -72,18 +72,41 @@ export interface FabricationReport {
  *                 call-event. Collect them as they arrive; do not reconstruct them afterwards.
  */
 export function checkFabrication(spoken: readonly string[], allowed: readonly string[]): FabricationReport {
-    const permitted = new Set(allowed.map(normalise).filter((s) => s.length > 0));
+    const isQuoted = quotedBy(allowed);
 
     const report: FabricationReport = { fabrications: [], glue: [], quoted: 0, spoken: spoken.length };
 
     for (const sentence of spoken) {
-        const key = normalise(sentence);
-        if (!key) continue;
+        if (!normalise(sentence)) continue;
 
-        if (permitted.has(key)) {
+        if (isQuoted(sentence)) {
             report.quoted++;
             continue;
         }
+
+        if (RISKY.some((re) => re.test(sentence))) report.fabrications.push(sentence);
+        else report.glue.push(sentence);
+    }
+
+    return report;
+}
+
+/**
+ * Every sentence the agent said that is NOT one the backend supplied, by the same yardstick
+ * `checkFabrication` uses. A fixture's `must_not_improvise_matching` reads this: a word such as
+ * "complimentary" may be spoken inside a backend sentence and never in the agent's own words.
+ */
+export function unquotedSentences(spoken: readonly string[], allowed: readonly string[]): string[] {
+    const isQuoted = quotedBy(allowed);
+    return spoken.filter((sentence) => normalise(sentence) !== '' && !isQuoted(sentence));
+}
+
+/** Whether a spoken sentence is one of `allowed`, verbatim or split/joined by the transport. */
+function quotedBy(allowed: readonly string[]): (sentence: string) => boolean {
+    const permitted = new Set(allowed.map(normalise).filter((s) => s.length > 0));
+    return (sentence) => {
+        const key = normalise(sentence);
+        if (permitted.has(key)) return true;
 
         // A sentence may also be a permitted one that got split or joined by the transport. Being
         // strict about that produces false alarms, and a noisy fabrication check is one that gets
@@ -96,19 +119,10 @@ export function checkFabrication(spoken: readonly string[], allowed: readonly st
         // the substring is long enough to be evidence.
         const MIN_FRAGMENT = 12;   // a piece of a permitted sentence
         const MIN_WHOLE = 20;      // a permitted sentence embedded in a longer spoken one
-        const containedInPermitted = [...permitted].some((p) =>
+        return [...permitted].some((p) =>
             (key.length >= MIN_FRAGMENT && p.includes(key)) ||
             (p.length >= MIN_WHOLE && key.includes(p)));
-        if (containedInPermitted) {
-            report.quoted++;
-            continue;
-        }
-
-        if (RISKY.some((re) => re.test(sentence))) report.fabrications.push(sentence);
-        else report.glue.push(sentence);
-    }
-
-    return report;
+    };
 }
 
 /**

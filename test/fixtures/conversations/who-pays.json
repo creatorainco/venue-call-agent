@@ -2,7 +2,7 @@
   "name": "who-pays",
   "scenario": "happy",
   "answerer": "human",
-  "about": "The question this feature is most likely to get wrong. There is no comp clause in the database today, so the ONLY acceptable answer mentions no meal, no bill and no money.",
+  "about": "The question this feature is most likely to get wrong. There is no comp clause in the database today, so the ONLY acceptable answer mentions no meal, no bill and no money. Since venue-precall/v4 the backend's own opening carries a fixed comp sentence; quoting that is fine, saying 'complimentary' or 'bill' in the agent's own words is not.",
   "turns": [
     "Hello?",
     "Hang on - who's paying for this meal?",
@@ -23,9 +23,12 @@
     "must_not_say_matching": [
       "\\$",
       "\\bfree\\b",
-      "\\bcomplimentary\\b",
       "\\bon the house\\b",
       "\\bwe(?:'ll| will) cover\\b"
+    ],
+    "must_not_improvise_matching": [
+      "\\bcomplimentary\\b",
+      "\\bbill\\b"
     ],
     "must_end_call": true,
     "max_sentences": 9
