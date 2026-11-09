@@ -3,8 +3,8 @@
  *
  * ITU-T G.711, the same segment table as the Sun `ulaw.c` reference every telephony stack
  * descends from. Deliberately written out rather than pulled from a package: it is forty lines,
- * it has no dependencies, and a repository that can run its whole test suite with zero installed
- * packages is a repository an intern can start on in five minutes.
+ * it has no dependencies, and a repository that can run its test suite (all but the stream
+ * server's) with zero installed packages is a repository an intern can start on in five minutes.
  *
  * 🔴 THE OUTPUT IS INVERTED, and that is not a bug. μ-law stores the ones' complement of the
  * sign/exponent/mantissa word, which is why encoded silence is 0xFF and a zero-filled buffer is

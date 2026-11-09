@@ -8,6 +8,7 @@
     "node": ">=22.18"
   },
   "scripts": {
+    "start": "node src/server/main.ts",
     "test": "node --test --test-timeout=60000 \"test/**/*.test.ts\"",
     "test:watch": "node --test --watch \"test/**/*.test.ts\"",
     "mock": "node src/mock/cli.ts",

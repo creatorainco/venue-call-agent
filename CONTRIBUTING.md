@@ -85,7 +85,8 @@ than four — an exemption list that grows quietly is the same as no guard.
   `node:` has no WebSocket server, streaming recognition is gRPC only, and the REST calls need
   Google credentials. `test/dependencies.test.ts` fails on a range, a tag or an unlisted package.
   Everything else is `node:` built-ins, including the HTTP mock and the codec, and the whole suite
-  still runs on a clone with nothing installed — that is why an intern can start in three minutes.
+  but `test/server.test.ts` (the stream server needs `ws`) still runs on a clone with nothing
+  installed — that is why an intern can start in three minutes.
 - **No lint step**, deliberately, and this is a stated deviation from the two reference repos. The
   strict typechecker plus `erasableSyntaxOnly` plus the guards cover what a lint config would catch
   here, and an untuned lint config produces noise that ends with the whole step being disabled. If
