@@ -80,9 +80,12 @@ than four — an exemption list that grows quietly is the same as no guard.
   erasure cannot express. They typecheck perfectly and throw at import. `tsconfig.json` sets
   `erasableSyntaxOnly` so the typechecker refuses them instead.
 - **Imports carry the `.ts` extension** — that is what Node resolves at runtime.
-- **No runtime dependencies.** There are none today and adding one should be a conversation: the
-  whole suite running on a clone with two dev-only packages is why an intern can start in three
-  minutes. `node:` built-ins cover everything so far, including the HTTP mock and the codec.
+- **Three runtime dependencies, and adding a fourth is a conversation.** The phone runtime needs
+  `ws`, `@google-cloud/speech` and `google-auth-library`, each pinned to an exact version, because
+  `node:` has no WebSocket server, streaming recognition is gRPC only, and the REST calls need
+  Google credentials. `test/dependencies.test.ts` fails on a range, a tag or an unlisted package.
+  Everything else is `node:` built-ins, including the HTTP mock and the codec, and the whole suite
+  still runs on a clone with nothing installed — that is why an intern can start in three minutes.
 - **No lint step**, deliberately, and this is a stated deviation from the two reference repos. The
   strict typechecker plus `erasableSyntaxOnly` plus the guards cover what a lint config would catch
   here, and an untuned lint config produces noise that ends with the whole step being disabled. If

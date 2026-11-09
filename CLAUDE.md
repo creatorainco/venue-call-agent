@@ -32,8 +32,12 @@ the things an agent gets wrong here specifically.
   `erasableSyntaxOnly` is on so the typechecker catches them first.
 - Imports carry the `.ts` extension.
 - 4 spaces, single quotes, LF. Copied from platform-backend, not from the frontends.
-- No runtime dependencies. Two dev-only packages. Keep it that way unless there is a real reason —
-  the three-minute cold start is the point.
+- Three runtime dependencies, pinned exactly, and no fourth without a real reason: `ws` (Node 22
+  has a WebSocket client and no server), `@google-cloud/speech` (streaming recognition is gRPC
+  only) and `google-auth-library` (credentials for the REST calls). Synthesis and the intent model
+  go over `fetch`, not an SDK. `test/dependencies.test.ts` holds the set closed. The tests, the
+  mock and the eval still run on a clone with nothing installed — the three-minute cold start is
+  the point.
 
 ## The testing rule, stated once
 

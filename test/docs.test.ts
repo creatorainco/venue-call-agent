@@ -434,3 +434,48 @@ describe('the Gemini model ids and their dates', () => {
         assert.equal(stale('planted', planted).length, 4, stale('planted', planted).join('\n'));
     });
 });
+
+describe('the service definition in docs/DEPLOY.md', () => {
+    /**
+     * WHY, WITH THE DATE. Until 2026-11-09 the page deployed with `--no-allow-unauthenticated` and
+     * told the CI account to take project-wide Run Admin. The first refuses Twilio, which cannot
+     * present a Google identity token, so every call would fail at the edge; the second hands a
+     * workflow the whole project's services. Both read as the cautious choice, which is exactly why
+     * a later reader would restore them. TASK-3748 step 1.
+     */
+    const RUN_ADMIN = /run\.admin/;
+
+    function deployFindings(text: string): string[] {
+        const wrong: string[] = [];
+        if (text.includes('--no-allow-unauthenticated')) wrong.push('--no-allow-unauthenticated: Twilio cannot present an identity token');
+        if (RUN_ADMIN.test(text)) wrong.push('run.admin: the deploy identity gets run.developer on the one service, never project Run Admin');
+        const block = text.match(/```bash\n(gcloud run deploy[\s\S]*?)```/)?.[1];
+        if (block === undefined) return [...wrong, 'no `gcloud run deploy` block to check'];
+        if (/--source\b/.test(block)) wrong.push('--source: the image is built from the Dockerfile, not by buildpacks');
+        const timeout = Number(block.match(/--timeout (\d+)/)?.[1]);
+        if (!(timeout > MAX_CALL_SECONDS && timeout <= 3600)) {
+            wrong.push(`--timeout ${timeout}: must outlive the call cap (MAX_CALL_SECONDS ${MAX_CALL_SECONDS}) and stay within 3600`);
+        }
+        for (const flag of ['--allow-unauthenticated', '--concurrency 1', '--max-instances 5', '--min-instances 0',
+            '--cpu-boost', '--service-account venue-call-runtime@']) {
+            if (!block.includes(flag)) wrong.push(`missing ${flag}`);
+        }
+        return wrong;
+    }
+
+    it('lets Twilio in, outlives the call cap, and grants no project Run Admin', () => {
+        const wrong = deployFindings(read('docs/DEPLOY.md'));
+        assert.deepEqual(wrong, [], wrong.join('\n'));
+    });
+
+    it('CONTROL — the 2026-09-12 definition is caught on every point it got wrong', () => {
+        const planted = 'The CI service account needs `roles/run.admin`.\n\n```bash\ngcloud run deploy venue-call-agent \\n'
+            + '  --source . \\n  --timeout 300 \\n  --concurrency 2 \\n  --max-instances 5 \\n  --min 0 \\n'
+            + '  --no-allow-unauthenticated\n```\n';
+        const wrong = deployFindings(planted);
+        for (const expected of ['--no-allow-unauthenticated', 'run.admin', '--source', '--timeout 300', 'missing --concurrency 1',
+            'missing --min-instances 0', 'missing --cpu-boost', 'missing --service-account']) {
+            assert.ok(wrong.some((w) => w.startsWith(expected)), `not caught: ${expected}\n${wrong.join('\n')}`);
+        }
+    });
+});
