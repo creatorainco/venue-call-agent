@@ -1,0 +1,4 @@
+# Every path is reviewed by a CreatoRain engineer. GitHub requests these reviewers on each pull
+# request automatically. Branch protection does not require code-owner review; it requires one
+# approving review and the `verify` check.
+* @PeterChen12 @gagandeep-rain
