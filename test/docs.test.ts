@@ -402,10 +402,10 @@ describe('the Gemini model ids and their dates', () => {
 
     function stale(page: string, text: string): string[] {
         const wrong: string[] = [];
-        for (const m of text.matchAll(/shutdown on \**(\d{4}-\d{2}-\d{2})/g)) {
+        for (const m of text.matchAll(/shutdown\s+on\s+\**(\d{4}-\d{2}-\d{2})/gi)) {
             if (!shutdownDates.has(m[1] ?? '')) wrong.push(`${page}: "${m[0]}" — RETIRED_LIVE_MODELS holds ${[...shutdownDates].join(', ')}`);
         }
-        for (const m of text.matchAll(/retire(?:s|ment)?\s+no\s+earlier\s+than\s+\**(\d{4}-\d{2}-\d{2})/g)) {
+        for (const m of text.matchAll(/retire(?:s|d|ment)?\s+no\s+earlier\s+than\s+\**(\d{4}-\d{2}-\d{2})/gi)) {
             if (m[1] !== LIVE_MODEL_EARLIEST_RETIREMENT) wrong.push(`${page}: "${m[0]}" — LIVE_MODEL_EARLIEST_RETIREMENT is ${LIVE_MODEL_EARLIEST_RETIREMENT}`);
         }
         for (const m of text.matchAll(/gemini-[\d.]+-live\b(?!-)/g)) {
