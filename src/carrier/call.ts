@@ -12,12 +12,18 @@
  * reason the replay harness scores off the mock's journal rather than the agent's self-report.
  *
  * ⚠️ TWO FIELDS ARE THE EXCEPTION AND SAYING OTHERWISE WAS WRONG. `cutShortSentences` and
- * `unheardSentences` come from `ScriptedBridge.spoken` — the bridge's own record of what it
- * queued and when. There is no way around that: the wire carries frames, and frames do not know
- * which sentence they belong to. It is sound arithmetic over an ordered queue rather than an
- * opinion, but it IS the component reporting on itself, and an earlier version of this header
+ * `unheardSentences` come from the `SpokenResult` of every `speak()` — the bridge's own record of
+ * what it queued and when. There is no way around that: the wire carries frames, and frames do
+ * not know which sentence they belong to. It is sound arithmetic over an ordered queue rather than
+ * an opinion, but it IS the component reporting on itself, and an earlier version of this header
  * claimed no measurement did that. Read those two as well-founded bookkeeping, not as evidence
  * of the same kind as the timings above.
+ *
+ * THE BRIDGE IS ASYNCHRONOUS AND THIS LOOP IS NOT. Turns arrive as `callerTurn` events and are
+ * held until the loop is ready to answer; `speak()` is queued and its promise is read only once
+ * the call is over, because its audio plays only as this loop advances the leg. A bridge `error`
+ * is thrown on the next frame, inside the supervisor, so it ends the call as `internal_error`
+ * with exactly one hangup.
  *
  * WHAT A NUMBER FROM HERE MEANS, EXACTLY. It contains: the turn detector's `silenceDurationMs`,
  * whatever model latency you asked for, and the time the agent spent in the seam. It does NOT
@@ -34,10 +40,11 @@ import { VAD, LATENCY_PERCENTILES, MAX_CALL_SECONDS } from '../tuning/liveDefaul
 import { FakeCallLeg } from './fakeLeg.ts';
 import type { TimelineTurn } from './fakeLeg.ts';
 import { ScriptedBridge, sentenceDurationMs } from './bridge.ts';
+import type { ScriptedBridgeOptions, Sentence, SentenceOutcome, SpokenResult } from './bridge.ts';
 import { isSpeechFrame } from './vad.ts';
 import type { VadSettings } from './vad.ts';
 import { framesToMs, msToFrames } from './leg.ts';
-import type { HangupReason } from './leg.ts';
+import type { CallLeg, HangupReason } from './leg.ts';
 import { OutputGate } from './outputGate.ts';
 import { CallSupervisor } from './supervisor.ts';
 import type { DisclosureRecord } from './outputGate.ts';
@@ -67,6 +74,11 @@ export interface AudioCallOptions {
     maxCallMs?: number;
     /** Where the gate and the supervisor write their one-line events. Defaults to stderr. */
     log?: (line: string) => void;
+    /**
+     * Build the bridge. Defaults to `ScriptedBridge`. A test passes a subclass to plant a fault
+     * (a bridge that fails mid-call); the report still reads the scripted bridge's turn counts.
+     */
+    bridge?: (leg: CallLeg, options: ScriptedBridgeOptions) => ScriptedBridge;
 }
 
 /**
@@ -259,7 +271,32 @@ export async function audioCall(
             ...(options.log ? { log: options.log } : {}),
         });
         gate.connect();
-        const bridge = new ScriptedBridge(gate, { vad, script: fixture.turns });
+        const bridgeOptions: ScriptedBridgeOptions = { vad, script: fixture.turns };
+        const bridge = options.bridge
+            ? options.bridge(gate, bridgeOptions)
+            : new ScriptedBridge(gate, bridgeOptions);
+
+        /** The first error the bridge reported. Thrown on the next frame, inside the supervisor. */
+        let bridgeFailure: Error | null = null;
+        bridge.on('error', (error) => { bridgeFailure ??= error; });
+        const bridgeFailed = (): boolean => bridgeFailure !== null;
+        const throwIfBridgeFailed = (): void => {
+            if (bridgeFailure !== null) throw bridgeFailure;
+        };
+
+        /** Every `speak()`, read once the call is over and every sentence's fate is known. */
+        const speeches: Array<Promise<SpokenResult>> = [];
+        let sentenceSeq = 0;
+        /** One id per sentence, unique on this call, so an outcome can name the sentence it is about. */
+        const withIds = (say: readonly string[]): Sentence[] =>
+            say.map((text) => { sentenceSeq += 1; return { id: `s${sentenceSeq}`, text }; });
+        const say = (sentences: readonly Sentence[]): void => {
+            speeches.push(bridge.speak(sentences).catch((error: unknown) => {
+                // The bridge also emits `error` for this; the loop throws on the next frame.
+                bridgeFailure ??= error instanceof Error ? error : new Error('speak rejected');
+                return { sentences: [], complete: false };
+            }));
+        };
 
         const lines: TranscriptLine[] = [];
         gate.onReplay((frames) => {
@@ -300,6 +337,7 @@ export async function audioCall(
                 const next = nextState(gate.state, turn);
                 if (next !== gate.state) gate.enter(next);
             }
+            const sentences = speakable ? withIds(turn.say) : [];
             if (speakable && gate.state === 'connected') {
                 // The first thing this call says is the disclosure (CallAgent.open() must begin
                 // with it; the rubric checks the words). It goes out as the protected range, and
@@ -308,12 +346,12 @@ export async function audioCall(
                 // protected range, so it is neither replayed nor counted as disclosure talk-over.
                 gate.beginDisclosure();
                 if (modelLatencyMs > 0) bridge.padSilence(modelLatencyMs);
-                bridge.speak(turn.say.slice(0, 1));
+                say(sentences.slice(0, 1));
                 gate.endDisclosure();
-                if (turn.say.length > 1) bridge.speak(turn.say.slice(1));
+                if (sentences.length > 1) say(sentences.slice(1));
             } else if (speakable) {
                 if (modelLatencyMs > 0) bridge.padSilence(modelLatencyMs);
-                bridge.speak(turn.say);
+                say(sentences);
             }
             if (speakable) {
                 for (const sentence of turn.say) {
@@ -369,13 +407,17 @@ export async function audioCall(
 
             if (opened) {
                 let pending: { text: string; lastAudibleFrame: number } | null = null;
-                leg.on('inbound', (frame) => {
-                    const turn = bridge.push(frame);
-                    if (turn) pending = { text: turn.text, lastAudibleFrame: turn.lastAudibleFrame };
+                // A turn is held until the loop below is ready to answer it, one frame later.
+                bridge.on('callerTurn', (turn) => {
+                    pending = { text: turn.text, lastAudibleFrame: turn.lastAudibleFrame };
                 });
+                leg.on('inbound', (frame) => { bridge.sendAudio(frame); });
 
                 while (!leg.ended) {
                     const alive = leg.advance();
+                    // A recogniser or synthesiser that died ends the call here, as an internal
+                    // error, before anything else on this frame is answered or spoken.
+                    throwIfBridgeFailed();
                     // The cap is the supervisor's, not the leg's: a real carrier leg has no clock of
                     // its own. A turn they finished on this frame is not answered past the cap.
                     if (!leg.ended && supervisor.overCap()) {
@@ -398,25 +440,26 @@ export async function audioCall(
                         // tears the leg down, and a test that does not would score a truncated call.
                         // The gate's count, not the leg's: audio held behind an unacknowledged
                         // disclosure is still owed to the far end.
-                        while (gate.queuedFrames() > 0 && !supervisor.overCap() && leg.advance()) { /* drain */ }
+                        while (!bridgeFailed() && gate.queuedFrames() > 0 && !supervisor.overCap() && leg.advance()) { /* drain */ }
+                        throwIfBridgeFailed();
                         await supervisor.hangup(supervisor.overCap() ? 'call_too_long' : 'agent_ended');
                         break;
                     }
                     if (!alive) break;
                 }
 
-                // Anything the far end was still saying when the leg stopped — but only if the
-                // line is still up. If they hung up mid-sentence there is no one to reply to, and
-                // this was the largest of the 85 leaks: it called the agent and spoke the answer
-                // into a closed socket.
-                const last = leg.ended ? null : bridge.flush();
-                if (last && !ended && supervisor.stopping === null) {
-                    lines.push({ who: 'venue', text: last.text });
-                    answeredAfterFrame.push(last.lastAudibleFrame);
-                    await guard(() => agent.hear(last.text));
-                }
+                // Close the bridge. Anything the far end was still saying surfaces now as a final
+                // `callerTurn` (only while the line is up), and it is counted, never answered:
+                // every way out of the loop above is a stop (a goodbye, a refusal, the cap, the far
+                // end hanging up). Answering after a stop was the largest of the 85 leaks: it
+                // called the agent and spoke the answer into a closed socket.
+                await bridge.hangup();
             }
         });
+
+        // Idempotent. On every path but an exception it already ran inside the call. Whatever was
+        // still queued never played, so it is charged honestly rather than credited to the agent.
+        await bridge.hangup();
 
         if (supervisor.failed) {
             // The message is not copied in: it may carry what somebody said. The class name is in
@@ -426,14 +469,8 @@ export async function audioCall(
             endedBecause = 'internal_error';
         }
 
-        // The call is over. Whatever was still queued never played, so charge it honestly rather
-        // than crediting the agent with sentences the leg died holding.
-        //
-        // `outbound.length` and not `elapsedFrames`: they are equal today, and only one of them
-        // is a count of frames that actually went out. The other is a clock, and a clock stays
-        // right by accident. Subtracting `queuedFrames()` here would be worse than redundant —
-        // hanging up empties the queue, so it is always zero by the time this runs.
-        bridge.settle(leg.outbound.length);
+        // Every `speak()` has resolved: `hangup()` settles whatever was still owed.
+        const sentences = (await Promise.all(speeches)).flatMap((result) => result.sentences);
 
         const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
 
@@ -460,6 +497,7 @@ export async function audioCall(
                 vad: bridge.vadDescription,
                 modelLatencyMs,
                 disclosure: gate.disclosure(),
+                sentences,
             }),
         };
     } finally {
@@ -480,6 +518,12 @@ export function measure(
         modelLatencyMs: number;
         /** The gate's record. Absent for a rig with no gate, which then reports no disclosure. */
         disclosure?: DisclosureRecord;
+        /**
+         * What became of every sentence, from the `SpokenResult` of each `speak()`. Absent for a
+         * rig that drives a bridge by hand and never awaits it; the scripted bridge's own record
+         * is read instead, and it is the same arithmetic.
+         */
+        sentences?: ReadonlyArray<Pick<SentenceOutcome, 'heardMs' | 'fullMs'>>;
     },
 ): AudioReport {
     const disclosure = ctx.disclosure ?? NO_DISCLOSURE;
@@ -505,7 +549,7 @@ export function measure(
 
     const silenceFrames = msToFrames(ctx.silenceDurationMs);
     const detectable = leg.truth.filter((turn) => leg.outbound.length - turn.endFrame >= silenceFrames);
-    const heard = bridge.heard();
+    const heard = ctx.sentences ?? bridge.heard();
     const inboundAudible = new Set(leg.inbound.filter((f) => f.audible).map((f) => f.at));
     let talkOver = 0;
     let disclosureTalkOver = 0;

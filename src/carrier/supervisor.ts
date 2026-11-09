@@ -25,8 +25,9 @@
  * the cap, and the loop asks once per frame. On the fake leg the clock is the leg's virtual one,
  * so a six-minute call is deterministic and takes a second. What it cannot bound is a turn that
  * never returns: an `await agent.hear()` that hangs stops the polling with it. Bounding that
- * needs a wall-clock deadline racing the agent, which belongs to the async bridge (TASK-3745
- * step 4) and the cascade (TASK-3748), where the agent stops being one awaited call per turn.
+ * needs a wall-clock deadline racing the agent. The async bridge (TASK-3745 step 4) made the
+ * speech side event-driven but kept `CallAgent.hear()` one awaited call per turn, so the deadline
+ * belongs to the cascade (TASK-3748), where that stops being true.
  *
  * 🔴 THE LOG IS REDACTED BY CONSTRUCTION. An error's message can carry what the far end said, a
  * phone number or a token, so it never reaches a log line. A line carries the call id, the event

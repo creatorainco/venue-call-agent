@@ -39,27 +39,95 @@ export interface CallerTurn {
     detectedFrame: number;
 }
 
-export interface SpeechBridge {
-    /** One inbound frame. Returns a turn if this frame completed one. */
-    push(frame: Frame): CallerTurn | null;
+/**
+ * One sentence to say, and the id that follows it to the wire and back.
+ *
+ * The id is what lets a result say WHICH sentence was cut rather than how many frames were. It is
+ * unique within a call. The text is a finished sentence from the backend, never assembled here.
+ */
+export interface Sentence {
+    id: string;
+    text: string;
+}
 
-    /** The far end stopped sending. Returns a final turn if one was still open. */
-    flush(): CallerTurn | null;
+/** What became of one sentence. */
+export interface SentenceOutcome {
+    id: string;
+    text: string;
+    /** How much of it the far end heard. Equal to `fullMs` only if it played to its end. */
+    heardMs: number;
+    fullMs: number;
+}
+
+/** What became of one `speak()`: every sentence it was given, in the order it was given them. */
+export interface SpokenResult {
+    sentences: SentenceOutcome[];
+    /** Every sentence played to its end. False when an interrupt or the end of the call cut one. */
+    complete: boolean;
+}
+
+export interface SpeechBridgeEvents {
+    /** The far end finished a turn. The only event the call loop answers. */
+    callerTurn(turn: CallerTurn): void;
+    /**
+     * Words of a turn still in progress. Never answered and never logged: a partial is a guess the
+     * recogniser may still revise, and answering one is answering half a question.
+     */
+    interim(text: string): void;
+    /**
+     * The bridge cannot go on: a recogniser or synthesiser stream died. The call loop ends the call
+     * through the supervisor (`internal_error`, one hangup). The message may carry what somebody
+     * said, so nothing logs it; the supervisor logs the class name.
+     */
+    error(error: Error): void;
+}
+
+/**
+ * Audio in, turns out; sentences in, audio out. Asynchronous, because a real recogniser and a real
+ * synthesiser are: a turn arrives when the recogniser decides, and a sentence has been heard only
+ * once its audio has played, which is long after it was handed over.
+ *
+ * 🔴 NOTHING HERE RETURNS A TURN. The previous interface was `push(frame): CallerTurn | null`, which
+ * only a bridge that decides synchronously, frame by frame, can implement; a speech-to-text stream
+ * cannot. A turn is an event now, and the call loop holds it until it is ready to answer.
+ */
+export interface SpeechBridge {
+    on<K extends keyof SpeechBridgeEvents>(event: K, handler: SpeechBridgeEvents[K]): void;
+
+    /** One inbound frame from the carrier. Returns at once; a turn it completes arrives as `callerTurn`. */
+    sendAudio(frame: Frame): void;
 
     /**
-     * Render these sentences and queue them on the leg.
+     * Render these sentences and queue them on the leg. Resolves once the fate of every one is
+     * known: played to its end, cut by an interrupt, or dropped by the end of the call.
      *
      * 🔴 SENTENCES, NOT A STRING. They arrive from the backend as finished sentences and they stay
      * separable all the way to the wire, so an interrupt between two of them can be logged as
      * "said the first, never said the second". Joining them here throws that away.
+     *
+     * 🔴 DO NOT AWAIT IT FROM THE LOOP THAT FEEDS THE LEG. Audio plays as frames go out; a loop that
+     * waits for its own sentence to finish before sending the next frame waits for ever. Queue it,
+     * keep the promise, read it when the call is over.
+     *
+     * Rejects only if the bridge itself failed, and then it also emits `error`.
      */
-    speak(sentences: readonly string[]): void;
+    speak(sentences: readonly Sentence[]): Promise<SpokenResult>;
 
-    /** The far end started talking. Stop, and drop everything queued. */
-    bargeIn(): void;
+    /**
+     * Stop speaking now and drop everything queued and unplayed. A bridge that hears the far end
+     * start talking over it calls this itself; the call loop may call it too. Under `OutputGate`
+     * an unacknowledged disclosure keeps playing (src/carrier/outputGate.ts).
+     */
+    interrupt(): void;
 
-    /** True while there is unplayed speech on the leg. */
-    speaking(): boolean;
+    /**
+     * The call is over or ending. Close the input (a turn still open while the line is up is
+     * emitted once more as a final `callerTurn`), settle every sentence still owed, resolve every
+     * `speak()`, and emit nothing after. Idempotent.
+     *
+     * It does NOT hang up the leg. That is the supervisor's, exactly once (src/carrier/supervisor.ts).
+     */
+    hangup(): Promise<void>;
 
     /**
      * Optional, and only a FAKE needs it: queue `ms` of silence before the next speech.
@@ -73,17 +141,38 @@ export interface SpeechBridge {
     padSilence?(ms: number): void;
 }
 
+export interface ScriptedBridgeOptions {
+    vad: VadSettings;
+    script: readonly string[];
+    speakingRateCps?: number;
+}
+
+/** One sentence handed to `speak`, where it sat in the queue, and how much of it played. */
+interface SpokenEntry {
+    id: string;
+    sentence: string;
+    queuedAtFrame: number;
+    frames: number;
+    heardFrames: number;
+    settled: boolean;
+}
+
 /**
  * The bridge with no model in it — the counterpart of `src/agent/scriptedStub.ts`.
  *
  * Inbound: real turn detection over real audio (`src/carrier/vad.ts`), then the Nth detected turn
  * is given the Nth scripted line. The DETECTION is genuine and is the thing being measured; the
  * words are injected, because nothing in this repository can recognise speech and pretending
- * otherwise would be a lie in the one place this design cannot afford one.
+ * otherwise would be a lie in the one place this design cannot afford one. For the same reason it
+ * never emits `interim`: it has no words until a turn is over.
  *
  * Outbound: each sentence becomes real μ-law frames of a length derived from how long a person
  * would take to say it. So dead air, queue depth and barge-in are all real quantities, and the
  * only fiction is the timbre.
+ *
+ * Everything is synchronous underneath (a frame in, an event out, before `sendAudio` returns), so
+ * on the fake leg's virtual clock a call is as deterministic as it was before the interface went
+ * async. `test/bridgeGolden.test.ts` holds it to that, call for call.
  *
  * 🔴 A DESIGN NOTE FOR WHOEVER IMPLEMENTS THE REAL ONE, found by running this against the
  * `they-interrupt` fixture. The reference agent hands over four sentences in one turn, so four
@@ -94,7 +183,7 @@ export interface SpeechBridge {
  * That gap is not a flaw in the fake; it is what a telephone does. What follows from it is a rule
  * for the real bridge: hand the leg ONE sentence at a time and wait for it to drain, so an
  * interrupt costs one sentence rather than a paragraph, and so what the transcript claims stays
- * close to what the restaurant heard. `heard()` below is what makes the difference measurable.
+ * close to what the restaurant heard. `SpokenResult` is what makes the difference measurable.
  */
 export class ScriptedBridge implements SpeechBridge {
     // No parameter properties anywhere in this repository: `constructor(private readonly x)` is
@@ -109,6 +198,18 @@ export class ScriptedBridge implements SpeechBridge {
     private queuedUntilFrame = -1;
     /** Turns the detector found, whether or not the script had a line for one. */
     private detected = 0;
+    /** The leg reported the end of the call. No turn is flushed into a line nobody is on. */
+    private lineDown = false;
+    /** `hangup()` ran. Nothing is emitted, queued or written after it. */
+    private closed = false;
+    private readonly ids = new Set<string>();
+    private readonly handlers: { [K in keyof SpeechBridgeEvents]: Array<SpeechBridgeEvents[K]> } = {
+        callerTurn: [],
+        interim: [],
+        error: [],
+    };
+    /** `speak()` calls whose promise is still open. */
+    private owed: Array<{ entries: SpokenEntry[]; resolve: (result: SpokenResult) => void }> = [];
 
     /**
      * Every sentence handed to `speak`.
@@ -116,43 +217,36 @@ export class ScriptedBridge implements SpeechBridge {
      * `settled` means its fate is known: a barge-in or the end of the call has decided how much
      * of it played. An unsettled entry has not been interrupted, so it played in full.
      */
-    readonly spoken: Array<{
-        sentence: string;
-        queuedAtFrame: number;
-        frames: number;
-        heardFrames: number;
-        settled: boolean;
-    }> = [];
+    readonly spoken: SpokenEntry[] = [];
 
-    constructor(
-        leg: CallLeg,
-        options: { vad: VadSettings; script: readonly string[]; speakingRateCps?: number },
-    ) {
+    constructor(leg: CallLeg, options: ScriptedBridgeOptions) {
         this.leg = leg;
         this.detector = new TurnDetector(options.vad);
         this.lines = [...options.script];
         this.rateCps = options.speakingRateCps ?? DEFAULT_SPEAKING_RATE_CPS;
+        leg.on('hangup', () => { this.lineDown = true; });
     }
 
-    push(frame: Frame): CallerTurn | null {
+    on<K extends keyof SpeechBridgeEvents>(event: K, handler: SpeechBridgeEvents[K]): void {
+        this.handlers[event].push(handler);
+    }
+
+    sendAudio(frame: Frame): void {
+        if (this.closed) return;
         this.frame += 1;
         const event = this.detector.push(frame);
         if (event?.kind === 'speech_started' && this.speaking()) {
             // A human started talking while we were mid-sentence. This is the whole reason
             // `clear()` exists, and it must happen here rather than after the turn completes —
             // waiting for the turn to end means talking over the entire interruption.
-            this.bargeIn();
+            this.interrupt();
         }
-        if (event?.kind !== 'turn_ended') return null;
-        this.detected += 1;
-        return this.take(event.lastAudibleAt ?? this.frame, event.at);
-    }
-
-    flush(): CallerTurn | null {
-        const event = this.detector.flush();
-        if (!event) return null;
-        this.detected += 1;
-        return this.take(event.lastAudibleAt ?? this.frame, event.at);
+        if (event?.kind === 'turn_ended') {
+            this.detected += 1;
+            const turn = this.take(event.lastAudibleAt ?? this.frame, event.at);
+            if (turn) this.emit('callerTurn', turn);
+        }
+        this.payOwed();
     }
 
     private take(lastAudibleFrame: number, detectedFrame: number): CallerTurn | null {
@@ -167,31 +261,54 @@ export class ScriptedBridge implements SpeechBridge {
         return { text, lastAudibleFrame, detectedFrame };
     }
 
-    speak(sentences: readonly string[]): void {
-        for (const sentence of sentences) {
+    speak(sentences: readonly Sentence[]): Promise<SpokenResult> {
+        for (const { id } of sentences) {
+            // Thrown, not resolved: a sentence with no id, or another sentence's id, is a bug in the
+            // caller, and an outcome that cannot say which sentence it is about is not an outcome.
+            if (!id || this.ids.has(id)) {
+                throw new Error(`ScriptedBridge.speak: sentence id ${JSON.stringify(id)} is empty or already used`);
+            }
+            this.ids.add(id);
+        }
+        if (this.closed) {
+            // The call is over. Nothing is queued, and every sentence is reported as unheard.
+            const unheard = sentences.map(({ id, text }) => ({
+                id, text, heardMs: 0, fullMs: sentenceDurationMs(text, this.rateCps),
+            }));
+            return Promise.resolve({ sentences: unheard, complete: unheard.length === 0 });
+        }
+        const entries: SpokenEntry[] = [];
+        for (const { id, text: sentence } of sentences) {
             const frames = msToFrames(sentenceDurationMs(sentence, this.rateCps));
             const startFrame = Math.max(this.frame + 1, this.queuedUntilFrame + 1);
-            this.spoken.push({ sentence, queuedAtFrame: startFrame, frames, heardFrames: 0, settled: false });
+            const entry = { id, sentence, queuedAtFrame: startFrame, frames, heardFrames: 0, settled: false };
+            this.spoken.push(entry);
+            entries.push(entry);
             for (let i = 0; i < frames; i += 1) this.leg.write(spokenFrame(startFrame + i));
             // A short gap between sentences, as a person leaves.
             const gap = msToFrames(INTER_SENTENCE_GAP_MS);
             for (let i = 0; i < gap; i += 1) this.leg.write(silentCarrierFrame());
             // INCLUSIVE index of the last frame queued. Both read sites use `+ 1` to get the
-            // next free frame, and `bargeIn` sets it to `this.frame`, which has already gone
+            // next free frame, and `interrupt` sets it to `this.frame`, which has already gone
             // out — so "last queued", not "one past". Writing the exclusive end here drifted
             // every sentence's recorded start one frame later than its audio, cumulatively.
             this.queuedUntilFrame = startFrame + frames + gap - 1;
         }
+        return new Promise((resolve) => {
+            this.owed.push({ entries, resolve });
+            this.payOwed();
+        });
     }
 
     padSilence(ms: number): void {
+        if (this.closed) return;
         const frames = msToFrames(ms);
         const startFrame = Math.max(this.frame + 1, this.queuedUntilFrame + 1);
         for (let i = 0; i < frames; i += 1) this.leg.write(silentCarrierFrame());
         this.queuedUntilFrame = startFrame + frames - 1;   // inclusive; see speak()
     }
 
-    bargeIn(): void {
+    interrupt(): void {
         const dropped = this.leg.queuedFrames();
         if (!dropped) return;
         this.leg.clear();
@@ -206,6 +323,27 @@ export class ScriptedBridge implements SpeechBridge {
             entry.settled = true;
         }
         this.queuedUntilFrame = audibleUntil - 1;   // inclusive; see speak()
+        this.payOwed();
+    }
+
+    async hangup(): Promise<void> {
+        if (this.closed) return;
+        this.closed = true;
+        // The recogniser's last word, but only while somebody is still on the line: a turn the far
+        // end was in when they hung up is a turn nobody is left to answer, and the loop before the
+        // async interface never flushed one either.
+        if (!this.lineDown) {
+            const event = this.detector.flush();
+            if (event) {
+                this.detected += 1;
+                const turn = this.take(event.lastAudibleAt ?? this.frame, event.at);
+                if (turn) this.emit('callerTurn', turn);
+            }
+        }
+        // Every inbound frame was sent here, one per frame of call time, so `frame + 1` is the
+        // count of frames that played. Whatever is still queued never will.
+        this.settle(this.frame + 1);
+        this.payOwed();
     }
 
     /**
@@ -248,11 +386,7 @@ export class ScriptedBridge implements SpeechBridge {
      * only two things that stop audio, and both settle every open entry.
      */
     heard(): Array<{ sentence: string; heardMs: number; fullMs: number }> {
-        return this.spoken.map((e) => ({
-            sentence: e.sentence,
-            heardMs: (e.settled ? e.heardFrames : e.frames) * CARRIER_AUDIO.frameMs,
-            fullMs: e.frames * CARRIER_AUDIO.frameMs,
-        }));
+        return this.spoken.map((e) => ({ sentence: e.sentence, ...this.outcome(e) }));
     }
 
     speaking(): boolean {
@@ -282,6 +416,45 @@ export class ScriptedBridge implements SpeechBridge {
      */
     get overSegmented(): number {
         return Math.max(0, this.detected - this.consumed);
+    }
+
+    /**
+     * Fire an event. An `error` nobody listens for is thrown instead: a bridge failure that
+     * reaches no one is a call that goes on with a dead recogniser.
+     */
+    protected emit<K extends keyof SpeechBridgeEvents>(event: K, ...args: Parameters<SpeechBridgeEvents[K]>): void {
+        const handlers = this.handlers[event] as Array<(...a: Parameters<SpeechBridgeEvents[K]>) => void>;
+        if (event === 'error' && handlers.length === 0) throw args[0];
+        for (const handler of handlers) handler(...args);
+    }
+
+    /** Heard frames and full frames, in milliseconds. Unsettled means it played to its end. */
+    private outcome(entry: SpokenEntry): { heardMs: number; fullMs: number } {
+        return {
+            heardMs: (entry.settled ? entry.heardFrames : entry.frames) * CARRIER_AUDIO.frameMs,
+            fullMs: entry.frames * CARRIER_AUDIO.frameMs,
+        };
+    }
+
+    /**
+     * Resolve every `speak()` whose sentences all have a known fate: settled by an interrupt or the
+     * end of the call, or played through. Played through is the same arithmetic `heard()` uses, so
+     * a `SpokenResult` and the report can never tell two stories about one sentence.
+     */
+    private payOwed(): void {
+        if (!this.owed.length) return;
+        const played = this.frame + 1;
+        const still: typeof this.owed = [];
+        for (const debt of this.owed) {
+            const known = debt.entries.every((e) => e.settled || e.queuedAtFrame + e.frames <= played);
+            if (!known) {
+                still.push(debt);
+                continue;
+            }
+            const sentences = debt.entries.map((e) => ({ id: e.id, text: e.sentence, ...this.outcome(e) }));
+            debt.resolve({ sentences, complete: sentences.every((s) => s.heardMs === s.fullMs) });
+        }
+        this.owed = still;
     }
 }
 
