@@ -127,7 +127,8 @@ work rather than merely be wrong.
 Google labels the Live API *Preview* in its own documentation, and `@google/genai` marks the
 entire Live surface `@experimental` in the published type declarations — `connect()`,
 `sendToolResponse()` and `close()` included. There is no deprecation guarantee on any of it, and
-the pinned model has a published shutdown date: see `docs/TUNING.md` §3.2.
+the pinned model has no announced shutdown date, only Google's earliest retirement day, and the
+build fails on that day: see `docs/TUNING.md` §3.2.
 
 Two concrete consequences rather than a general worry:
 

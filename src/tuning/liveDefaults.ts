@@ -49,11 +49,19 @@
 export const LIVE_MODEL = 'gemini-3.8-live';
 
 /**
- * The earliest day Google says `LIVE_MODEL` may retire: the Vertex page's "September 25, 2027 or
- * later", read 2026-11-09. `test/liveDefaults.test.ts` fails the build from this day, which forces
- * somebody to re-read both pages rather than find out from a dead call.
+ * The earliest day Google says each pinnable Live model may retire, keyed by model id so a re-pin
+ * cannot keep the old model's date: re-pin to an id with no row here and the build fails.
+ * `gemini-3.8-live`: the Vertex page's "September 25, 2027 or later", read 2026-11-09.
  */
-export const LIVE_MODEL_EARLIEST_RETIREMENT = '2027-09-25';
+export const LIVE_MODEL_RETIREMENTS: Readonly<Record<string, string>> = {
+    'gemini-3.8-live': '2027-09-25',
+};
+
+/**
+ * The pin's own earliest retirement. `test/liveDefaults.test.ts` fails the build from this day,
+ * which forces somebody to re-read both pages rather than find out from a dead call.
+ */
+export const LIVE_MODEL_EARLIEST_RETIREMENT: string = LIVE_MODEL_RETIREMENTS[LIVE_MODEL] ?? '';
 
 /**
  * Google's shutdown list for the Live models we have pinned or avoided, written as literals on
