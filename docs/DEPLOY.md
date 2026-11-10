@@ -181,21 +181,21 @@ closing the socket instead.
 
 ## 4. What in this repository the first deploy depends on
 
-**1. The entrypoint.** The container's command runs Node on the server entrypoint directly, with no
-npm in between, and `npm start` points at the same file. Both arrive with the server itself
-(TASK-3748 step 2); until then there is nothing to start, and a `start` script pointing at a file
-that does not exist would fail the references check, correctly.
+**1. The entrypoint.** The container's command runs Node on the server entrypoint,
+`src/server/main.ts`, directly, with no npm in between, and `npm start` points at the same file.
+Until the cascade agent lands (TASK-3748 step 3) a call the backend accepts is hung up at once
+with no audio sent: the server is complete, the voice is not.
 
 **2. The Node version is pinned by the image, not by `engines.node`.** `engines.node` is
 `">=22.18"` so a developer on Node 24 can still work here; do not narrow it. The `Dockerfile` pins
 a Node 22 base image by digest, which is what makes the runtime the same one CI tests on (`.nvmrc`).
 The buildpack-era workaround (`GOOGLE_NODEJS_VERSION`) is not needed and not set.
 
-**3. The only HTTP server in the repo today binds `127.0.0.1:8788`.** That is correct for
-`src/mock/server.ts`, which must never be reachable. It is also exactly the `listen()` call
-somebody will copy into the real service, and Cloud Run requires **`0.0.0.0` on `$PORT`**
-(default 8080), listening within four minutes of start. The entrypoint must read
-`process.env.PORT ?? 8080` and bind all interfaces.
+**3. Two HTTP servers, two different binds.** `src/mock/server.ts` binds `127.0.0.1:8788` and
+must never be reachable. `src/server/main.ts` binds **`0.0.0.0` on `$PORT`**, which Cloud Run
+requires (it sets `PORT`, 8080 by default, and wants a listener within four minutes of start).
+Without `PORT` it falls back to 8787, the local default in `src/config.ts`. Do not copy the mock's
+`listen()` into the service, or the service the other way.
 
 **4. Three runtime dependencies, pinned exactly.** `ws` (Node 22 has a WebSocket client and no
 server), `@google-cloud/speech` (streaming recognition is gRPC only) and `google-auth-library`

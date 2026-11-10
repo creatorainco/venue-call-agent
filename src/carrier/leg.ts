@@ -37,9 +37,9 @@
  * `src/audio/format.ts` carries the reasoning and the warning. Nothing here restates 8000 or 160;
  * read them from there so the day a carrier is picked there is one line to change.
  *
- * WHAT THIS IS NOT. It is not a transport. `src/carrier/fakeLeg.ts` is the only implementation
- * that exists, it speaks to nobody, and it is what `npm run call` runs against. A real adapter is
- * a later, small file: parse the vendor's frames, call these methods.
+ * WHAT THIS IS NOT. It is not a transport. Two implementations exist: `src/carrier/fakeLeg.ts`
+ * speaks to nobody and is what `npm run call` runs against; `src/carrier/twilioLeg.ts` is the
+ * real adapter, a small file that parses Twilio's frames and calls these methods.
  */
 
 import { CARRIER_AUDIO } from '../audio/format.ts';

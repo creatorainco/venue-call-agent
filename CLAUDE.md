@@ -35,9 +35,10 @@ the things an agent gets wrong here specifically.
 - Three runtime dependencies, pinned exactly, and no fourth without a real reason: `ws` (Node 22
   has a WebSocket client and no server), `@google-cloud/speech` (streaming recognition is gRPC
   only) and `google-auth-library` (credentials for the REST calls). Synthesis and the intent model
-  go over `fetch`, not an SDK. `test/dependencies.test.ts` holds the set closed. The tests, the
-  mock and the eval still run on a clone with nothing installed — the three-minute cold start is
-  the point.
+  go over `fetch`, not an SDK. `test/dependencies.test.ts` holds the set closed. The mock, the
+  eval and every test but the stream server's (`test/server.test.ts`, which needs `ws`) still run
+  on a clone with nothing installed — the three-minute cold start is the point. Keep the server's
+  imports out of everything else, so it stays one file that needs `npm ci`.
 
 ## The testing rule, stated once
 
