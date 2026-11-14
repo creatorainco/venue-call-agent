@@ -84,7 +84,8 @@ gcloud run deploy venue-call-agent-dev \
 Every gate is in the application, and every one closes by default:
 
 - The only WebSocket path is `/stream`, with no query string; anything else gets no upgrade.
-  `GET /healthz` answers 200 with no detail.
+  `GET /health` answers 200 with no detail (`/healthz` too, locally: Cloud Run's front end reserves
+  `/healthz` on run.app URLs and answers it with its own 404, so the deployed check is `/health`).
 - The backend mints a per-attempt token and hands it to the carrier inside the stream
   instructions. It arrives in the stream's `start` message as a custom parameter. The agent never
   reads it: it passes it, opaque, to the backend's call-context endpoint.
