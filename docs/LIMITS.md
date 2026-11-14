@@ -61,9 +61,12 @@ is a no-op (`replay: true`). Its shape is `call_ended` in `contract/seam4.json`.
 and **who answered** come from the carrier, on the backend's signed `/webhooks/twilio/voice-status`,
 not from this repository. The **number dialled** and the **consent jurisdiction** belong to the
 dial: the backend stamps them when it places the call (a DB CHECK requires both on a live row), so
-nothing here reports them either. What is still open on
-this side: the runtime does not post `call_ended` yet (that is the next step, from the supervisor's
-`finally`), so until it does a live call's ledger row carries no transcript and no `end_reason`.
+nothing here reports them either. The runtime posts one `call_ended` per call (`seq` 1) from the
+supervisor's `finally`, after the hangup, on every way out, including a SIGTERM drain
+(`end_reason: shutdown`). It is best-effort, bounded by `SEAM_TIMEOUT_MS`: a failed post is one
+redacted log line, and that call's ledger row then carries no transcript. The drain gives a live
+call `DRAIN_GRACE_MS` (6.5 s) to end on its own, then `DRAIN_SETTLE_MS` (the seam timeout plus
+0.5 s) for the report, 9.5 s in all, inside Cloud Run's 10 s.
 
 The seam routes are rate-limited, and the previous version of this page said they were not. All
 three carry the backend's `publicTenantReadRateLimiter`: 120 requests per IP per 15 minutes, then a

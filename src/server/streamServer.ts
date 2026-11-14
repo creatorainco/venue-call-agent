@@ -52,6 +52,16 @@ export const STREAM_PATH = '/stream';
  * the window closes. A stranger hammering the URL then costs two lines per window, not one each.
  */
 export const LOG_WINDOW_MS = 10_000;
+/**
+ * VCA-7: after a drain's forced hangup, what is left of Cloud Run's ten seconds for each live
+ * session to post its `call_ended` and return. The post is bounded by `SEAM_TIMEOUT_MS`; the
+ * margin covers the hangup itself and the server close. `DRAIN_GRACE_MS` in `main.ts` is sized so
+ * that grace + this stays at or under `DRAIN_BUDGET_MS`.
+ */
+export const DRAIN_MARGIN_MS = 500;
+export const DRAIN_SETTLE_MS = SEAM_TIMEOUT_MS + DRAIN_MARGIN_MS;
+/** Cloud Run sends SIGKILL ten seconds after SIGTERM; the drain must be over half a second before. */
+export const DRAIN_BUDGET_MS = 9500;
 
 /** A call the backend has accepted. Everything a call session needs, and nothing it must not have. */
 export interface AuthorizedCall {
@@ -65,6 +75,11 @@ export interface AuthorizedCall {
      */
     context: CallContext;
     log: (line: string) => void;
+    /**
+     * Aborted when a SIGTERM drain's grace is over, just before the server hangs the line up.
+     * Hand it to the call's `CallSupervisor` so the call ends, and reports, as a shutdown.
+     */
+    shutdown: AbortSignal;
 }
 
 export interface StreamServerOptions {
@@ -108,9 +123,11 @@ export interface StreamServer {
     listen(port: number, host?: string): Promise<number>;
     /**
      * SIGTERM. Refuse new sockets, close every unaccepted one, give live calls `graceMs` to end on
-     * their own, then hang them up and close the server.
+     * their own, then abort their `shutdown` signal and hang them up. Then wait up to `settleMs`
+     * (default `DRAIN_SETTLE_MS`) for each session to post its `call_ended` and return, and close
+     * the server.
      */
-    drain(graceMs: number): Promise<void>;
+    drain(graceMs: number, settleMs?: number): Promise<void>;
     stats(): StreamServerStats;
 }
 
@@ -125,6 +142,8 @@ interface Connection {
     /** `start` arrived and the backend has been asked. */
     waitingOnSeam: boolean;
     deadline: NodeJS.Timeout | null;
+    /** Live calls only: aborted by the drain. */
+    shutdown: AbortController | null;
 }
 
 export function createStreamServer(options: StreamServerOptions): StreamServer {
@@ -197,6 +216,7 @@ export function createStreamServer(options: StreamServerOptions): StreamServer {
             live: false,
             waitingOnSeam: false,
             deadline: null,
+            shutdown: null,
         };
         preAuth += 1;
         connections.add(conn);
@@ -277,6 +297,21 @@ export function createStreamServer(options: StreamServerOptions): StreamServer {
         });
     }
 
+    /** Resolves when no call is live, or after `ms`, whichever is first. */
+    function untilNoCalls(ms: number): Promise<void> {
+        if (calls === 0) return Promise.resolve();
+        return new Promise<void>((resolve) => {
+            const timer = setTimeout(finish, ms);
+            function finish(): void {
+                clearTimeout(timer);
+                callsDone.delete(check);
+                resolve();
+            }
+            function check(): void { if (calls === 0) finish(); }
+            callsDone.add(check);
+        });
+    }
+
     async function authorize(conn: Connection, leg: TwilioLeg, start: StreamStart): Promise<void> {
         if (calls >= maxCalls || draining) {
             log(`stream ${conn.id} busy`);
@@ -313,12 +348,13 @@ export function createStreamServer(options: StreamServerOptions): StreamServer {
 
         releasePreAuth(conn);
         conn.live = true;
+        conn.shutdown = new AbortController();
         calls += 1;
         accepted += 1;
         log(`stream ${conn.id} accepted`);
         try {
             leg.accept();
-            await options.startCall({ leg, seam, context, log });
+            await options.startCall({ leg, seam, context, log, shutdown: conn.shutdown.signal });
         } catch (error) {
             log(`stream ${conn.id} call_failed ${errorClass(error)}`);
         } finally {
@@ -348,31 +384,34 @@ export function createStreamServer(options: StreamServerOptions): StreamServer {
             });
         },
 
-        async drain(graceMs: number): Promise<void> {
+        async drain(graceMs: number, settleMs: number = DRAIN_SETTLE_MS): Promise<void> {
             draining = true;
             for (const conn of connections) {
                 if (conn.live) continue;
                 if (conn.leg) hangupQuietly(conn, conn.leg, 'transport_failed');
                 else conn.socket.destroy();
             }
-            if (calls > 0) {
-                await new Promise<void>((resolve) => {
-                    const timer = setTimeout(finish, graceMs);
-                    function finish(): void {
-                        clearTimeout(timer);
-                        callsDone.delete(check);
-                        resolve();
-                    }
-                    function check(): void { if (calls === 0) finish(); }
-                    callsDone.add(check);
-                });
+            await untilNoCalls(graceMs);
+            // VCA-7: the signal first, so each session's supervisor sees the drain before the line
+            // goes down, sends the one hangup itself and reports the call as a shutdown. One turn
+            // of the event loop lets it; a session with no supervisor is then hung up here.
+            let aborted = false;
+            for (const conn of connections) {
+                if (conn.shutdown && !conn.shutdown.signal.aborted) {
+                    conn.shutdown.abort();
+                    aborted = true;
+                }
             }
+            if (aborted) await new Promise<void>((resolve) => { setImmediate(resolve); });
             for (const conn of connections) {
                 if (conn.leg && !conn.leg.ended) {
                     log(`stream ${conn.id} drain_forced_hangup`);
                     hangupQuietly(conn, conn.leg, 'internal_error');
                 }
             }
+            // VCA-7: each session posts its call_ended from its supervisor's finally. Wait for
+            // that, bounded, rather than closing the process under the post.
+            await untilNoCalls(settleMs);
             preauthFullLog.flush();
             deadlineLog.flush();
             wss.close();
