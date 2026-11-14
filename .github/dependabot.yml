@@ -28,3 +28,17 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: chore(ci)
+  # The Dockerfile's base image is pinned by digest (TASK-3748 step 4). This keeps the digest
+  # current within Node 22.18; a minor or major Node bump is a hand edit of .nvmrc and the
+  # Dockerfile together, which test/deployConfig.test.ts holds in step.
+  - package-ecosystem: docker
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: chore(docker)
+    ignore:
+      - dependency-name: node
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]

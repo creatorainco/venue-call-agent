@@ -1,0 +1,69 @@
+# The dev deploy of venue-call-agent (TASK-3748 step 4). Started by .github/workflows/deploy-dev.yml
+# on a push to `dev`, with `gcloud builds submit --no-source`: the repository is public, so the
+# build fetches the exact pushed commit itself and no source archive or bucket is involved.
+#
+# Runs as venue-call-build@, which can push to the one Artifact Registry repository, deploy
+# revisions of the one service (roles/run.developer on venue-call-agent-dev only) and act as
+# venue-call-runtime@. It cannot change who may invoke the service: the public binding is an
+# owner's, set once (docs/DEPLOY.md section 2).
+#
+# 🔴 A DEPLOYED SERVICE IS NOT A DIALLING SERVICE. Nothing here places a call or arms anything.
+# The only environment variable is the backend's address; every venue-call switch lives on the
+# backend and is the operator's. test/deployConfig.test.ts holds every flag below.
+
+serviceAccount: projects/creatorain-27e9e/serviceAccounts/venue-call-build@creatorain-27e9e.iam.gserviceaccount.com
+timeout: 1200s
+options:
+  # The default compute account is disabled in this project and there is no logs bucket, so the
+  # build names its account (above) and logs to Cloud Logging only.
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _COMMIT_SHA: ''
+  _IMAGE: us-central1-docker.pkg.dev/creatorain-27e9e/venue-call-agent/venue-call-agent
+
+steps:
+  - id: checkout
+    name: gcr.io/cloud-builders/git
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        test -n "$_COMMIT_SHA" || { echo "_COMMIT_SHA is empty"; exit 1; }
+        git init -q app
+        cd app
+        git remote add origin https://github.com/creatorainco/venue-call-agent.git
+        git fetch -q --depth 1 origin "$_COMMIT_SHA"
+        git checkout -q FETCH_HEAD
+        test "$$(git rev-parse HEAD)" = "$_COMMIT_SHA"
+        echo "building $_COMMIT_SHA"
+
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    dir: app
+    args: ['build', '--pull', '-t', '${_IMAGE}:${_COMMIT_SHA}', '.']
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args: ['push', '${_IMAGE}:${_COMMIT_SHA}']
+
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - venue-call-agent-dev
+      - --project=creatorain-27e9e
+      - --region=us-central1
+      - --image=${_IMAGE}:${_COMMIT_SHA}
+      - --service-account=venue-call-runtime@creatorain-27e9e.iam.gserviceaccount.com
+      # Replaces the whole environment: the backend's address is the only variable the service has.
+      - --set-env-vars=CREATORAIN_API_BASE_URL=https://datadev.creatorain.com
+      - --timeout=600
+      - --concurrency=1
+      - --max-instances=5
+      - --min-instances=0
+      - --cpu-boost
+      - --cpu-throttling
+      - --quiet

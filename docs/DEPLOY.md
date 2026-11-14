@@ -1,11 +1,12 @@
 # Deploying this service — the definition, and the checklist behind it
 
-🔴 **NO SERVICE HAS BEEN DEPLOYED FROM THIS PAGE YET.** The research behind it was read out of
-Google's own documentation on **2026-09-12**. §1, §2 and §5 were rewritten on **2026-11-09**
-(TASK-3748) against what the project actually holds: the runtime identity exists, a throwaway
-public probe service answered an anonymous WebSocket upgrade and was deleted, and the GitHub
-federation pool exists but does not yet trust this repository. The container, the build and the
-deploy workflow are later steps of the same ticket.
+🔴 **THE DEV SERVICE EXISTS; NO PRODUCTION SERVICE DOES.** The research behind this page was read
+out of Google's own documentation on **2026-09-12**. §1, §2 and §5 were rewritten on **2026-11-09**
+(TASK-3748) against what the project actually holds. On **2026-11-14** (TASK-3748 step 4) the
+identities, the Artifact Registry repository and `venue-call-agent-dev` were created, and the
+federation provider now trusts this repository for pushes to `dev` only. From then on a push to
+`dev` deploys through `.github/workflows/deploy-dev.yml` and `cloudbuild.yaml`, whose every flag
+`test/deployConfig.test.ts` holds.
 
 🔴 **A DEPLOYED SERVICE IS NOT A DIALLING SERVICE.** Nothing here places a call, and a green
 deploy opens no gate. The carrier and first-dial work, and the repository owner's per-act yes, are a separate
@@ -37,8 +38,9 @@ is granted on the one before it.
    exists. It holds `roles/speech.client` and `roles/aiplatform.user`, and the deploy step adds
    `roles/logging.logWriter` and `roles/monitoring.metricWriter`. Nothing else: it holds no carrier
    credential, no backend secret and no API key, because the design gives the agent none.
-3. **A build identity, `venue-call-build@`, and one Artifact Registry repository** for the image.
-   Not created yet.
+3. **A build identity, `venue-call-build@`, and one Artifact Registry repository** for the image,
+   `us-central1-docker.pkg.dev/creatorain-27e9e/venue-call-agent`. Both exist (2026-11-14), with
+   the dispatch identity `ci-dispatch-vca@` that the workflow acts as (§5).
 4. **The default compute service account is disabled in this project, and stays disabled.** Every
    build names its service account explicitly. A build that does not fails with "Provided service
    account ... is disabled", which looks like a Cloud Build fault and is not.
@@ -223,7 +225,9 @@ gates. The workflow and the build file are TASK-3748 step 4.
 **No key, and no second pool.** Service-account keys are blocked by default on organizations
 created on or after 2024-05-03, and the project already has the `github-ci` pool with its
 `creatorainco` provider. That provider lists the repositories it trusts, and this one is not on
-the list yet: adding it, and pinning the condition to pushes to `dev`, is an owner's change.
+the list yet: adding it, and pinning the condition to pushes to `dev`, is an owner's change. Done on 2026-11-14: the condition admits
+`creatorainco/venue-call-agent` only when `assertion.ref == 'refs/heads/dev'`, and the dispatch
+account is `ci-dispatch-vca@`.
 
 🔴 **The provider MUST carry an attribute condition, and this is not a lint nit.** Without it, any
 GitHub repository on earth can enter the pool. The existing provider conditions on the owner id
@@ -241,6 +245,7 @@ Each identity holds only what its one job needs, granted on the narrowest resour
 |---|---|---|---|
 | this repository, via the pool | `roles/iam.workloadIdentityUser` | the dispatch account | lets a `dev` push act as that account and nothing else |
 | the dispatch account | `cloudbuild.builds.create` (the project's custom build-starter role) | the project | starts a build; cannot change one |
+| the dispatch account | `roles/cloudbuild.builds.viewer` | the project | reads the build's status, so the workflow fails when the deploy does (`--suppress-logs`: it cannot read the log itself) |
 | the dispatch account | `roles/iam.serviceAccountUser` | `venue-call-build@` only | names the build identity on the build |
 | `venue-call-build@` | `roles/artifactregistry.writer` | the one repository | pushes the image |
 | `venue-call-build@` | `roles/run.developer` | the one service | deploys a revision; **cannot** change who may invoke it |

@@ -1,0 +1,13 @@
+# Only package.json, package-lock.json and src/ are copied into the image; this keeps the build
+# context small and keeps anything secret-shaped out of it even if a COPY is ever widened.
+.git
+.github
+node_modules
+dist
+test
+scripts
+docs
+contract
+*.log
+.env
+.env.*
