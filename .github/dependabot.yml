@@ -12,3 +12,10 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: chore(deps)
+    ignore:
+      # The runtime is Node 22 (.nvmrc, package.json engines), so the type
+      # definitions stay on the 22 line. A major bump here would type-check
+      # APIs that the deployed runtime does not have. Minor and patch updates
+      # within 22.x still arrive.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
