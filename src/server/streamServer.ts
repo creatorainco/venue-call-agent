@@ -4,7 +4,9 @@
  * The Cloud Run service is public (docs/DEPLOY.md §2), so every gate is here and every one closes
  * by default:
  *
- *   - `GET /healthz` answers 200 with no body. Every other plain request is a 404.
+ *   - `GET /health` (and `/healthz`) answers 200 with no body. Every other plain request is a 404.
+ *     Cloud Run's front end reserves `/healthz` on run.app URLs and never forwards it, so the deployed
+ *     probe is `/health`; `/healthz` stays for local runs and existing callers.
  *   - A WebSocket upgrade is accepted only on exactly `/stream`: no other path, no query string.
  *     Carrier and proxy logs keep URLs, so a token in one would already be a leak.
  *   - At most `MAX_PREAUTH_SOCKETS` sockets per instance may be waiting for the backend's yes,
@@ -35,6 +37,9 @@ import { TwilioLeg } from '../carrier/twilioLeg.ts';
 import type { StreamStart, TwilioLegOptions } from '../carrier/twilioLeg.ts';
 import type { HangupReason } from '../carrier/leg.ts';
 import { SEAM_TIMEOUT_MS } from '../tuning/liveDefaults.ts';
+
+/** Cloud Run's front end swallows `/healthz` on run.app URLs (a Google 404), so `/health` is the deployed probe. */
+const HEALTH_PATHS: ReadonlySet<string> = new Set(['/health', '/healthz']);
 
 /** From the upgrade to the backend's yes. Twilio sends `start` within milliseconds of connecting. */
 export const PREAUTH_DEADLINE_MS = 3000;
@@ -176,7 +181,7 @@ export function createStreamServer(options: StreamServerOptions): StreamServer {
     const deadlineLog = windowedLog(log, 'preauth_deadline', logWindowMs);
 
     const server = createServer((req: IncomingMessage, res: ServerResponse) => {
-        if ((req.method === 'GET' || req.method === 'HEAD') && req.url === '/healthz') {
+        if ((req.method === 'GET' || req.method === 'HEAD') && HEALTH_PATHS.has(req.url ?? '')) {
             res.writeHead(draining ? 503 : 200, { 'Content-Length': '0' }).end();
             return;
         }

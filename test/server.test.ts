@@ -194,12 +194,14 @@ describe('the entrypoint `npm start` and the container run', () => {
 });
 
 describe('the edge: paths', () => {
-    it('GET /healthz is 200 with no body; anything else is a 404', async () => {
+    it('GET /health and /healthz are 200 with no body; anything else is a 404', async () => {
         const r = await rig();
-        const health = await fetch(`http://127.0.0.1:${r.port}/healthz`);
-        assert.equal(health.status, 200);
-        assert.equal(await health.text(), '');
-        for (const path of ['/', '/stream', '/healthz?x=1', '/__mock/journal']) {
+        for (const path of ['/health', '/healthz']) {
+            const health = await fetch(`http://127.0.0.1:${r.port}${path}`);
+            assert.equal(health.status, 200, path);
+            assert.equal(await health.text(), '', path);
+        }
+        for (const path of ['/', '/stream', '/healthz?x=1', '/health?x=1', '/health/', '/__mock/journal']) {
             const res = await fetch(`http://127.0.0.1:${r.port}${path}`);
             assert.equal(res.status, 404, path);
         }
@@ -207,7 +209,7 @@ describe('the edge: paths', () => {
 
     it('🔴 a WebSocket upgrade anywhere but exactly /stream is refused, a query string included', async () => {
         const r = await rig();
-        for (const path of ['/stream?token=abc', '/stream/', '/streams', '/', '/healthz']) {
+        for (const path of ['/stream?token=abc', '/stream/', '/streams', '/', '/healthz', '/health']) {
             const t = twilio(r.url(path));
             assert.deepEqual(await within(t.ended, 2000), { status: 404 }, path);
         }
