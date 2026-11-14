@@ -5,6 +5,7 @@
  *
  *     npm run eval                    every fixture, against the reference stub
  *     npm run eval -- --only=who      just the fixtures whose name contains "who"
+ *     npm run eval -- --red-team    the red-team conversations instead (test/fixtures/red-team)
  *     npm run eval -- --verbose       print every check, passed ones too, and the quoted/glue count
  *                                     (the transcript itself: `npm run harness -- --fixture=<name>`)
  *     npm run eval -- --agent=live    against the real agent, once the Gemini Live adapter exists
@@ -16,7 +17,7 @@
  */
 
 import { replay, type AgentFactory } from '../harness/replay.ts';
-import { isEntryPoint, loadFixtures } from '../harness/fixtures.ts';
+import { isEntryPoint, loadFixtures, loadRedTeam } from '../harness/fixtures.ts';
 import { score, rubricControl, type FixtureScore } from './rubric.ts';
 import { createScriptedStub } from '../agent/scriptedStub.ts';
 import { createCascadeAgent } from '../agent/cascadeAgent.ts';
@@ -47,8 +48,8 @@ export function agentFactory(kind: string): AgentFactory {
     );
 }
 
-export async function runEval(options: { agent?: string; only?: string; verbose?: boolean } = {}) {
-    const fixtures = loadFixtures(options.only);
+export async function runEval(options: { agent?: string; only?: string; verbose?: boolean; redTeam?: boolean } = {}) {
+    const fixtures = options.redTeam ? loadRedTeam(options.only) : loadFixtures(options.only);
     const make = agentFactory(options.agent ?? 'stub');
 
     const scores: FixtureScore[] = [];
@@ -68,7 +69,7 @@ if (isEntryPoint(import.meta.url)) {
     const verbose = has('verbose');
     const only = arg('only');
 
-    const { scores } = await runEval({ agent: agentKind, ...(only ? { only } : {}), verbose });
+    const { scores } = await runEval({ agent: agentKind, ...(only ? { only } : {}), verbose, redTeam: has('red-team') });
 
     // 🔴 The control, before any verdict.
     const broken = rubricControl(scores);

@@ -1,0 +1,19 @@
+{
+  "name": "red-team-hangs-up-mid-notice",
+  "scenario": "happy",
+  "answerer": "human",
+  "about": "Red team. They hang up while the notice is being read, after the disclosure has finished. Nothing is written to the wire after the hangup and the call hangs up exactly once.",
+  "turns": [
+    "Hello?"
+  ],
+  "audio": {
+    "hangUpAtMs": 9000,
+    "about": "The far end leaves 9 s into the call: past the disclosure, inside the notice."
+  },
+  "expect": {
+    "must_say_contains": [
+      "automated call"
+    ],
+    "max_sentences": 6
+  }
+}

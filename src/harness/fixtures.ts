@@ -16,13 +16,31 @@ import type { Fixture } from './replay.ts';
 
 const FIXTURE_DIR = fileURLToPath(new URL('../../test/fixtures/conversations/', import.meta.url));
 
-/** Every recorded conversation, sorted by name, optionally filtered by substring. */
-export function loadFixtures(filter?: string): Fixture[] {
-    return readdirSync(FIXTURE_DIR)
+/**
+ * The red team (TASK-3745 step 5): conversations somebody places ON PURPOSE to make the agent
+ * misbehave. Same format, own folder, and the separation is the point: the recorded set is the
+ * corpus the turn detector is tuned on and the golden is captured from, and adversarial calls
+ * would skew a measure of ordinary ones. They are graded by `test/redTeam.test.ts` (in `npm test`)
+ * and by `npm run eval -- --red-team`.
+ */
+const RED_TEAM_DIR = fileURLToPath(new URL('../../test/fixtures/red-team/', import.meta.url));
+
+function readSet(dir: string, filter?: string): Fixture[] {
+    return readdirSync(dir)
         .filter((f) => f.endsWith('.json'))
-        .map((f) => JSON.parse(readFileSync(join(FIXTURE_DIR, f), 'utf8')) as Fixture)
+        .map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')) as Fixture)
         .filter((f) => !filter || f.name.includes(filter))
         .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Every recorded conversation, sorted by name, optionally filtered by substring. */
+export function loadFixtures(filter?: string): Fixture[] {
+    return readSet(FIXTURE_DIR, filter);
+}
+
+/** Every red-team conversation, sorted by name, optionally filtered by substring. */
+export function loadRedTeam(filter?: string): Fixture[] {
+    return readSet(RED_TEAM_DIR, filter);
 }
 
 /**
