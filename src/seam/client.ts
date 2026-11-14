@@ -89,6 +89,8 @@ export interface SeamClient {
 
 const DEFAULT_TIMEOUT_MS = 2500;
 
+const isSentence = (value: unknown): boolean => typeof value === 'string' && value.trim() !== '';
+
 export function createSeamClient(options: SeamClientOptions): SeamClient {
     const base = options.baseUrl.replace(/\/+$/, '');
     const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -148,6 +150,13 @@ export function createSeamClient(options: SeamClientOptions): SeamClient {
             if (!payload?.disclosure_sentence || !Array.isArray(payload?.opening_script)) {
                 throw new SeamUnavailable('/reservations/call-context', 'context without a disclosure or an opening');
             }
+            // CORE-A16: every sentence the agent may read out must be a finished, non-blank string.
+            // A blank disclosure, a blank beat in the opening or a blank voicemail script would be
+            // spoken as silence where the restaurant expects words.
+            const spoken = [payload.disclosure_sentence, ...payload.opening_script, payload.voicemail_script];
+            if (payload.opening_script.length === 0 || !spoken.every(isSentence)) {
+                throw new SeamUnavailable('/reservations/call-context', 'context with a blank sentence');
+            }
             return payload;
         },
 
@@ -172,7 +181,15 @@ export function createSeamClient(options: SeamClientOptions): SeamClient {
             if (payload?.recorded !== true) {
                 throw new SeamUnavailable('/reservations/call-event', 'the event was not recorded');
             }
-            // `say` may legitimately be empty here — `answerer_reported` says nothing to the venue.
+            // CORE-A16: `say` may be empty ONLY for `answerer_reported`, which says nothing to the
+            // venue. Every other kind returns the sentence the agent speaks next (a deferral, a
+            // goodbye), and an empty one there is a silence where a promise should be.
+            if (typeof payload.say !== 'string') {
+                throw new SeamUnavailable('/reservations/call-event', 'an event result with no sentence field');
+            }
+            if (input.kind !== 'answerer_reported' && !isSentence(payload.say)) {
+                throw new SeamUnavailable('/reservations/call-event', `empty sentence for ${input.kind}`);
+            }
             return payload;
         },
     };

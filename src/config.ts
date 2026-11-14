@@ -1,5 +1,5 @@
 /**
- * Configuration, in three classes, read once.
+ * Configuration, read once.
  *
  * 🔴 THE RULE THAT MATTERS IS STILL FAIL-CLOSED: nothing may discover a missing credential while a
  * restaurant is on the line. But the first version of this file enforced that by demanding all
@@ -8,10 +8,17 @@
  * That is fail-closed pointed at the wrong door: it blocked the work and protected nothing, since
  * a service that never boots never reaches a call either.
  *
- * So the check moved to where the risk is. `loadConfig()` succeeds with an empty environment and
- * gives you everything the local path needs. `requireLiveSession()` is called at the ONE moment
- * before a model session opens, and refuses there, naming what is missing. The failure is still
- * before the phone rings; it is just no longer before `npm test`.
+ * So `loadConfig()` succeeds with an empty environment and gives you everything the local path
+ * needs, and the deployed service needs exactly the same two values: where the backend is, and
+ * which port to bind.
+ *
+ * 🔴 NO SECRET AND NO KEY LIVE HERE (CORE-A11, C2, 2026-11-13). The agent used to be configured to
+ * hold `VENUE_CALL_SECRET`, the literal that signs a token for ANY reservation, and two key-shaped
+ * Gemini and Speech credentials. None of them belongs on the agent: pb mints each call's token and
+ * hands it over in the stream's `start` frame, and every Google call authenticates with ADC
+ * (`src/google/adc.ts`). Minting a token by hand is dev tooling and stays in
+ * `scripts/mint-token.mjs`, which reads the secret itself. `test/importBoundary.test.ts` fails the
+ * build if anything under `src/` reads one of those names again.
  *
  * Note the shape of any boolean read: `=== '1'`, exactly. The string 'false' is TRUTHY in
  * JavaScript, and a flag written `'false'` that silently enables a dialler is a mistake this
@@ -24,16 +31,6 @@ export interface Config {
     apiBaseUrl: string;
     /** The agent's own listen port. Only matters once a carrier has somewhere to call back. */
     port: number;
-    /** Shared literal that signs the call token. Empty locally; the mock does not check it. */
-    venueCallSecret: string;
-}
-
-/** The credentials a real model session needs, and nothing else does. */
-export interface LiveConfig {
-    geminiApiKey: string;
-    /** Overrides the pin in src/tuning/liveDefaults.ts. Empty means "use the pin". */
-    geminiLiveModel: string;
-    speechToTextCredentials: string;
 }
 
 /** The mock's default port. Kept in step with src/mock/cli.ts. */
@@ -63,47 +60,5 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     return {
         apiBaseUrl: trimmed(env, 'CREATORAIN_API_BASE_URL') || DEFAULT_API_BASE_URL,
         port,
-        venueCallSecret: trimmed(env, 'VENUE_CALL_SECRET'),
     };
-}
-
-/**
- * Call this immediately before opening a model session, and nowhere else.
- *
- * 🔴 IT MUST BE CALLED BEFORE THE DIAL, NOT AFTER THE ANSWER. The whole reason this function
- * exists as a separate step is that the failure has to land somewhere nobody is listening. A
- * missing key discovered after the carrier connects is a restaurant holding a silent line.
- */
-export function requireLiveSession(env: NodeJS.ProcessEnv = process.env): LiveConfig {
-    const required = ['GEMINI_API_KEY', 'SPEECH_TO_TEXT_CREDENTIALS'] as const;
-    const missing = required.filter((k) => !trimmed(env, k));
-    if (missing.length) {
-        throw new Error(
-            `venue-call-agent cannot open a model session. Missing: ${missing.join(', ')}. ` +
-            'See .env.example. None of these is needed for npm test, npm run eval or npm run mock — ' +
-            'if you are hitting this locally, you are on a path that talks to Google and probably ' +
-            'did not mean to be.',
-        );
-    }
-    return {
-        geminiApiKey: trimmed(env, 'GEMINI_API_KEY'),
-        geminiLiveModel: trimmed(env, 'GEMINI_LIVE_MODEL'),
-        speechToTextCredentials: trimmed(env, 'SPEECH_TO_TEXT_CREDENTIALS'),
-    };
-}
-
-/**
- * Talking to a REAL platform-backend needs the shared signing literal; the mock does not.
- *
- * Separate from `requireLiveSession` because the two failures have different fixes and pointing a
- * developer at the wrong one costs an afternoon.
- */
-export function requireRealBackend(config: Config): void {
-    if (!config.venueCallSecret) {
-        throw new Error(
-            'venue-call-agent cannot mint a token for a real backend: VENUE_CALL_SECRET is unset. ' +
-            'It is a shared literal, not an issued credential — set the same value here and on the ' +
-            'backend. Against the in-repo mock you do not need it at all.',
-        );
-    }
 }

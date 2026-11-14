@@ -89,3 +89,23 @@ export function bytesToPcm(bytes: Buffer): Int16Array {
     for (let i = 0; i < out.length; i++) out[i] = bytes.readInt16LE(i * 2);
     return out;
 }
+
+/**
+ * Little-endian PCM bytes arriving in chunks (CORE-A13). `bytesToPcm` drops a trailing odd byte,
+ * which is right for a whole buffer and wrong for a stream: the dropped byte is half of the next
+ * sample, and every later sample is then read off by one byte, as noise. This carries it over.
+ */
+export function createPcmBytesReader(): { push(bytes: Uint8Array): Int16Array; readonly carried: number } {
+    let carry: number | null = null;
+    return {
+        push(bytes: Uint8Array): Int16Array {
+            const joined = carry === null ? Buffer.from(bytes) : Buffer.concat([Buffer.of(carry), bytes]);
+            const whole = joined.length & ~1;
+            carry = whole < joined.length ? joined[whole] as number : null;
+            return bytesToPcm(joined.subarray(0, whole));
+        },
+        get carried() {
+            return carry === null ? 0 : 1;
+        },
+    };
+}
