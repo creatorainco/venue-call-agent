@@ -1,7 +1,8 @@
-# Dependabot version updates: npm only, weekly, into `dev` (the integration branch).
+# Dependabot version updates: npm and GitHub Actions, weekly, into `dev` (the integration branch).
 #
-# The github-actions ecosystem is left out on purpose. Its pull requests edit
-# .github/workflows/*, and a workflow change needs an engineer's explicit approval.
+# The github-actions ecosystem keeps the SHA-pinned actions in .github/workflows current. Its
+# pull requests edit workflow files, so each one is a workflow change: read it and merge it by
+# hand like any other (Peter, 2026-11-13, B2c; VCA-SEC-4 / TEST-T7).
 version: 2
 updates:
   - package-ecosystem: npm
@@ -19,3 +20,11 @@ updates:
       # within 22.x still arrive.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(ci)
