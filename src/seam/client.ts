@@ -25,6 +25,7 @@ import type {
     SeamRefusalReason,
 } from './types.ts';
 import { FACT_TOPICS, SEAM_REFUSAL_REASONS } from './types.ts';
+import { SEAM_TIMEOUT_MS } from '../tuning/liveDefaults.ts';
 
 /**
  * The backend refused, in words, and named which of the twelve reasons.
@@ -70,7 +71,9 @@ export interface SeamClientOptions {
     /** The capability token for ONE attempt at ONE booking. Never logged, never in a URL. */
     token: string;
     /**
-     * How long to wait before giving up on one request.
+     * How long to wait before giving up on one request: the response AND its body (CORE-A6). A
+     * backend that sends its headers and then stalls the body is as silent as one that never
+     * answered, and the person on the line hears the same nothing.
      *
      * The default is deliberately short. This runs while a person is holding a telephone: three
      * seconds of nothing is already a long silence, and a caller who waits ten is worse than a
@@ -79,7 +82,22 @@ export interface SeamClientOptions {
     timeoutMs?: number;
     /** Injectable for tests. Defaults to the global fetch. */
     fetchImpl?: typeof fetch;
+    /**
+     * One line per event the caller must see in its own log. Only the stop-calling retry writes
+     * here today (CORE-A8). Redacted by construction: the route and an error class, never a body.
+     */
+    log?: (line: string) => void;
 }
+
+/**
+ * The alert token on the line written when the stop-calling event could not be recorded even
+ * after its one retry. A log-based alert matches this exact word: a restaurant asked us to stop,
+ * and the ledger may not know it.
+ */
+export const STOP_CALLING_UNRECORDED_ALERT = 'ALERT_STOP_CALLING_UNRECORDED';
+
+/** How many times the stop-calling event is retried after a failure the backend never answered. */
+export const STOP_CALLING_RETRIES = 1;
 
 export interface SeamClient {
     callContext(): Promise<CallContext>;
@@ -87,18 +105,27 @@ export interface SeamClient {
     callEvent(input: CallEventInput): Promise<CallEventResult>;
 }
 
-const DEFAULT_TIMEOUT_MS = 2500;
-
 const isSentence = (value: unknown): boolean => typeof value === 'string' && value.trim() !== '';
 
 export function createSeamClient(options: SeamClientOptions): SeamClient {
     const base = options.baseUrl.replace(/\/+$/, '');
-    const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    // CORE-A7: one timeout, declared once, in src/tuning/liveDefaults.ts.
+    const timeoutMs = options.timeoutMs ?? SEAM_TIMEOUT_MS;
     const doFetch = options.fetchImpl ?? fetch;
+    const log = options.log ?? ((line: string) => { process.stderr.write(`${line}\n`); });
 
     async function post(route: string, body: unknown): Promise<unknown> {
         const controller = new AbortController();
+        // CORE-A6: the timer stays armed through the body read, so a stalled body is a timeout too.
         const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            return await exchange(route, body, controller);
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    async function exchange(route: string, body: unknown, controller: AbortController): Promise<unknown> {
         let response: Response;
         try {
             response = await doFetch(`${base}${route}`, {
@@ -116,15 +143,15 @@ export function createSeamClient(options: SeamClientOptions): SeamClient {
                 ? `no response in ${timeoutMs}ms`
                 : String((error as Error)?.message ?? error);
             throw new SeamUnavailable(route, detail);
-        } finally {
-            clearTimeout(timer);
         }
 
         let payload: unknown;
         try {
-            payload = await response.json();
+            payload = await readJson(response, controller.signal);
         } catch {
-            throw new SeamUnavailable(route, `HTTP ${response.status} with an unreadable body`);
+            throw new SeamUnavailable(route, controller.signal.aborted
+                ? `HTTP ${response.status} and no whole body in ${timeoutMs}ms`
+                : `HTTP ${response.status} with an unreadable body`);
         }
 
         if (response.status === 409) {
@@ -177,20 +204,57 @@ export function createSeamClient(options: SeamClientOptions): SeamClient {
         },
 
         async callEvent(input: CallEventInput): Promise<CallEventResult> {
-            const payload = await post('/reservations/call-event', input) as CallEventResult;
-            if (payload?.recorded !== true) {
-                throw new SeamUnavailable('/reservations/call-event', 'the event was not recorded');
+            if (!isStopCalling(input)) return recordEvent(input);
+            // CORE-A8: "stop calling us" is the one event we may not lose. A failure the backend never
+            // answered (a timeout, a 5xx, an unreadable reply) is retried ONCE; a refusal is a decision
+            // and is not. Recording it twice is harmless: suppression is a state, not a counter.
+            for (let attempt = 0; ; attempt++) {
+                try {
+                    return await recordEvent(input);
+                } catch (error) {
+                    if (!(error instanceof SeamUnavailable)) throw error;
+                    if (attempt >= STOP_CALLING_RETRIES) {
+                        log(`seam-client ERROR ${STOP_CALLING_UNRECORDED_ALERT} /reservations/call-event attempts=${attempt + 1}`);
+                        throw error;
+                    }
+                    log('seam-client stop_calling_retry /reservations/call-event');
+                }
             }
-            // CORE-A16: `say` may be empty ONLY for `answerer_reported`, which says nothing to the
-            // venue. Every other kind returns the sentence the agent speaks next (a deferral, a
-            // goodbye), and an empty one there is a silence where a promise should be.
-            if (typeof payload.say !== 'string') {
-                throw new SeamUnavailable('/reservations/call-event', 'an event result with no sentence field');
-            }
-            if (input.kind !== 'answerer_reported' && !isSentence(payload.say)) {
-                throw new SeamUnavailable('/reservations/call-event', `empty sentence for ${input.kind}`);
-            }
-            return payload;
         },
     };
+
+    async function recordEvent(input: CallEventInput): Promise<CallEventResult> {
+        const payload = await post('/reservations/call-event', input) as CallEventResult;
+        if (payload?.recorded !== true) {
+            throw new SeamUnavailable('/reservations/call-event', 'the event was not recorded');
+        }
+        // CORE-A16: `say` may be empty ONLY for `answerer_reported`, which says nothing to the
+        // venue. Every other kind returns the sentence the agent speaks next (a deferral, a
+        // goodbye), and an empty one there is a silence where a promise should be.
+        if (typeof payload.say !== 'string') {
+            throw new SeamUnavailable('/reservations/call-event', 'an event result with no sentence field');
+        }
+        if (input.kind !== 'answerer_reported' && !isSentence(payload.say)) {
+            throw new SeamUnavailable('/reservations/call-event', `empty sentence for ${input.kind}`);
+        }
+        return payload;
+    }
+}
+
+function isStopCalling(input: CallEventInput): boolean {
+    return input.kind === 'human_callback' && input.reason === 'asked_to_stop_calling';
+}
+
+/** `response.json()`, but rejecting as soon as `signal` aborts, whatever the body stream does. */
+function readJson(response: Response, signal: AbortSignal): Promise<unknown> {
+    if (signal.aborted) return Promise.reject(new Error('aborted'));
+    return new Promise<unknown>((resolve, reject) => {
+        const onAbort = (): void => {
+            reject(new Error('aborted'));
+            // Release the socket: nobody will read the rest of this body.
+            response.body?.cancel().catch(() => { /* already closed */ });
+        };
+        signal.addEventListener('abort', onAbort, { once: true });
+        response.json().then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+    });
 }

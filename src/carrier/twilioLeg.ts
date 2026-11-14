@@ -211,7 +211,7 @@ export class TwilioLeg implements CallLeg {
             case 'dtmf':
                 if (this.phase !== 'live') return;
                 if (typeof message.dtmf?.digit === 'string') {
-                    for (const handler of this.dtmfHandlers) handler(message.dtmf.digit);
+                    fireAll(this.dtmfHandlers, message.dtmf.digit);
                 }
                 return;
             case 'stop':
@@ -373,7 +373,7 @@ export class TwilioLeg implements CallLeg {
         }
         this.phase = 'started';
         this.streamSid = streamSid;
-        for (const handler of this.startHandlers) handler({ streamSid, callSid: start.callSid, token });
+        fireAll(this.startHandlers, { streamSid, callSid: start.callSid, token });
     }
 
     private onMedia(message: TwilioMessage): void {
@@ -396,12 +396,20 @@ export class TwilioLeg implements CallLeg {
         const bytes = Buffer.from(media.payload, 'base64');
         let buffered = this.inboundRest.length ? Buffer.concat([this.inboundRest, bytes]) : bytes;
         const size = CARRIER_AUDIO.bytesPerFrame;
-        while (buffered.length >= size && this.phase === 'live') {
+        // A throwing handler stops the frames after it (the server hangs up), but never the
+        // carry-over bookkeeping: the first error is rethrown only once the rest is stored.
+        let failure: { error: unknown } | null = null;
+        while (buffered.length >= size && this.phase === 'live' && failure === null) {
             const frame = Uint8Array.from(buffered.subarray(0, size));
             buffered = buffered.subarray(size);
-            for (const handler of this.handlers.inbound) handler(frame);
+            try {
+                fireAll(this.handlers.inbound, frame);
+            } catch (error) {
+                failure = { error };
+            }
         }
         this.inboundRest = Buffer.from(buffered);
+        if (failure !== null) throw failure.error;
     }
 
     private onMarkEcho(message: TwilioMessage): void {
@@ -413,7 +421,7 @@ export class TwilioLeg implements CallLeg {
             return;
         }
         if (!this.sentMarks.delete(name)) return;
-        for (const handler of this.handlers.marked) handler(name);
+        fireAll(this.handlers.marked, name);
     }
 
     private send(message: object): void {
@@ -446,8 +454,27 @@ export class TwilioLeg implements CallLeg {
         } catch {
             // Already closed. Ending is unconditional either way.
         }
-        for (const handler of this.handlers.hangup) handler(reason);
+        fireAll(this.handlers.hangup, reason);
     }
+}
+
+/**
+ * Call every handler, even after one throws, then rethrow the first error (VCA-1). One bad
+ * handler can then neither skip the others nor stop the caller from finishing its own bookkeeping
+ * first: every call site sets the phase BEFORE it fires. The rethrow reaches the stream server,
+ * which logs the class and hangs up with `internal_error`.
+ */
+function fireAll<A>(handlers: ReadonlyArray<(arg: A) => void>, arg: A): void {
+    let failed = false;
+    let first: unknown;
+    for (const handler of handlers) {
+        try {
+            handler(arg);
+        } catch (error) {
+            if (!failed) { failed = true; first = error; }
+        }
+    }
+    if (failed) throw first;
 }
 
 /** The fields of a Twilio Media Streams message this file reads. Everything else is ignored. */

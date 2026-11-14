@@ -33,6 +33,7 @@ import type { SeamClient } from '../seam/client.ts';
 import type { CallContext } from '../seam/types.ts';
 import { TwilioLeg } from '../carrier/twilioLeg.ts';
 import type { StreamStart, TwilioLegOptions } from '../carrier/twilioLeg.ts';
+import type { HangupReason } from '../carrier/leg.ts';
 import { SEAM_TIMEOUT_MS } from '../tuning/liveDefaults.ts';
 
 /** From the upgrade to the backend's yes. Twilio sends `start` within milliseconds of connecting. */
@@ -45,6 +46,12 @@ export const MAX_FRAME_BYTES = 64 * 1024;
 export const MAX_CALLS = 1;
 /** The only path that upgrades. Compared whole, so a query string does not match. */
 export const STREAM_PATH = '/stream';
+/**
+ * The window of the refusal-log limiter (VCA-3). The first preauth_full or preauth_deadline in a
+ * window is logged as it happens; the rest are counted and logged once, as `suppressed=N`, when
+ * the window closes. A stranger hammering the URL then costs two lines per window, not one each.
+ */
+export const LOG_WINDOW_MS = 10_000;
 
 /** A call the backend has accepted. Everything a call session needs, and nothing it must not have. */
 export interface AuthorizedCall {
@@ -76,6 +83,8 @@ export interface StreamServerOptions {
     maxFrameBytes?: number;
     maxCalls?: number;
     log?: (line: string) => void;
+    /** The window of the refusal-log limiter. Defaults to `LOG_WINDOW_MS`. */
+    logWindowMs?: number;
     /** Pacer and clock overrides for the legs, for tests. */
     leg?: Pick<TwilioLegOptions, 'now' | 'every' | 'leadFrames'>;
 }
@@ -87,6 +96,10 @@ export interface StreamServerStats {
     accepted: number;
     /** Sockets closed before the backend accepted them, over the life of the process. */
     closedBeforeAccept: number;
+    /** Upgrades refused because every pre-auth slot was taken. Counted whether or not logged. */
+    refusedFull: number;
+    /** Sockets closed by the pre-auth deadline. Counted whether or not logged. */
+    preAuthDeadlines: number;
 }
 
 export interface StreamServer {
@@ -134,8 +147,14 @@ export function createStreamServer(options: StreamServerOptions): StreamServer {
     let calls = 0;
     let accepted = 0;
     let closedBeforeAccept = 0;
+    let refusedFull = 0;
+    let deadlines = 0;
     let draining = false;
     const callsDone = new Set<() => void>();
+    // VCA-3: a flood of refused upgrades costs at most two log lines per window, not one each.
+    const logWindowMs = options.logWindowMs ?? LOG_WINDOW_MS;
+    const preauthFullLog = windowedLog(log, 'preauth_full', logWindowMs);
+    const deadlineLog = windowedLog(log, 'preauth_deadline', logWindowMs);
 
     const server = createServer((req: IncomingMessage, res: ServerResponse) => {
         if ((req.method === 'GET' || req.method === 'HEAD') && req.url === '/healthz') {
@@ -164,7 +183,8 @@ export function createStreamServer(options: StreamServerOptions): StreamServer {
         if (draining) return refuse(socket, 503);
         if (req.method !== 'GET' || req.url !== STREAM_PATH) return refuse(socket, 404);
         if (preAuth >= maxPreAuth) {
-            log('stream-server preauth_full');
+            refusedFull += 1;
+            preauthFullLog.note('stream-server preauth_full');
             return refuse(socket, 503);
         }
 
@@ -185,9 +205,10 @@ export function createStreamServer(options: StreamServerOptions): StreamServer {
         socket.once('close', () => forget(conn));
         conn.deadline = setTimeout(() => {
             if (!conn.preAuth) return;
-            log(`stream ${conn.id} preauth_deadline`);
+            deadlines += 1;
+            deadlineLog.note(`stream ${conn.id} preauth_deadline`);
             // Waiting on the backend is the backend not answering; no `start` is a peer that is not Twilio.
-            if (conn.leg) void conn.leg.hangup(conn.waitingOnSeam ? 'seam_stopped' : 'transport_failed');
+            if (conn.leg) hangupQuietly(conn, conn.leg, conn.waitingOnSeam ? 'seam_stopped' : 'transport_failed');
             else socket.destroy();
         }, preAuthMs);
 
@@ -207,14 +228,26 @@ export function createStreamServer(options: StreamServerOptions): StreamServer {
                 ...(options.leg ?? {}),
             });
             conn.leg = leg;
+            // VCA-1: a leg handler that throws would otherwise escape a socket event and take the
+            // whole process (and any other call on it) down. It ends this call instead.
+            const guarded = (fn: () => void): void => {
+                try {
+                    fn();
+                } catch (error) {
+                    log(`stream ${conn.id} handler_failed ${errorClass(error)}`);
+                    hangupQuietly(conn, leg, 'internal_error');
+                }
+            };
             ws.on('message', (data, isBinary) => {
-                if (isBinary) leg.receiveBinary();
-                else leg.receive(rawToString(data));
+                guarded(() => {
+                    if (isBinary) leg.receiveBinary();
+                    else leg.receive(rawToString(data));
+                });
             });
-            ws.on('close', () => leg.socketClosed());
+            ws.on('close', () => guarded(() => leg.socketClosed()));
             ws.on('error', (error) => {
                 log(`stream ${conn.id} socket_error ${errorClass(error)}`);
-                leg.socketClosed();
+                guarded(() => leg.socketClosed());
             });
             leg.on('hangup', () => {
                 // A pre-auth socket that ended (a violation, the far end, the deadline) frees its
@@ -224,9 +257,25 @@ export function createStreamServer(options: StreamServerOptions): StreamServer {
                     releasePreAuth(conn);
                 }
             });
-            leg.onStart((start) => { void authorize(conn, leg, start); });
+            leg.onStart((start) => {
+                // VCA-2: not fire-and-forget. Whatever escapes authorize ends this call, once.
+                authorize(conn, leg, start).catch((error: unknown) => {
+                    log(`stream ${conn.id} authorize_failed ${errorClass(error)}`);
+                    if (!leg.ended) hangupQuietly(conn, leg, 'internal_error');
+                });
+            });
         });
     });
+
+    /**
+     * `leg.hangup`, from a place nobody awaits. A hangup handler that throws is logged by class and
+     * goes no further: the line is already down, and the rejection must not end the process.
+     */
+    function hangupQuietly(conn: Connection, leg: TwilioLeg, reason: HangupReason): void {
+        leg.hangup(reason).catch((error: unknown) => {
+            log(`stream ${conn.id} hangup_handler_failed ${errorClass(error)}`);
+        });
+    }
 
     async function authorize(conn: Connection, leg: TwilioLeg, start: StreamStart): Promise<void> {
         if (calls >= maxCalls || draining) {
@@ -239,6 +288,7 @@ export function createStreamServer(options: StreamServerOptions): StreamServer {
             baseUrl: options.apiBaseUrl,
             token: start.token,
             timeoutMs: seamTimeoutMs,
+            log,
             ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
         });
 
@@ -274,7 +324,9 @@ export function createStreamServer(options: StreamServerOptions): StreamServer {
         } finally {
             if (!leg.ended) {
                 log(`stream ${conn.id} session_left_line_up`);
-                await leg.hangup('internal_error');
+                // Quietly: a throwing hangup handler here must not skip the slot release below,
+                // or every later call on this instance would be refused as busy.
+                hangupQuietly(conn, leg, 'internal_error');
             }
             calls -= 1;
             conn.live = false;
@@ -300,7 +352,7 @@ export function createStreamServer(options: StreamServerOptions): StreamServer {
             draining = true;
             for (const conn of connections) {
                 if (conn.live) continue;
-                if (conn.leg) await conn.leg.hangup('transport_failed');
+                if (conn.leg) hangupQuietly(conn, conn.leg, 'transport_failed');
                 else conn.socket.destroy();
             }
             if (calls > 0) {
@@ -318,9 +370,11 @@ export function createStreamServer(options: StreamServerOptions): StreamServer {
             for (const conn of connections) {
                 if (conn.leg && !conn.leg.ended) {
                     log(`stream ${conn.id} drain_forced_hangup`);
-                    await conn.leg.hangup('internal_error');
+                    hangupQuietly(conn, conn.leg, 'internal_error');
                 }
             }
+            preauthFullLog.flush();
+            deadlineLog.flush();
             wss.close();
             await new Promise<void>((resolve) => {
                 server.close(() => resolve());
@@ -329,8 +383,38 @@ export function createStreamServer(options: StreamServerOptions): StreamServer {
         },
 
         stats(): StreamServerStats {
-            return { preAuth, calls, accepted, closedBeforeAccept };
+            return { preAuth, calls, accepted, closedBeforeAccept, refusedFull, preAuthDeadlines: deadlines };
         },
+    };
+}
+
+interface WindowedLog {
+    /** Log `line` if it opens a window, else count it. */
+    note(line: string): void;
+    /** Close the current window now: log the suppressed count, if any. */
+    flush(): void;
+}
+
+function windowedLog(log: (line: string) => void, kind: string, windowMs: number): WindowedLog {
+    let timer: NodeJS.Timeout | null = null;
+    let suppressed = 0;
+    const flush = (): void => {
+        if (timer) clearTimeout(timer);
+        timer = null;
+        if (suppressed > 0) log(`stream-server ${kind} suppressed=${suppressed}`);
+        suppressed = 0;
+    };
+    return {
+        note(line: string): void {
+            if (timer) {
+                suppressed += 1;
+                return;
+            }
+            log(line);
+            timer = setTimeout(flush, windowMs);
+            timer.unref();
+        },
+        flush,
     };
 }
 

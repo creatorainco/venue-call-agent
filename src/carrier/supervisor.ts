@@ -21,13 +21,14 @@
  * `finally` then sends nothing more: exactly one hangup per call, which `hung_up_once` in
  * `src/carrier/checks.ts` grades on every call.
  *
- * 🔴 THE CAP IS READ OFF CALL TIME, POLLED. `overCap()` compares the clock it is given against
+ * 🔴 THE CAP IS POLLED AND ALSO ARMED (VCA-6). `overCap()` compares the clock it is given against
  * the cap, and the loop asks once per frame. On the fake leg the clock is the leg's virtual one,
- * so a six-minute call is deterministic and takes a second. What it cannot bound is a turn that
- * never returns: an `await agent.hear()` that hangs stops the polling with it. Bounding that
- * needs a wall-clock deadline racing the agent. The async bridge (TASK-3745 step 4) made the
- * speech side event-driven but kept `CallAgent.hear()` one awaited call per turn, so the deadline
- * belongs to the cascade (TASK-3748), where that stops being true.
+ * so a six-minute call is deterministic and takes a second. Polling cannot bound a turn that never
+ * returns (an `await agent.hear()` that hangs stops the polling with it), so `run` also arms a
+ * timer for whatever is left of the cap. When it fires, the call is hung up with `call_too_long`,
+ * the body's `AbortSignal` aborts, and `run` returns without waiting for the body. The fake-call
+ * runner turns the timer off (`capTimer: null`): its virtual clock and the fake leg's own backstop
+ * already bound it, and a wall-clock timer there would race a clock it does not share.
  *
  * 🔴 THE LOG IS REDACTED BY CONSTRUCTION. An error's message can carry what the far end said, a
  * phone number or a token, so it never reaches a log line. A line carries the call id, the event
@@ -51,13 +52,27 @@ export interface SupervisorOptions {
     maxCallMs?: number;
     /** One line per event. Defaults to stderr. */
     log?: (line: string) => void;
+    /**
+     * Arms the cap: call `fire` after `ms`, return a cancel. Defaults to an unref'd `setTimeout`.
+     * `null` turns the armed cap off and leaves only the polled one (the fake-call runner).
+     */
+    capTimer?: CapTimer | null;
 }
+
+export type CapTimer = (fire: () => void, ms: number) => () => void;
+
+const wallTimer: CapTimer = (fire, ms) => {
+    const timer = setTimeout(fire, ms);
+    timer.unref?.();
+    return () => clearTimeout(timer);
+};
 
 export class CallSupervisor {
     private readonly target: Hangable;
     private readonly clock: () => number;
     private readonly maxCallMs: number;
     private readonly log: (line: string) => void;
+    private readonly capTimer: CapTimer | null;
 
     private stopReason: HangupReason | null = null;
     private endedBy: HangupReason | null = null;
@@ -69,6 +84,7 @@ export class CallSupervisor {
         this.clock = options.clock;
         this.maxCallMs = options.maxCallMs ?? MAX_CALL_SECONDS * 1000;
         this.log = options.log ?? ((line) => { process.stderr.write(`${line}\n`); });
+        this.capTimer = options.capTimer === undefined ? wallTimer : options.capTimer;
         target.on('hangup', (reason) => { this.endedBy ??= reason; });
     }
 
@@ -105,16 +121,33 @@ export class CallSupervisor {
 
     /**
      * Run the live part of a call. Never throws for the body: an error is logged, redacted, and
-     * becomes `internal_error`. The `finally` hangs up whichever way the body left.
+     * becomes `internal_error`. The `finally` hangs up whichever way the body left. The body is
+     * given a signal that aborts when the armed cap fires; `run` does not wait for it after that.
      */
-    async run(body: () => Promise<void>): Promise<void> {
+    async run(body: (signal: AbortSignal) => Promise<void>): Promise<void> {
+        const controller = new AbortController();
+        let cancelCap = (): void => {};
+        const capped = new Promise<'cap'>((resolve) => {
+            if (this.capTimer === null) return;
+            const left = Math.max(0, this.maxCallMs - this.clock());
+            cancelCap = this.capTimer(() => resolve('cap'), left);
+        });
         try {
-            await body();
+            const work = body(controller.signal);
+            // A body still running after the cap must not surface later as an unhandled rejection.
+            work.catch(() => { /* before the cap the race below reports it; after it, nobody listens */ });
+            const outcome = await Promise.race([work.then(() => 'done' as const), capped]);
+            if (outcome === 'cap') {
+                this.log(`call-supervisor ${this.target.id} cap_reached`);
+                this.stopReason ??= 'call_too_long';
+                controller.abort();
+            }
         } catch (error) {
             this.crashed = true;
             this.stopReason = 'internal_error';
             this.log(`call-supervisor ${this.target.id} internal_error ${errorClass(error)}`);
         } finally {
+            cancelCap();
             await this.hangup(this.endReason());
         }
     }

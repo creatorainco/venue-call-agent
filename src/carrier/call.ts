@@ -268,6 +268,8 @@ export async function audioCall(
         const supervisor = new CallSupervisor(gate, {
             clock: () => leg.elapsedMs,
             maxCallMs,
+            // The polled cap on the virtual clock bounds a fake call; a wall timer would race it.
+            capTimer: null,
             ...(options.log ? { log: options.log } : {}),
         });
         gate.connect();

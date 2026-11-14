@@ -33,7 +33,31 @@ export async function noAgentSession(call: AuthorizedCall): Promise<void> {
     });
 }
 
+/**
+ * VCA-9: on Cloud Run (`K_SERVICE` is set there and nowhere we run by hand) the backend must be
+ * named explicitly and reached over https. Without that the service would answer calls against the
+ * local mock's default URL, or send capability tokens in clear text, so it refuses to start: a
+ * failed revision is loud, a service that cannot authorise calls is not.
+ */
+export function assertDeployableBaseUrl(env: NodeJS.ProcessEnv): void {
+    if (!env.K_SERVICE?.trim()) return;
+    const raw = env.CREATORAIN_API_BASE_URL?.trim() ?? '';
+    if (!raw) {
+        throw new Error('venue-call-agent refuses to start on Cloud Run: CREATORAIN_API_BASE_URL is not set.');
+    }
+    let url: URL;
+    try {
+        url = new URL(raw);
+    } catch {
+        throw new Error('venue-call-agent refuses to start on Cloud Run: CREATORAIN_API_BASE_URL is not a URL.');
+    }
+    if (url.protocol !== 'https:') {
+        throw new Error('venue-call-agent refuses to start on Cloud Run: CREATORAIN_API_BASE_URL must be https.');
+    }
+}
+
 export async function startServer(env: NodeJS.ProcessEnv = process.env): Promise<{ stream: StreamServer; port: number }> {
+    assertDeployableBaseUrl(env);
     const config = loadConfig(env);
     const stream = createStreamServer({ apiBaseUrl: config.apiBaseUrl, startCall: noAgentSession });
     const port = await stream.listen(config.port, '0.0.0.0');
