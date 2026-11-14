@@ -97,7 +97,7 @@ describe('the soak driver against the stream server', () => {
 
     it('runEdgeSoak: 3 calls and the 5 bogus sockets, each judged, health 200 after every one, the process up', async () => {
         const { stream, base, logs } = await edge();
-        const report = await runEdgeSoak({ baseUrl: base, token: 'mock:happy', legs: 3, bogus: true, expect: 'accepted-silent', mediaMs: 600, timeoutMs: 5000 });
+        const report = await runEdgeSoak({ baseUrl: base, token: 'mock:happy', legs: 3, bogus: true, expect: 'accepted-silent', mediaMs: 600, timeoutMs: 5000, health: async (u) => (await fetch(u)).status });
         assert.equal(report.rows.length, 3 + BOGUS_KINDS.length);
         for (const row of report.rows) assert.equal(row.pass, true, `${row.leg}: ${row.why.join('; ')}`);
         assert.equal(report.pass, true);

@@ -1,22 +1,19 @@
 /**
- * `npm run soak:edge` — the safety soak at the edge (TASK-3749 step 3, the 3-call soak, and VCA-12).
+ * The safety soak at the edge (TASK-3749 step 3, the 3-call soak, and VCA-12). The command is
+ * `npm run soak:edge` (`scripts/soak-edge.mjs`), which supplies the health reader: `src/` makes no
+ * network request outside the three adapters (test/importBoundary.test.ts), so this file is handed
+ * one.
  *
- *     SOAK_TOKEN=<token> npm run soak:edge -- --url=https://<service> --legs=3 --expect=refused --bogus
- *     SOAK_TOKEN=mock:happy npm run soak:edge -- --url=http://127.0.0.1:8080 --legs=3 --expect=accepted-silent
- *
- * Runs `--legs` Twilio-shaped legs with the token in `SOAK_TOKEN` (an env var, so it is never in a
- * shell history or a process list), then, with `--bogus`, the five sockets a stranger might send.
- * Legs run one after another: the service takes one call per instance, and a soak that opened them
- * together would be measuring the autoscaler. After every leg it asks `GET /health`, so "the
- * process stayed up" is a reading, not an inference. Prints one JSON document and exits 1 if any
- * leg failed its expectation or a health read was not 200.
+ * Runs `legs` Twilio-shaped legs with the token given, then, with `bogus`, the five sockets a
+ * stranger might send. Legs run one after another: the service takes one call per instance, and a
+ * soak that opened them together would be measuring the autoscaler. After every leg it reads the
+ * health endpoint, so "the process stayed up" is a reading, not an inference.
  *
  * It places no call: no carrier is involved, only a WebSocket to the URL given.
  */
 
 import { BOGUS_KINDS, judge, runLeg } from './driver.ts';
 import type { LegKind, LegOutcome } from './driver.ts';
-import { isEntryPoint } from '../harness/fixtures.ts';
 
 export interface EdgeSoakOptions {
     baseUrl: string;
@@ -26,6 +23,8 @@ export interface EdgeSoakOptions {
     expect: 'refused' | 'accepted-silent';
     mediaMs?: number;
     timeoutMs?: number;
+    /** Reads the health endpoint and answers its HTTP status, or 0 if it could not be reached. */
+    health: (url: string) => Promise<number>;
 }
 
 export interface EdgeSoakRow {
@@ -64,52 +63,11 @@ export async function runEdgeSoak(options: EdgeSoakOptions): Promise<EdgeSoakRep
             ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
         });
         const verdict = judge(outcome, step.expect);
-        const healthAfter = await health(healthUrl.toString());
+        const healthAfter = await options.health(healthUrl.toString());
         if (healthAfter !== 200) verdict.why.push(`health after the leg answered ${healthAfter}`);
         const pass = verdict.why.length === 0;
         report.rows.push({ leg: step.leg, expect: step.expect, outcome, pass, why: verdict.why, healthAfter });
         if (!pass) report.pass = false;
     }
     return report;
-}
-
-async function health(url: string): Promise<number> {
-    try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-        return res.status;
-    } catch {
-        return 0;
-    }
-}
-
-function flag(name: string): string | undefined {
-    const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
-    if (hit) return hit.slice(name.length + 3);
-    return process.argv.includes(`--${name}`) ? 'true' : undefined;
-}
-
-if (isEntryPoint(import.meta.url)) {
-    const url = flag('url');
-    const expect = flag('expect') ?? 'refused';
-    if (!url || (expect !== 'refused' && expect !== 'accepted-silent')) {
-        process.stderr.write('usage: SOAK_TOKEN=<token> npm run soak:edge -- --url=<base> [--legs=3] [--expect=refused|accepted-silent] [--bogus] [--media-ms=3000]\n');
-        process.exit(2);
-    }
-    const legs = Number.parseInt(flag('legs') ?? '3', 10);
-    const token = process.env.SOAK_TOKEN?.trim();
-    if (legs > 0 && !token) {
-        process.stderr.write('SOAK_TOKEN is not set; a Twilio-shaped leg needs a token.\n');
-        process.exit(2);
-    }
-    const mediaMs = flag('media-ms');
-    const report = await runEdgeSoak({
-        baseUrl: url,
-        ...(token ? { token } : {}),
-        legs,
-        bogus: flag('bogus') === 'true',
-        expect,
-        ...(mediaMs ? { mediaMs: Number.parseInt(mediaMs, 10) } : {}),
-    });
-    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-    process.exit(report.pass ? 0 : 1);
 }
