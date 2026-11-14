@@ -90,7 +90,7 @@ scripts/
   derive-contract.mjs   re-reads the backend and diffs it against contract/seam4.json
   mint-token.mjs        produce a valid / expired / wrong-booking token locally
 test/fixtures/conversations/   the recorded conversations, one file per branch
-docs/                   TUNING.md · LIMITS.md · WHAT-CANNOT-BE-TESTED.md · DEPLOY.md · TEST-ENVIRONMENT.md
+docs/                   TUNING.md · LIMITS.md · WHAT-CANNOT-BE-TESTED.md · DEPLOY.md · TEST-ENVIRONMENT.md · RUNBOOK.md · DATA-FLOW.md
 ```
 
 **Not here yet, and that is the Gemini Live adapter:** one class, implementing `SpeechBridge` in

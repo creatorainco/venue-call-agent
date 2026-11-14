@@ -49,7 +49,8 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 /** Every page a person reads. Not the source; comments are prose and are allowed to be prose. */
 const PAGES = ['README.md', 'ONBOARDING.md', 'CONTRIBUTING.md', 'CLAUDE.md',
     'docs/TUNING.md', 'docs/LIMITS.md', 'docs/WHAT-CANNOT-BE-TESTED.md',
-    'docs/TEST-ENVIRONMENT.md', 'docs/DEPLOY.md', 'test/fixtures/README.md'];
+    'docs/TEST-ENVIRONMENT.md', 'docs/DEPLOY.md', 'docs/RUNBOOK.md', 'docs/DATA-FLOW.md',
+    'test/fixtures/README.md'];
 
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
 
