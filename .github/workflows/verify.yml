@@ -8,6 +8,11 @@
 # workflow_dispatch, npm ci against a committed lockfile, cache: npm. The action majors are newer
 # (checkout@v7, setup-node@v7) because the v4 majors target Node 20, which GitHub has deprecated.
 #
+# Every third-party action is pinned to a full commit SHA, with the release it is in a trailing
+# comment. A tag can be moved to other code after the fact; a SHA cannot. Dependabot's
+# github-actions ecosystem (.github/dependabot.yml) proposes the bumps and keeps the comment
+# in step (VCA-SEC-4 / TEST-T7, TASK-967).
+#
 # It deviates in one place on purpose — the no-facts guard runs BEFORE `npm ci`, with no
 # dependencies installed. That ordering is itself an assertion: this repo's load-bearing invariant
 # must be checkable by a machine that has been handed nothing. The one thing the guard may be
@@ -30,7 +35,7 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # 🔴 FIRST, WITH NOTHING INSTALLED. Node is not even set up yet — the runner's own node runs
       # it. The guard has no dependencies by design, and proving that every run is what stops it
@@ -60,7 +65,7 @@ jobs:
       - name: the environment doctor can still see illness
         run: node scripts/doctor.mjs --control
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: '.nvmrc'
           cache: npm
@@ -91,3 +96,10 @@ jobs:
       # measurement if the control does not trip.
       - name: run the conversations as audio calls
         run: npm run call
+
+      # The private venue-name list must not outlive the job. RUNNER_TEMP is wiped on a hosted
+      # runner, but not on a self-hosted one, and this step costs nothing. `if: always()` so a
+      # failed or cancelled step above still removes it.
+      - name: remove the venue-name list
+        if: always()
+        run: rm -f "$RUNNER_TEMP/venue-names.txt"
