@@ -58,4 +58,6 @@ fixes it. A test that quietly defends a bug is worse than no test.
 | what "tune it" means | `docs/TUNING.md` and `src/tuning/liveDefaults.ts` |
 | what is broken and known | `docs/LIMITS.md` |
 | what green does not prove | `docs/WHAT-CANNOT-BE-TESTED.md` |
+| how to stop every call, read one call, and the alerts | `docs/RUNBOOK.md` |
+| where a call's audio and words go, and for how long | `docs/DATA-FLOW.md` |
 | what the backend does not do yet | `docs/LIMITS.md` §2–§5, and `known_divergences` in `contract/seam4.json` |
