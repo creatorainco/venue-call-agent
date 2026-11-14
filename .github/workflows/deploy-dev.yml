@@ -1,0 +1,62 @@
+# The dev deploy of venue-call-agent (TASK-3748 step 4; Peter, 2026-11-09 "Yes, dev only" for the
+# workflow and the federation change, 2026-11-13 B7 "Yes, dev only" for the Cloud Run service).
+#
+# A push to `dev` (a merged pull request, after `verify` passed on it) starts one Cloud Build run
+# from cloudbuild.yaml and waits for it. No key: GitHub's OIDC token is exchanged through the
+# `github-ci` pool, whose `creatorainco` provider admits this repository only for refs/heads/dev,
+# as the dispatch account ci-dispatch-vca@. That account can start a build (the custom
+# ciBuildStarter role), read build status, and name venue-call-build@ on it. Nothing else.
+#
+# 🔴 A DEPLOYED SERVICE IS NOT A DIALLING SERVICE. This places no call and turns nothing on.
+#
+# Every third-party action is pinned to a full commit SHA, the release in a trailing comment
+# (VCA-SEC-4 / TEST-T7); Dependabot proposes the bumps.
+
+name: deploy-dev
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+# One deploy at a time, and a newer push never cancels a deploy that is already rolling out.
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # A manual run from any other branch would be refused by the provider anyway; say so here first.
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      # Only cloudbuild.yaml is read from the checkout; the build fetches the commit itself.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: projects/204616170539/locations/global/workloadIdentityPools/github-ci/providers/creatorainco
+          service_account: ci-dispatch-vca@creatorain-27e9e.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      # --suppress-logs: the dispatch account cannot read Cloud Logging, so gcloud polls the build's
+      # status instead of tailing its log, and exits non-zero when the build fails. The step log
+      # carries the console link to the full build log.
+      - name: build, push and deploy venue-call-agent-dev
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          gcloud builds submit --no-source \
+            --config=cloudbuild.yaml \
+            --project=creatorain-27e9e \
+            --region=us-central1 \
+            --substitutions="_COMMIT_SHA=${SHA}" \
+            --suppress-logs

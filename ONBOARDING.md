@@ -18,7 +18,7 @@ re-pins (Part 4, item 2).
 git clone https://github.com/creatorainco/venue-call-agent.git
 
 cd venue-call-agent
-nvm install      # reads .nvmrc and fetches the newest Node 22; `nvm use` alone may pick an older 22
+nvm install      # reads .nvmrc and fetches the newest Node 22.18.x; `nvm use` alone may pick an older 22
 nvm use          # Node 22.18 or newer (22 or 24 LTS) works
 npm run doctor   # BEFORE npm ci. It works with nothing installed, on purpose.
 npm ci
