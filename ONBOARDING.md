@@ -169,7 +169,7 @@ Build it against the harness first; it needs a key only once it opens a real ses
 ### 1. Research what the repo still needs from Google Cloud
 
 This repository's own merge rules are settled: `main` and `dev` both require a pull request, one
-approving review and a green `verify` (`docs/LIMITS.md` §12).
+approving review and a green `verify` (`docs/LIMITS.md` §13).
 
 What is open is the deploy identity. Nothing deploys this service yet. For a Cloud Run deploy from
 Actions, work out exactly what must be created on each side — `docs/DEPLOY.md` §5 is the start —

@@ -4,8 +4,9 @@
  * Binds all interfaces on `PORT` (Cloud Run sets it; locally `loadConfig` defaults it), points the
  * seam at `CREATORAIN_API_BASE_URL`, and drains on SIGTERM.
  *
- * 🔴 NO CALL AGENT IS WIRED YET, AND THE DEFAULT SESSION SAYS NOTHING. The cascade (speech in,
- * closed intent, backend sentence, speech out) is TASK-3748 step 3. Until it lands, a call the
+ * 🔴 NO CALL AGENT IS WIRED YET, AND THE DEFAULT SESSION SAYS NOTHING. The cascade's brain
+ * (`src/agent/cascade.ts`: speech in, closed intent, backend sentence, speech out) exists; its
+ * audio path over the Twilio leg is the next step of TASK-3748. Until that lands, a call the
  * backend accepts is hung up at once by `noAgentSession`, through the supervisor, with zero audio
  * sent: no disclosure, no sentence, nothing a restaurant could hear. That is the fail-closed shape
  * of "the agent is missing", and it is what the dev probe in TASK-3748 step 5 observes.

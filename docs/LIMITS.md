@@ -127,6 +127,14 @@ work. That was wrong and is corrected. The accurate line:
 **Owner: unassigned, and it should not be.** It is the only item on this page that will stop
 work rather than merely be wrong.
 
+**The cascade needs neither (2026-11-13, CORE-A11 / C2).** The first-call brain is the cascade
+(`src/agent/cascade.ts`), and it authenticates every Google call with Application Default
+Credentials: the runtime service account on Cloud Run, `gcloud auth application-default login` on
+a laptop. `src/config.ts` no longer reads `VENUE_CALL_SECRET`, `GEMINI_API_KEY` or
+`SPEECH_TO_TEXT_CREDENTIALS`, and `test/importBoundary.test.ts` fails the build if anything under
+`src/` names one again. The two keys above belong to the Live challenger and the independent
+transcriber only; `VENUE_CALL_SECRET` belongs to `scripts/mint-token.mjs`, which is dev tooling.
+
 ---
 
 ## 10. The Live API is in PREVIEW, on both ends, and nothing guarantees it
@@ -167,7 +175,23 @@ for AI voice agents. That is an argument for the carrier work, not a reason to d
 
 ---
 
-## 12. Merge rules
+## 12. The cascade's own limits
+
+- **Four fixed sentences.** `src/agent/phrases.ts` holds the only words an agent says that the
+  backend did not send: ask for a member of staff, apologise for a wrong number, and two closes.
+  None states a fact. Moving them behind the seam is open work for the contract, not this repo.
+- **Synthesis request size and rate (CS-04).** Google refuses a synthesis input over 5,000 bytes
+  and Chirp 3 HD takes no SSML; `src/speech/tts.ts` refuses both locally, before any request.
+  Chirp 3 HD voices allow 200 requests a minute per project. The sha256 cache and the
+  pre-rendered disclosure keep a call to a handful of requests, so at concurrency 1 and five
+  instances the cap is not reached, but nothing here enforces it.
+- **The intent model can only be measured with ADC.** `test/cascade.test.ts` has one test that
+  talks to real Google, skipped unless `CASCADE_ADC_TEST=1`; it spends, so it is run by hand, never
+  in CI. The eval runs the cascade offline on its keyword stage (`npm run eval -- --agent=cascade`).
+
+---
+
+## 13. Merge rules
 
 `main` and `dev` both require a pull request, one approving review and the `verify` check, and
 refuse force-pushes and deletion. Read your own diff for keys before you push.

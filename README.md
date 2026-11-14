@@ -60,13 +60,18 @@ refuses if there are more than four.
 ```
 contract/seam4.json     the backend's shapes, snapshotted, with the commit they came from
 src/
-  config.ts             three classes of setting; the local path needs none of them
+  config.ts             base URL and port. No secret, no key: Google is reached through ADC
   state.ts              the call state machine. No path reaches audio before the disclosure.
   seam/                 types + client for the three backend routes. The only way a fact enters.
   mock/                 a local stand-in for those three routes. A scenario for every refusal.
   agent/
     contract.ts         the interface a real agent implements: text in, tool calls + text out
     scriptedStub.ts     a reference agent with NO MODEL. The baseline and the executable spec.
+    cascadeAgent.ts     the first-call brain: one closed intent per turn, only backend sentences spoken
+    intent.ts           keyword cues first, then gemini-3.5-flash-lite with an enum schema
+    cascade.ts          starts the cascade from one ADC token source, with no secret or key set
+  speech/               stt.ts (streaming v2, MULAW 8 kHz, batched, rolled) · tts.ts (Chirp 3 HD, size guard, cache)
+  google/adc.ts         Application Default Credentials, the only Google credential
   audio/                μ-law, resampling, formats. The carrier side, provable with no carrier.
   carrier/              a telephone with no telephone in it:
     leg.ts              the four things a telephone leg knows. One (μ-law framing) does not hold for every carrier; see its header.
@@ -76,6 +81,7 @@ src/
     call.ts             a whole call; returns the same result type the text harness does
     checks.ts           dead air, barge-in, audio-after-hangup — with a planted-fault control
   tuning/liveDefaults.ts every Gemini Live knob, with the reason for each value
+  tuning/cascadeDefaults.ts the cascade's pins: intent model (dated), recognizer, voice
   harness/replay.ts     runs one recorded conversation end to end
   eval/                 the rubric, the fabrication check, and `npm run eval`
 scripts/

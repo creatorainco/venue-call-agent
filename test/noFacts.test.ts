@@ -87,3 +87,80 @@ describe('no-facts: real venue names come from a file outside the repository', (
         assert.equal(r.status, 0, r.out);
     });
 });
+
+describe('no-facts: the widened scope (CORE-A10)', () => {
+    let root = '';
+    let copy = '';
+
+    // Paths are built from parts, so test/references.test.ts does not read them as pointers.
+    const plant = (parts: string[], text: string): void => {
+        mkdirSync(join(root, ...parts.slice(0, -1)), { recursive: true });
+        writeFileSync(join(root, ...parts), text);
+    };
+
+    before(() => {
+        root = mkdtempSync(join(tmpdir(), 'no-facts-wide-'));
+        mkdirSync(join(root, 'scripts'));
+        mkdirSync(join(root, 'src'));
+        copy = join(root, 'scripts', 'check-no-facts.mjs');
+        copyFileSync(GUARD, copy);
+        writeFileSync(join(root, 'src', 'clean.ts'), 'export const ok = 1;\n');
+    });
+
+    after(() => {
+        rmSync(root, { recursive: true, force: true });
+    });
+
+    const clean = () => {
+        rmSync(join(root, 'src'), { recursive: true, force: true });
+        mkdirSync(join(root, 'src'));
+        writeFileSync(join(root, 'src', 'clean.ts'), 'export const ok = 1;\n');
+        rmSync(join(root, 'scripts', 'helper.mjs'), { force: true });
+    };
+
+    it('CONTROL — the clean tree passes, with the guard itself in scripts/ skipped', () => {
+        clean();
+        const r = runGuard(copy);
+        assert.equal(r.status, 0, r.out);
+    });
+
+    it('a fact in scripts/ fails: scripts were not scanned before', () => {
+        clean();
+        plant(['scripts', 'helper.mjs'], "console.log('we will cover the meal');\n");
+        const r = runGuard(copy);
+        assert.equal(r.status, 1, r.out);
+        assert.match(r.out, /helper\.mjs:1/);
+    });
+
+    it('a directory named fixtures outside src/mock/fixtures is scanned', () => {
+        clean();
+        plant(['src', 'agent', 'fixtures', 'sneaky.ts'], "export const s = 'on the house';\n");
+        const r = runGuard(copy);
+        assert.equal(r.status, 1, r.out);
+        assert.match(r.out, /sneaky\.ts:1/);
+    });
+
+    it('src/mock/fixtures is still the one skipped fixture directory', () => {
+        clean();
+        plant(['src', 'mock', 'fixtures', 'canned.json'], '{ "say": "we will cover the meal" }\n');
+        const r = runGuard(copy);
+        assert.equal(r.status, 0, r.out);
+    });
+
+    it('a line starting with * outside a comment block is scanned; inside one it is prose', () => {
+        clean();
+        plant(['src', 'tpl.ts'], 'export const t = `\n* on the house\n`;\n');
+        assert.equal(runGuard(copy).status, 1);
+        clean();
+        plant(['src', 'doc.ts'], '/**\n * on the house, as prose\n */\nexport const d = 1;\n');
+        assert.equal(runGuard(copy).status, 0);
+    });
+
+    it('a spelled-out amount fails', () => {
+        clean();
+        plant(['src', 'amount.ts'], "export const a = 'up to sixty dollars';\n");
+        const r = runGuard(copy);
+        assert.equal(r.status, 1, r.out);
+        assert.match(r.out, /a money amount/);
+    });
+});

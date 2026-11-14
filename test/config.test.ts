@@ -15,8 +15,6 @@ import {
     DEFAULT_API_BASE_URL,
     loadConfig,
     readFlag,
-    requireLiveSession,
-    requireRealBackend,
 } from '../src/config.ts';
 
 describe('the local path boots with nothing configured', () => {
@@ -24,7 +22,16 @@ describe('the local path boots with nothing configured', () => {
         const config = loadConfig({});
         assert.equal(config.apiBaseUrl, DEFAULT_API_BASE_URL);
         assert.equal(config.port, 8787);
-        assert.equal(config.venueCallSecret, '');
+    });
+
+    test('🔴 the config carries no secret and no key, even when the environment has them (CORE-A11)', () => {
+        const config = loadConfig({
+            VENUE_CALL_SECRET: 'planted-secret',
+            GEMINI_API_KEY: 'planted-key',
+            SPEECH_TO_TEXT_CREDENTIALS: 'planted-credentials',
+        });
+        assert.deepEqual(Object.keys(config).sort(), ['apiBaseUrl', 'port']);
+        assert.doesNotMatch(JSON.stringify(config), /planted/);
     });
 
     test('the default base url is the port the mock actually listens on', () => {
@@ -33,9 +40,8 @@ describe('the local path boots with nothing configured', () => {
     });
 
     test('whitespace-only values are treated as absent, not as values', () => {
-        const config = loadConfig({ CREATORAIN_API_BASE_URL: '   ', VENUE_CALL_SECRET: '\t' });
+        const config = loadConfig({ CREATORAIN_API_BASE_URL: ' \t ' });
         assert.equal(config.apiBaseUrl, DEFAULT_API_BASE_URL);
-        assert.equal(config.venueCallSecret, '');
     });
 });
 
@@ -66,49 +72,5 @@ describe("🔴 the string 'false' is truthy, and readFlag is the only sanctioned
         // The positive control for the trap itself: if this assertion ever fails, JavaScript has
         // changed and the whole warning can go.
         assert.equal(Boolean('false'), true);
-    });
-});
-
-describe('the live-session gate refuses BEFORE a session opens, and names what is missing', () => {
-    test('an empty environment refuses and names both credentials', () => {
-        assert.throws(() => requireLiveSession({}), (error: unknown) => {
-            const message = (error as Error).message;
-            assert.match(message, /GEMINI_API_KEY/);
-            assert.match(message, /SPEECH_TO_TEXT_CREDENTIALS/);
-            return true;
-        });
-    });
-
-    test('one present and one missing still refuses, naming only the missing one', () => {
-        assert.throws(
-            () => requireLiveSession({ GEMINI_API_KEY: 'x' }),
-            (error: unknown) => {
-                const message = (error as Error).message;
-                assert.match(message, /SPEECH_TO_TEXT_CREDENTIALS/);
-                assert.doesNotMatch(message, /Missing: GEMINI_API_KEY/);
-                return true;
-            },
-        );
-    });
-
-    test('both present returns them, and the model override is optional', () => {
-        const live = requireLiveSession({ GEMINI_API_KEY: 'a', SPEECH_TO_TEXT_CREDENTIALS: 'b' });
-        assert.equal(live.geminiApiKey, 'a');
-        assert.equal(live.geminiLiveModel, '', 'empty means "use the pin in liveDefaults"');
-    });
-
-    test('it does NOT block the local path — loadConfig succeeded on the same empty environment', () => {
-        // The regression this whole split exists to prevent.
-        assert.doesNotThrow(() => loadConfig({}));
-    });
-});
-
-describe('the real-backend gate is a different failure with a different fix', () => {
-    test('no signing literal refuses, and says the mock does not need one', () => {
-        assert.throws(() => requireRealBackend(loadConfig({})), /VENUE_CALL_SECRET is unset/);
-    });
-
-    test('a literal — any literal — satisfies it, because it is shared, not issued', () => {
-        assert.doesNotThrow(() => requireRealBackend(loadConfig({ VENUE_CALL_SECRET: 'anything' })));
     });
 });

@@ -23,9 +23,10 @@
  * TWO EXEMPTIONS, BOTH NARROW, BOTH ANNOUNCED ON EVERY RUN
  * ─────────────────────────────────────────────────────────────────────────────────────────────
  *
- * 1. DIRECTORIES NAMED `fixtures`. Canned backend responses are DATA standing in for the one
- *    component that is allowed to author sentences. A fixture that could not contain a comp clause
- *    would be useless for testing the code that handles one.
+ * 1. THE ONE FIXTURE DIRECTORY, `src/mock/fixtures`. Canned backend responses are DATA standing in
+ *    for the one component that is allowed to author sentences. A fixture that could not contain a
+ *    comp clause would be useless for testing the code that handles one. Only that path is skipped:
+ *    a directory called `fixtures` anywhere else is scanned like any other (CORE-A10).
  *
  * 2. FILES THAT DECLARE `NO-FACTS-EXEMPT[rule, rule]: reason` IN THEIR FIRST 60 LINES.
  *    Some code in here exists to DETECT this language — the fabrication checker's risky-word list,
@@ -45,7 +46,16 @@ import { join, relative, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const SCAN_DIRS = ['src'];
+/**
+ * Everything that ships or runs: the service, and the scripts beside it (CORE-A10: `scripts/` was
+ * not scanned, and `mint-token`, `doctor` and the contract tool run on a developer's machine with
+ * real data in reach). This file is skipped by path, since its rules and its control are the
+ * language it hunts for.
+ */
+const SCAN_DIRS = ['src', 'scripts'];
+const SKIP_DIRS = new Set(['node_modules', 'dist']);
+/** Skipped by path from the repository root, never by bare name. */
+const SKIP_PATHS = new Set([join('src', 'mock', 'fixtures'), join('scripts', 'check-no-facts.mjs')]);
 const EXTS = new Set(['.ts', '.mts', '.js', '.mjs', '.json']);
 
 /** More than this many exempt files means the exemption has become the rule. */
@@ -126,7 +136,7 @@ function isVenueName(line) {
 
 const RULES = [
   { id: 'venue',  name: 'a venue or brand name', re: { test: isVenueName } },
-  { id: 'money',  name: 'a money amount',        re: /(?<![\w.])\$\s?\d/ },
+  { id: 'money',  name: 'a money amount',        re: /(?<![\w.]|\$\d)\$\s?\d(?!\$)|\b(?:usd|eur|gbp)\s?\d|\b(?:\d[\d,.]*|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\s+(?:dollars?|bucks|euros?|pounds?)\b/i },
   { id: 'comp',   name: 'a comp or payment term', re: /\b(comp(?:ed|s|limentary)?\s+(?:meal|dinner|lunch|the\s+bill)|we\s+(?:will\s+)?(?:cover|pay\s+for)\s+(?:the\s+)?(?:meal|bill|food)|on\s+the\s+house)\b/i },
   { id: 'script', name: 'a spoken script line',  re: /\b(hi[, ]+this\s+is|calling\s+(?:on\s+behalf|about\s+a\s+(?:booking|reservation))|i'?m\s+calling\s+from)\b/i },
   { id: 'policy', name: 'a policy sentence',     re: /\b(cancellation\s+policy|no[- ]show\s+fee|party\s+size\s+(?:is|of)\s+\d)\b/i },
@@ -136,6 +146,10 @@ const RULE_IDS = new Set(RULES.map((r) => r.id));
 
 /** The control string. It must trip at least one rule, every run, or the guard is not working. */
 const CONTROL = "Hi, this is CreatoRain calling about a booking at Nonesuch Noodles; we will cover the meal up to $60.";
+/** Each widened matcher gets its own control, so a regex that stopped compiling cannot hide. */
+const MONEY_CONTROLS = ['up to sixty dollars', 'a 25 dollar credit', 'USD 40', 'the $60 meal'];
+/** And what it must NOT match: a regex replacement's back-references are code, not money. */
+const NOT_MONEY = ['`$1$2./x`'];
 
 /** `NO-FACTS-EXEMPT[comp, money]: why` — declared in the file, near the top, with a reason. */
 const EXEMPT_RE = /NO-FACTS-EXEMPT\[([a-z, ]+)\]:\s*(.+)/;
@@ -147,7 +161,8 @@ function walk(dir, out = []) {
     const p = join(dir, e);
     let s;
     try { s = statSync(p); } catch { continue; }
-    if (s.isDirectory()) { if (e !== 'node_modules' && e !== 'dist' && e !== 'fixtures') walk(p, out); }
+    if (SKIP_PATHS.has(relative(ROOT, p))) continue;
+    if (s.isDirectory()) { if (!SKIP_DIRS.has(e)) walk(p, out); }
     else if (EXTS.has(extname(e))) out.push(p);
   }
   return out;
@@ -159,6 +174,18 @@ if (tripped.length === 0) {
   console.error('FAIL no-facts: the POSITIVE CONTROL did not trip.');
   console.error('  The guard cannot detect a violation it was built to detect, so a clean result');
   console.error('  from it would mean nothing. Fix the rules before trusting any pass.');
+  process.exit(2);
+}
+
+const moneyRule = RULES.find((r) => r.id === 'money');
+const missedMoney = MONEY_CONTROLS.filter((c) => !moneyRule.re.test(c));
+const falseMoney = NOT_MONEY.filter((c) => moneyRule.re.test(c));
+if (falseMoney.length) {
+  console.error(`FAIL no-facts: the money rule matched code it must not: ${falseMoney.join(' | ')}`);
+  process.exit(2);
+}
+if (missedMoney.length) {
+  console.error(`FAIL no-facts: the money rule missed its own control(s): ${missedMoney.join(' | ')}`);
   process.exit(2);
 }
 
@@ -194,8 +221,25 @@ for (const f of files) {
     exemptions.push({ file: rel, rules: ids, reason: declared[2].trim() });
   }
 
+  // Prose in comments is allowed, and only in comments (CORE-A10). A line is skipped when it
+  // starts with `//`, or sits inside a `/* ... */` block that opened on this line or an earlier
+  // one. A line that merely STARTS with `*` outside a block (a template literal, a continued
+  // string) is scanned: that is the shape the old test let through. JSON has no comments.
+  let inBlock = false;
+  const isJson = extname(f) === '.json';
   text.split(/\r?\n/).forEach((line, i) => {
-    if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;      // prose in comments is allowed
+    if (!isJson) {
+      const trimmed = line.trim();
+      if (inBlock) {
+        if (trimmed.includes('*/')) inBlock = false;
+        return;
+      }
+      if (trimmed.startsWith('//')) return;
+      if (trimmed.startsWith('/*')) {
+        inBlock = !trimmed.includes('*/', 2);
+        return;
+      }
+    }
     for (const rule of RULES) {
       if (excused.has(rule.id)) continue;
       if (rule.re.test(line)) {

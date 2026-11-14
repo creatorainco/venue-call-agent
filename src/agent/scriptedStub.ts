@@ -20,63 +20,14 @@
  *
  * Keep it passing. When the real agent lands, run both: `npm run eval` takes `--agent=stub` or
  * `--agent=live`, and the day the live one wins on every fixture is the day this stops mattering.
- *
- * NO-FACTS-EXEMPT[comp]: the topic cues must hold the words a manager uses to ask about money.
- * They RECOGNISE a question and are never spoken - every sentence this file says comes from the seam.
  */
 
 import type { AgentTurn, CallAgent, ToolCall } from './contract.ts';
 import type { SeamClient } from '../seam/client.ts';
-import type { CallContext, FactTopic } from '../seam/types.ts';
+import type { CallContext } from '../seam/types.ts';
+import { CHANGE_CUES, DONE_CUES, MACHINE_CUES, STOP_CUES, TOPIC_CUES, VOICEMAIL_CUES, WRONG_NUMBER_CUES } from './cues.ts';
+import { ASK_FOR_STAFF, CLOSE_AFTER_ANSWERS, CLOSE_THANKS, SORRY_WRONG_NUMBER } from './phrases.ts';
 
-/**
- * Question → topic. Crude, and crude is the point: it must be obvious that the mapping is doing
- * the work rather than any understanding, so nobody mistakes a green eval for a working agent.
- */
-const TOPIC_CUES: Array<[RegExp, FactTopic]> = [
-    [/\b(who'?s paying|who pays|paying for|comp|free|on the house|the bill|cover the)\b/i, 'comp_terms'],
-    [/\b(how many|party size|covers|people|guests)\b/i, 'party_size'],
-    [/\b(what time|when are they|when do they|arriv)\b/i, 'arrival_time'],
-    [/\b(who'?s (?:the|it) (?:booking|reservation)|whose name|under what name|which name)\b/i, 'creator_name'],
-    [/\b(who are you|what company|what is creatorain|who is this)\b/i, 'who_we_are'],
-    [/\b(what will they do|filming|photos|video|content|post)\b/i, 'what_the_creator_will_do'],
-    [/\b(still on|still coming|still happening|cancelled|is it confirmed)\b/i, 'still_active'],
-    [/\b(email|contact|reach you|get hold of)\b/i, 'contact_email'],
-];
-
-const MACHINE_CUES = [
-    /\bpress \d\b/i,
-    /\bmain menu\b/i,
-    /\bfor (?:hours|directions|reservations), press\b/i,
-    /\bleave a message\b/i,
-    /\bafter the (?:tone|beep)\b/i,
-    /\bnot available (?:right now|at the moment)\b/i,
-    /\bthis is an automated\b/i,
-];
-
-const VOICEMAIL_CUES = [/\bleave a message\b/i, /\bafter the (?:tone|beep)\b/i];
-
-const STOP_CUES = [
-    /\b(stop calling|don'?t call|do not call|take us off|remove us|no more calls)\b/i,
-];
-
-const CHANGE_CUES = [
-    /\b(cancel|move|reschedul\w+|change the (?:time|booking|reservation)|different time)\b/i,
-];
-
-/**
- * They are finished.
- *
- * Ordered AFTER the topic match on purpose: "thanks, but who's paying?" is a question, not a
- * goodbye, and treating a polite question as a close is how a call ends with the thing they
- * actually rang about unanswered.
- */
-const DONE_CUES = [
-    /\b(that'?s (?:all|it|fine|great|grand)|no,? (?:thanks|that'?s all)|nope|we'?re good|all good)\b/i,
-    /\b(thanks|thank you|cheers|got it|understood|noted|will do|sounds good|appreciate it|perfect|lovely)\b/i,
-];
-
-const WRONG_NUMBER_CUES = [/\b(wrong number|no such (?:place|restaurant)|you'?ve got the wrong)\b/i];
 
 export function createScriptedStub(deps: { seam: SeamClient }): CallAgent {
     const seam = deps.seam;
@@ -122,7 +73,7 @@ export function createScriptedStub(deps: { seam: SeamClient }): CallAgent {
                     return turn({ toolCalls: [call], say: [context.voicemail_script], endCall: true });
                 }
                 staffAttempts++;
-                return turn({ toolCalls: [call], say: ['Could you connect me with a member of staff?'] });
+                return turn({ toolCalls: [call], say: [ASK_FOR_STAFF] });
             }
 
             if (WRONG_NUMBER_CUES.some((re) => re.test(utterance))) {
@@ -130,7 +81,7 @@ export function createScriptedStub(deps: { seam: SeamClient }): CallAgent {
                 return turn({
                     toolCalls: [{ name: 'report_answerer', args: { answerer: 'wrong_number' } }],
                     // Nothing about the booking is said to somebody who is not the restaurant.
-                    say: ['Sorry to have bothered you.'],
+                    say: [SORRY_WRONG_NUMBER],
                     endCall: true,
                 });
             }
@@ -140,7 +91,7 @@ export function createScriptedStub(deps: { seam: SeamClient }): CallAgent {
                 if (staffAttempts >= 2) {
                     return turn({ say: [context.voicemail_script], endCall: true, note: 'two attempts, no person' });
                 }
-                return turn({ say: ['Could you connect me with a member of staff?'] });
+                return turn({ say: [ASK_FOR_STAFF] });
             }
 
             // ── 3. A person. Deliver the notice, once. ───────────────────────────────────
@@ -170,14 +121,14 @@ export function createScriptedStub(deps: { seam: SeamClient }): CallAgent {
                 const closing = questionsAnswered >= 2;
                 return turn({
                     toolCalls: [call],
-                    say: closing ? [answer.say, "That's everything — the details are in the email. Thanks for your time."] : [answer.say],
+                    say: closing ? [answer.say, CLOSE_AFTER_ANSWERS] : [answer.say],
                     endCall: closing,
                 });
             }
 
             // ── 6. They are done. ────────────────────────────────────────────────────────
             if (DONE_CUES.some((re) => re.test(utterance))) {
-                return turn({ say: ['Thanks for your time.'], endCall: true });
+                return turn({ say: [CLOSE_THANKS], endCall: true });
             }
 
             // ── 7. A question nothing answers. Log it, THEN promise the follow-up. ───────

@@ -19,6 +19,8 @@ import { replay, type AgentFactory } from '../harness/replay.ts';
 import { isEntryPoint, loadFixtures } from '../harness/fixtures.ts';
 import { score, rubricControl, type FixtureScore } from './rubric.ts';
 import { createScriptedStub } from '../agent/scriptedStub.ts';
+import { createCascadeAgent } from '../agent/cascadeAgent.ts';
+import { createKeywordClassifier } from '../agent/intent.ts';
 
 function arg(name: string): string | undefined {
     const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -36,9 +38,12 @@ const has = (name: string) => process.argv.includes(`--${name}`);
  */
 export function agentFactory(kind: string): AgentFactory {
     if (kind === 'stub') return ({ seam }) => createScriptedStub({ seam });
+    // The cascade, offline: its keyword stage only, so the eval needs no Google account. The
+    // model stage is measured by the ADC-gated test and the soak, not here.
+    if (kind === 'cascade') return ({ seam }) => createCascadeAgent({ seam, intents: createKeywordClassifier() });
     throw new Error(
-        `no agent named "${kind}". Only "stub" exists today; "live" is the Gemini Live adapter, not built yet. ` +
-        'Wire it in src/eval/run.ts when it lands, and keep the stub so the two can be compared.',
+        `no agent named "${kind}". "stub" and "cascade" exist; "live" is the Gemini Live challenger, not built yet. ` +
+        'Wire it in src/eval/run.ts when it lands, and keep the stub so they can be compared.',
     );
 }
 
