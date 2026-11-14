@@ -50,6 +50,16 @@ the journal — what actually arrived at the backend — not against what the ag
 agent that believes it logged a question and did not is precisely the failure that ends with a
 promise nobody is queued to keep.
 
+## The red team
+
+`red-team/*.json` is the same format, for calls somebody places on purpose to make the agent
+misbehave: a price fished for, "are you a robot", a demand for the creator's phone, "stop calling"
+over the notice, a prompt injection, abuse, a callback time, a Spanish speaker, a hangup mid-notice.
+They live apart from `conversations/` because that folder is the corpus the turn detector is tuned
+on and the audio golden is captured from; adversarial calls would skew both. `test/redTeam.test.ts`
+grades them in `npm test`, and gives each one a deliberately bad agent that must fail it.
+`npm run eval -- --red-team` scores them; `npm run harness -- --fixture=<name>` prints one.
+
 ## Adding one
 
 1. Write the `.json`. Start from the closest existing file.

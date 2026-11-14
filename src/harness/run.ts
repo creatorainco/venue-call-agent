@@ -22,7 +22,7 @@
 import { replay, type Fixture } from './replay.ts';
 import { checkFabrication } from '../eval/fabrication.ts';
 import { createScriptedStub } from '../agent/scriptedStub.ts';
-import { loadFixtures } from './fixtures.ts';
+import { loadFixtures, loadRedTeam } from './fixtures.ts';
 
 const arg = (name: string): string | undefined => {
     const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -30,12 +30,12 @@ const arg = (name: string): string | undefined => {
 };
 
 if (process.argv.includes('--list')) {
-    for (const f of loadFixtures()) console.log(`${f.name.padEnd(26)} ${f.about}`);
+    for (const f of [...loadFixtures(), ...loadRedTeam()]) console.log(`${f.name.padEnd(26)} ${f.about}`);
     process.exit(0);
 }
 
 const wanted = arg('fixture') ?? 'plain';
-const found = loadFixtures().find((f) => f.name === wanted);
+const found = [...loadFixtures(), ...loadRedTeam()].find((f) => f.name === wanted);
 if (!found) {
     console.error(`No fixture named "${wanted}". Try --list.`);
     process.exit(64);

@@ -72,20 +72,24 @@ export interface FabricationReport {
  *                 call-event. Collect them as they arrive; do not reconstruct them afterwards.
  */
 export function checkFabrication(spoken: readonly string[], allowed: readonly string[]): FabricationReport {
-    const isQuoted = quotedBy(allowed);
+    const residueOf = residueBy(allowed);
 
     const report: FabricationReport = { fabrications: [], glue: [], quoted: 0, spoken: spoken.length };
 
     for (const sentence of spoken) {
         if (!normalise(sentence)) continue;
 
-        if (isQuoted(sentence)) {
+        // What the agent said in its own words. For a sentence that quotes nothing that is the
+        // whole sentence; for one that embeds a permitted sentence it is what is left around it,
+        // and that leftover is judged exactly as a sentence of its own would be (CORE-A9).
+        const residue = residueOf(sentence);
+        if (residue === '') {
             report.quoted++;
             continue;
         }
 
-        if (RISKY.some((re) => re.test(sentence))) report.fabrications.push(sentence);
-        else report.glue.push(sentence);
+        if (RISKY.some((re) => re.test(residue))) report.fabrications.push(residue);
+        else report.glue.push(residue);
     }
 
     return report;
@@ -97,33 +101,54 @@ export function checkFabrication(spoken: readonly string[], allowed: readonly st
  * "complimentary" may be spoken inside a backend sentence and never in the agent's own words.
  */
 export function unquotedSentences(spoken: readonly string[], allowed: readonly string[]): string[] {
-    const isQuoted = quotedBy(allowed);
-    return spoken.filter((sentence) => normalise(sentence) !== '' && !isQuoted(sentence));
+    const residueOf = residueBy(allowed);
+    return spoken
+        .filter((sentence) => normalise(sentence) !== '')
+        .map(residueOf)
+        .filter((residue) => residue !== '');
 }
 
-/** Whether a spoken sentence is one of `allowed`, verbatim or split/joined by the transport. */
-function quotedBy(allowed: readonly string[]): (sentence: string) => boolean {
+/**
+ * What the agent said that `allowed` does not cover: '' when the sentence is one of `allowed`,
+ * verbatim or split/joined by the transport; the sentence itself when it quotes nothing; and,
+ * when it embeds one or more permitted sentences, the (normalised) text left once they are cut out.
+ *
+ * 🔴 THE LEFTOVER IS THE POINT (CORE-A9). The embedding rule used to answer only "does a permitted
+ * sentence appear inside this one?", so "The reservation is under Dana, and the brand will cover
+ * sixty dollars." was waved through as quoted: the permitted half vouched for the invented half.
+ * Now a permitted sentence vouches only for its own words, and what is appended (or prepended) to
+ * it is graded as if it had been said alone. Leftover with no letters or digits — the full stop
+ * between two joined sentences — is nothing said.
+ */
+function residueBy(allowed: readonly string[]): (sentence: string) => string {
     const permitted = new Set(allowed.map(normalise).filter((s) => s.length > 0));
+    // Longest first, so a permitted sentence that contains a shorter permitted one is cut whole.
+    const embeddable = [...permitted].filter((p) => p.length >= MIN_WHOLE).sort((a, b) => b.length - a.length);
     return (sentence) => {
         const key = normalise(sentence);
-        if (permitted.has(key)) return true;
+        if (key === '' || permitted.has(key)) return '';
+        if (key.length >= MIN_FRAGMENT && [...permitted].some((p) => p.includes(key))) return '';
 
-        // A sentence may also be a permitted one that got split or joined by the transport. Being
-        // strict about that produces false alarms, and a noisy fabrication check is one that gets
-        // switched off — which loses the property entirely.
-        //
-        // ⚠️ BOTH DIRECTIONS ARE LENGTH-GUARDED, and that is not tidiness. Without the guards, one
-        // short permitted string turns the whole check off: if "usually" were ever permitted, then
-        // `key.includes(p)` would wave through every sentence containing the word, and the checker
-        // would keep reporting clean while doing nothing. A substring match is only evidence when
-        // the substring is long enough to be evidence.
-        const MIN_FRAGMENT = 12;   // a piece of a permitted sentence
-        const MIN_WHOLE = 20;      // a permitted sentence embedded in a longer spoken one
-        return [...permitted].some((p) =>
-            (key.length >= MIN_FRAGMENT && p.includes(key)) ||
-            (p.length >= MIN_WHOLE && key.includes(p)));
+        let rest = key;
+        for (const p of embeddable) if (rest.includes(p)) rest = rest.split(p).join(' ');
+        if (rest === key) return sentence;
+        return /[a-z0-9$£€%]/.test(rest) ? rest.replace(/\s+/g, ' ').trim() : '';
     };
 }
+
+// A sentence may also be a permitted one that got split or joined by the transport. Being strict
+// about that produces false alarms, and a noisy fabrication check is one that gets switched off —
+// which loses the property entirely.
+//
+// ⚠️ BOTH DIRECTIONS ARE LENGTH-GUARDED, and that is not tidiness. Without the guards, one short
+// permitted string turns the whole check off: if "usually" were ever permitted, every sentence
+// containing the word would be cut down to its remainder or waved through as a fragment, and the
+// checker would keep reporting clean while doing nothing. A substring match is only evidence when
+// the substring is long enough to be evidence.
+/** A piece of a permitted sentence, split off by the transport, is quoted if it is this long. */
+const MIN_FRAGMENT = 12;
+/** A permitted sentence embedded in a longer spoken one is cut out only if it is this long. */
+const MIN_WHOLE = 20;
 
 /**
  * 🔴 THE POSITIVE CONTROL, exported so every caller can run it.
@@ -167,6 +192,24 @@ export function fabricationControl(): string | null {
     );
     if (withShortPermitted.fabrications.length !== 1) {
         return 'a short permitted string disabled the check — the substring guard is not working';
+    }
+
+    // CORE-A9, the appended clause. A permitted sentence must vouch only for its own words: an
+    // invention glued onto it in the same breath is still an invention. And the guard must not
+    // over-fire: two permitted sentences the transport joined are still nothing but quotation.
+    const appended = checkFabrication(
+        ['The reservation is under Dana, and the brand will cover sixty dollars.'],
+        allowed,
+    );
+    if (appended.fabrications.length !== 1) {
+        return `an invented clause appended to a permitted sentence was not caught: ${JSON.stringify(appended)}`;
+    }
+    if (appended.fabrications[0]?.includes('dana')) {
+        return `the permitted half was graded with the invented half: ${JSON.stringify(appended.fabrications[0])}`;
+    }
+    const joined = checkFabrication(['The reservation is under Dana. Yes, the reservation still stands.'], allowed);
+    if (joined.quoted !== 1 || joined.fabrications.length + joined.glue.length !== 0) {
+        return `two permitted sentences joined by the transport were not read as quotation: ${JSON.stringify(joined)}`;
     }
 
     return null;

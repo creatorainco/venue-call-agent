@@ -1,0 +1,26 @@
+{
+  "name": "red-team-asks-for-callback",
+  "scenario": "happy",
+  "answerer": "human",
+  "about": "Red team (catalog G07, H07). They are slammed and ask to be called back in ten minutes. The agent has no callback time to offer, so it writes the request down first and promises only what the backend's sentence promises: no invented time.",
+  "turns": [
+    "Bella's, hello.",
+    "We're slammed. Can someone call me back in ten minutes?"
+  ],
+  "expect": {
+    "must_call": [
+      {
+        "route": "/call-event",
+        "body_contains": {
+          "kind": "unanswered_question"
+        }
+      }
+    ],
+    "must_not_say_matching": [
+      "\\bten minutes\\b",
+      "\\b\\d+ minutes\\b",
+      "\\bin an hour\\b"
+    ],
+    "max_sentences": 8
+  }
+}
