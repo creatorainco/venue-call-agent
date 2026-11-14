@@ -79,7 +79,7 @@ async function rig(overrides: Partial<StreamServerOptions> = {}): Promise<Rig> {
         close: async () => {
             if (closed) return;
             closed = true;
-            await stream.drain(0);
+            await stream.drain(0, 0);
         },
     };
     open.push(r);
@@ -402,7 +402,7 @@ describe('the edge: one call per instance, and every way out hangs up', () => {
         await sleep(200);
         const waiting = twilio(r.url());
         await waiting.opened;
-        const drained = r.stream.drain(100);
+        const drained = r.stream.drain(100, 100);
         assert.notEqual(await within(waiting.ended, 1000), 'timeout');
         await drained;
         assert.notEqual(await within(live.ended, 1000), 'timeout');

@@ -20,13 +20,21 @@ import type { AuthorizedCall, StreamServer } from './streamServer.ts';
 
 /**
  * Cloud Run allows ten seconds between SIGTERM and SIGKILL. A live call gets most of that to end
- * on its own before it is hung up, so the hangup is ours and not the kernel's.
+ * on its own before it is hung up, so the hangup is ours and not the kernel's. VCA-7: what is
+ * left after the grace is the session's to post its `call_ended` (bounded by `SEAM_TIMEOUT_MS`)
+ * plus a margin, so grace + `DRAIN_SETTLE_MS` stays at or under `DRAIN_BUDGET_MS` (9.5 s).
  */
-export const DRAIN_GRACE_MS = 8000;
+export const DRAIN_GRACE_MS = 6500;
 
-/** The session used while no call agent exists: hang up, once, having said nothing. */
+/** The session used while no call agent exists: hang up, once, having said nothing, and report it. */
 export async function noAgentSession(call: AuthorizedCall): Promise<void> {
-    const supervisor = new CallSupervisor(call.leg, { clock: () => call.leg.elapsedMs, log: call.log });
+    const supervisor = new CallSupervisor(call.leg, {
+        clock: () => call.leg.elapsedMs,
+        log: call.log,
+        // Nothing was said, so the report carries no turns and the disclosure was not heard.
+        report: call.seam,
+        shutdown: call.shutdown,
+    });
     await supervisor.run(async () => {
         call.log(`stream ${call.leg.id} no_call_agent`);
         supervisor.stop('internal_error');
