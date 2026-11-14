@@ -154,6 +154,9 @@ export class CallSupervisor {
         this.reportTimeoutMs = options.reportTimeoutMs ?? SEAM_TIMEOUT_MS;
         // Registered before anything else can end the line, so a drain's own forced hangup on the
         // leg (which follows the abort) still finds the call up and is reported as the shutdown.
+        // A drain that lands after the body said stop('agent_ended') but before the hangup is
+        // reported as end_reason shutdown, not completed. Accepted: the call was cut short by the
+        // drain either way, and the hangup that follows is the drain's.
         const onShutdown = (): void => {
             if (this.sent === null && this.endedBy === null) this.shutDown = true;
         };
@@ -240,6 +243,7 @@ export class CallSupervisor {
             cancelCap();
             stopListening();
             try {
+                // If the hangup throws, the inner finally still posts call_ended and run() rethrows.
                 await this.hangup(this.endReason());
             } finally {
                 await this.reportEnded();
@@ -274,8 +278,10 @@ export class CallSupervisor {
         };
         let timer: NodeJS.Timeout | undefined;
         const timeout = new Promise<'timeout'>((resolve) => {
+            // Not unref'd: this timer may be the only thing keeping the loop alive while a seam
+            // never answers, and an unref'd one lets the process exit before the bound fires. It is
+            // bounded by reportTimeoutMs and cleared in the finally below.
             timer = setTimeout(() => resolve('timeout'), this.reportTimeoutMs);
-            timer.unref?.();
         });
         try {
             const outcome = await Promise.race([this.report.callEvent(input).then(() => 'sent' as const), timeout]);
