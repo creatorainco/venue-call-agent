@@ -320,7 +320,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -340,15 +340,15 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?"
     ],
     "ended": true,
     "endedBecause": "seam_refusal",
     "refusalReason": "token_expired"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:173129038c4e2f381f19f914098f4a9609bc63fbf1f4201b8adccc5c66e1f429"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:098eefab539edae59d7da1237593196dfda413b35994d0771d721e607a92784d"
   },
   "audio": {
    "deadAirMs": [
@@ -371,9 +371,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2053,
-   "framesOut": 2053,
-   "audibleOutFrames": 1766,
+   "framesIn": 1828,
+   "framesOut": 1828,
+   "audibleOutFrames": 1541,
    "detectedTurns": 2,
    "scriptedTurns": 2,
    "overSegmented": 0,
@@ -381,7 +381,7 @@
    "unansweredTurns": 1,
    "cutShortSentences": 0,
    "unheardSentences": 0,
-   "callMs": 41060,
+   "callMs": 36560,
    "endedBecause": "seam_stopped",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 0
@@ -414,7 +414,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -434,15 +434,15 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?"
     ],
     "ended": true,
     "endedBecause": "seam_refusal",
     "refusalReason": "token_expired"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:173129038c4e2f381f19f914098f4a9609bc63fbf1f4201b8adccc5c66e1f429"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:098eefab539edae59d7da1237593196dfda413b35994d0771d721e607a92784d"
   },
   "audio": {
    "deadAirMs": [
@@ -465,9 +465,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2143,
-   "framesOut": 2143,
-   "audibleOutFrames": 1766,
+   "framesIn": 1918,
+   "framesOut": 1918,
+   "audibleOutFrames": 1541,
    "detectedTurns": 2,
    "scriptedTurns": 2,
    "overSegmented": 0,
@@ -475,7 +475,7 @@
    "unansweredTurns": 1,
    "cutShortSentences": 0,
    "unheardSentences": 0,
-   "callMs": 42860,
+   "callMs": 38360,
    "endedBecause": "seam_stopped",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 900
@@ -502,8 +502,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:a4e9c845fb06c4818ac7c92d6a300d576c129b95c62127a5987d66f6f58072cd"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:2b53923a39ac6cb4c78cb758b47f117bba968a19d7104150035154ff3f35d6a5"
   },
   "audio": {
    "deadAirMs": [],
@@ -556,8 +556,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [],
@@ -610,8 +610,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [],
@@ -664,8 +664,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [],
@@ -728,7 +728,7 @@
      },
      {
       "who": "agent",
-      "text": "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. I'm calling Golden Crane Noodle House about a reservation you have tonight at 7:30, under Dana. They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there. It's a complimentary visit, so please don't bring them a bill. The details are in the email our team sent you — there is nothing you need to do. Thank you."
+      "text": "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. I'm calling Golden Crane Noodle House about a reservation you have tonight at 7:30, under Dana. They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there. The details are in the email our team sent you — there is nothing you need to do. Thank you."
      },
      {
       "who": "system",
@@ -746,13 +746,13 @@
     "spoken": [
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "Could you connect me with a member of staff?",
-     "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. I'm calling Golden Crane Noodle House about a reservation you have tonight at 7:30, under Dana. They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there. It's a complimentary visit, so please don't bring them a bill. The details are in the email our team sent you — there is nothing you need to do. Thank you."
+     "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. I'm calling Golden Crane Noodle House about a reservation you have tonight at 7:30, under Dana. They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there. The details are in the email our team sent you — there is nothing you need to do. Thank you."
     ],
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:eae5924c4a0f88610a539f3a32d42bed67ad5ef71c22b89d238ce79a5004b623"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:77816131df4004665e8bc1536d0ec1d47b62419f2b556bd4433ac065c8922b08"
   },
   "audio": {
    "deadAirMs": [
@@ -822,7 +822,7 @@
      },
      {
       "who": "agent",
-      "text": "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. I'm calling Golden Crane Noodle House about a reservation you have tonight at 7:30, under Dana. They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there. It's a complimentary visit, so please don't bring them a bill. The details are in the email our team sent you — there is nothing you need to do. Thank you."
+      "text": "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. I'm calling Golden Crane Noodle House about a reservation you have tonight at 7:30, under Dana. They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there. The details are in the email our team sent you — there is nothing you need to do. Thank you."
      },
      {
       "who": "system",
@@ -840,13 +840,13 @@
     "spoken": [
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "Could you connect me with a member of staff?",
-     "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. I'm calling Golden Crane Noodle House about a reservation you have tonight at 7:30, under Dana. They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there. It's a complimentary visit, so please don't bring them a bill. The details are in the email our team sent you — there is nothing you need to do. Thank you."
+     "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. I'm calling Golden Crane Noodle House about a reservation you have tonight at 7:30, under Dana. They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there. The details are in the email our team sent you — there is nothing you need to do. Thank you."
     ],
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:eae5924c4a0f88610a539f3a32d42bed67ad5ef71c22b89d238ce79a5004b623"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:77816131df4004665e8bc1536d0ec1d47b62419f2b556bd4433ac065c8922b08"
   },
   "audio": {
    "deadAirMs": [
@@ -906,8 +906,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:522a0f87384a59930ae3295c6ef3bcf6e041cb6872648cb4558b566083b0b137"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:9cf68caf3d5a3b5660dcf87e4d86789e9ae7b7d2bb4b7d5f35076d8018ed3feb"
   },
   "audio": {
    "deadAirMs": [],
@@ -966,7 +966,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -986,15 +986,15 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "Thanks for your time."
     ],
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [
@@ -1017,9 +1017,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2291,
-   "framesOut": 2291,
-   "audibleOutFrames": 1841,
+   "framesIn": 2066,
+   "framesOut": 2066,
+   "audibleOutFrames": 1616,
    "detectedTurns": 2,
    "scriptedTurns": 2,
    "overSegmented": 0,
@@ -1027,7 +1027,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 0,
    "unheardSentences": 0,
-   "callMs": 45820,
+   "callMs": 41320,
    "endedBecause": "agent_ended",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 0
@@ -1060,7 +1060,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -1080,15 +1080,15 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "Thanks for your time."
     ],
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [
@@ -1111,9 +1111,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2426,
-   "framesOut": 2426,
-   "audibleOutFrames": 1841,
+   "framesIn": 2201,
+   "framesOut": 2201,
+   "audibleOutFrames": 1616,
    "detectedTurns": 2,
    "scriptedTurns": 2,
    "overSegmented": 0,
@@ -1121,7 +1121,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 0,
    "unheardSentences": 0,
-   "callMs": 48520,
+   "callMs": 44020,
    "endedBecause": "agent_ended",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 900
@@ -1148,8 +1148,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [],
@@ -1208,7 +1208,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -1239,15 +1239,15 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "Understood — I've taken you off the call list. Sorry to have bothered you."
     ],
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:86a6bee77fe0717bc04222b9fb873be142080ee906e44c75a3a6ee31cffd8b93",
-   "journal": "sha256:27956619eecc2fed778602d7fbfcbe8c88c95310205a5cd7611064173099159d"
+   "allowedSentences": "sha256:70ffcb56c3641479c477067cee56f30fe1a08bd3ea256a2e36227425a310db42",
+   "journal": "sha256:d36a83a820445a6ec04f722772783cd0711f0466c612e960f1db04cf93dd83ef"
   },
   "audio": {
    "deadAirMs": [
@@ -1270,9 +1270,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2358,
-   "framesOut": 2358,
-   "audibleOutFrames": 1976,
+   "framesIn": 2133,
+   "framesOut": 2133,
+   "audibleOutFrames": 1751,
    "detectedTurns": 2,
    "scriptedTurns": 2,
    "overSegmented": 0,
@@ -1280,7 +1280,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 1,
    "unheardSentences": 0,
-   "callMs": 47160,
+   "callMs": 42660,
    "endedBecause": "timeline_exhausted",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 0
@@ -1313,7 +1313,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -1344,15 +1344,15 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "Understood — I've taken you off the call list. Sorry to have bothered you."
     ],
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:86a6bee77fe0717bc04222b9fb873be142080ee906e44c75a3a6ee31cffd8b93",
-   "journal": "sha256:27956619eecc2fed778602d7fbfcbe8c88c95310205a5cd7611064173099159d"
+   "allowedSentences": "sha256:70ffcb56c3641479c477067cee56f30fe1a08bd3ea256a2e36227425a310db42",
+   "journal": "sha256:d36a83a820445a6ec04f722772783cd0711f0466c612e960f1db04cf93dd83ef"
   },
   "audio": {
    "deadAirMs": [
@@ -1375,9 +1375,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2448,
-   "framesOut": 2448,
-   "audibleOutFrames": 1931,
+   "framesIn": 2223,
+   "framesOut": 2223,
+   "audibleOutFrames": 1706,
    "detectedTurns": 2,
    "scriptedTurns": 2,
    "overSegmented": 0,
@@ -1385,7 +1385,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 1,
    "unheardSentences": 0,
-   "callMs": 48960,
+   "callMs": 44460,
    "endedBecause": "timeline_exhausted",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 900
@@ -1412,8 +1412,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:a871c26a91f6f249d11b0e4b7f6c1438b35b79a472c6b46723bf9a8fa4f1a9c1"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:fa3f8cf3db54bb277b0c8552f6f2803e1bce03271432aaf0a4774531f1e5d134"
   },
   "audio": {
    "deadAirMs": [],
@@ -1472,7 +1472,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -1492,15 +1492,15 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "Thanks for your time."
     ],
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [
@@ -1523,9 +1523,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2046,
-   "framesOut": 2046,
-   "audibleOutFrames": 1841,
+   "framesIn": 1821,
+   "framesOut": 1821,
+   "audibleOutFrames": 1616,
    "detectedTurns": 2,
    "scriptedTurns": 2,
    "overSegmented": 0,
@@ -1533,7 +1533,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 0,
    "unheardSentences": 0,
-   "callMs": 40920,
+   "callMs": 36420,
    "endedBecause": "agent_ended",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 0
@@ -1566,7 +1566,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -1586,15 +1586,15 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "Thanks for your time."
     ],
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [
@@ -1617,9 +1617,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2181,
-   "framesOut": 2181,
-   "audibleOutFrames": 1841,
+   "framesIn": 1956,
+   "framesOut": 1956,
+   "audibleOutFrames": 1616,
    "detectedTurns": 2,
    "scriptedTurns": 2,
    "overSegmented": 0,
@@ -1627,7 +1627,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 0,
    "unheardSentences": 0,
-   "callMs": 43620,
+   "callMs": 39120,
    "endedBecause": "agent_ended",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 900
@@ -1660,7 +1660,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -1672,14 +1672,14 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?"
     ],
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [
@@ -1744,7 +1744,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -1756,14 +1756,14 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?"
     ],
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [
@@ -1828,7 +1828,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -1840,14 +1840,14 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?"
     ],
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [
@@ -1912,7 +1912,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -1924,14 +1924,14 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?"
     ],
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [
@@ -2000,7 +2000,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -2020,15 +2020,15 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "Thanks for your time."
     ],
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [
@@ -2051,9 +2051,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2408,
-   "framesOut": 2408,
-   "audibleOutFrames": 2191,
+   "framesIn": 2183,
+   "framesOut": 2183,
+   "audibleOutFrames": 1966,
    "detectedTurns": 2,
    "scriptedTurns": 2,
    "overSegmented": 0,
@@ -2061,7 +2061,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 0,
    "unheardSentences": 0,
-   "callMs": 48160,
+   "callMs": 43660,
    "endedBecause": "agent_ended",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 0
@@ -2098,7 +2098,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -2118,15 +2118,15 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "Thanks for your time."
     ],
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [
@@ -2149,9 +2149,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2543,
-   "framesOut": 2543,
-   "audibleOutFrames": 2191,
+   "framesIn": 2318,
+   "framesOut": 2318,
+   "audibleOutFrames": 1966,
    "detectedTurns": 2,
    "scriptedTurns": 2,
    "overSegmented": 0,
@@ -2159,7 +2159,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 0,
    "unheardSentences": 0,
-   "callMs": 50860,
+   "callMs": 46360,
    "endedBecause": "agent_ended",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 900
@@ -2186,8 +2186,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [],
@@ -2246,7 +2246,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -2258,14 +2258,14 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?"
     ],
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [
@@ -2330,7 +2330,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -2342,14 +2342,14 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?"
     ],
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [
@@ -2408,8 +2408,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [],
@@ -2468,7 +2468,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -2507,7 +2507,7 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "I've written that down for our team and they'll come back to you by email today.",
      "Thanks for your time."
@@ -2515,8 +2515,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:d5c045376dcb686517fd8c3c866e954ee122a556b9639a6e6d829f93e91f1a44",
-   "journal": "sha256:39a6aaa430513a10ca2e8c77d5cb605dc79d0f82448661d0b864926af357375b"
+   "allowedSentences": "sha256:01fbbed0fca984db7cc863e4d70911f708b3dcc9e3de938aeda99f5749576a0d",
+   "journal": "sha256:d6740f9b30a2729e3b33579b0a42df65e6fe3e5d8fd3127b28a246edce758154"
   },
   "audio": {
    "deadAirMs": [
@@ -2537,7 +2537,7 @@
    "disclosureHeard": true,
    "disclosureReplays": 0,
    "disclosureCutByHangup": false,
-   "clearedFrames": 1441,
+   "clearedFrames": 1216,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
    "framesIn": 1260,
@@ -2583,7 +2583,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -2622,7 +2622,7 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "I've written that down for our team and they'll come back to you by email today.",
      "Thanks for your time."
@@ -2630,8 +2630,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:d5c045376dcb686517fd8c3c866e954ee122a556b9639a6e6d829f93e91f1a44",
-   "journal": "sha256:39a6aaa430513a10ca2e8c77d5cb605dc79d0f82448661d0b864926af357375b"
+   "allowedSentences": "sha256:01fbbed0fca984db7cc863e4d70911f708b3dcc9e3de938aeda99f5749576a0d",
+   "journal": "sha256:d6740f9b30a2729e3b33579b0a42df65e6fe3e5d8fd3127b28a246edce758154"
   },
   "audio": {
    "deadAirMs": [
@@ -2652,7 +2652,7 @@
    "disclosureHeard": true,
    "disclosureReplays": 0,
    "disclosureCutByHangup": false,
-   "clearedFrames": 1441,
+   "clearedFrames": 1216,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
    "framesIn": 1440,
@@ -2692,8 +2692,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [],
@@ -2752,7 +2752,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -2805,7 +2805,7 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "The reservation is for 4 people.",
      "The reservation is for tonight at 7:30.",
@@ -2814,8 +2814,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:82b987b3473ead9fd602850bcbd0ecd7c3ecd3b70bede5d3b6edb5cac835b838",
-   "journal": "sha256:a9264f56afc39a1e9bbdeaba5d3a2f0af1fa76aef15b68e5f1975d6fca2f2029"
+   "allowedSentences": "sha256:424c86367b10e626753ef29f287eb2f2278656be1748b226e4f512ce783b18ff",
+   "journal": "sha256:d61c68072cbc4c178cb4d615bad5496d18a072e5e641a0abdd0bc2c2e285966f"
   },
   "audio": {
    "deadAirMs": [
@@ -2839,9 +2839,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2552,
-   "framesOut": 2552,
-   "audibleOutFrames": 2079,
+   "framesIn": 2327,
+   "framesOut": 2327,
+   "audibleOutFrames": 1854,
    "detectedTurns": 3,
    "scriptedTurns": 3,
    "overSegmented": 0,
@@ -2849,7 +2849,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 1,
    "unheardSentences": 0,
-   "callMs": 51040,
+   "callMs": 46540,
    "endedBecause": "timeline_exhausted",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 0
@@ -2882,7 +2882,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -2935,7 +2935,7 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "The reservation is for 4 people.",
      "The reservation is for tonight at 7:30.",
@@ -2944,8 +2944,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:82b987b3473ead9fd602850bcbd0ecd7c3ecd3b70bede5d3b6edb5cac835b838",
-   "journal": "sha256:a9264f56afc39a1e9bbdeaba5d3a2f0af1fa76aef15b68e5f1975d6fca2f2029"
+   "allowedSentences": "sha256:424c86367b10e626753ef29f287eb2f2278656be1748b226e4f512ce783b18ff",
+   "journal": "sha256:d61c68072cbc4c178cb4d615bad5496d18a072e5e641a0abdd0bc2c2e285966f"
   },
   "audio": {
    "deadAirMs": [
@@ -2969,9 +2969,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2687,
-   "framesOut": 2687,
-   "audibleOutFrames": 2034,
+   "framesIn": 2462,
+   "framesOut": 2462,
+   "audibleOutFrames": 1809,
    "detectedTurns": 3,
    "scriptedTurns": 3,
    "overSegmented": 0,
@@ -2979,7 +2979,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 1,
    "unheardSentences": 0,
-   "callMs": 53740,
+   "callMs": 49240,
    "endedBecause": "timeline_exhausted",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 900
@@ -3006,8 +3006,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [],
@@ -3066,7 +3066,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -3097,15 +3097,15 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "I've written that down for our team and they'll come back to you by email today."
     ],
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d5c045376dcb686517fd8c3c866e954ee122a556b9639a6e6d829f93e91f1a44",
-   "journal": "sha256:989e7545ff75262e016c7503dc1a2ada17de5e67127b9d8ad4a849b5074dca83"
+   "allowedSentences": "sha256:01fbbed0fca984db7cc863e4d70911f708b3dcc9e3de938aeda99f5749576a0d",
+   "journal": "sha256:45fbc42570f03d09cfa0fb2078473a54c1e4ee86818675820f903f5c366436f7"
   },
   "audio": {
    "deadAirMs": [
@@ -3128,9 +3128,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2393,
-   "framesOut": 2393,
-   "audibleOutFrames": 1976,
+   "framesIn": 2168,
+   "framesOut": 2168,
+   "audibleOutFrames": 1751,
    "detectedTurns": 2,
    "scriptedTurns": 2,
    "overSegmented": 0,
@@ -3138,7 +3138,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 1,
    "unheardSentences": 0,
-   "callMs": 47860,
+   "callMs": 43360,
    "endedBecause": "timeline_exhausted",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 0
@@ -3171,7 +3171,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -3202,15 +3202,15 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "I've written that down for our team and they'll come back to you by email today."
     ],
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d5c045376dcb686517fd8c3c866e954ee122a556b9639a6e6d829f93e91f1a44",
-   "journal": "sha256:989e7545ff75262e016c7503dc1a2ada17de5e67127b9d8ad4a849b5074dca83"
+   "allowedSentences": "sha256:01fbbed0fca984db7cc863e4d70911f708b3dcc9e3de938aeda99f5749576a0d",
+   "journal": "sha256:45fbc42570f03d09cfa0fb2078473a54c1e4ee86818675820f903f5c366436f7"
   },
   "audio": {
    "deadAirMs": [
@@ -3233,9 +3233,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2483,
-   "framesOut": 2483,
-   "audibleOutFrames": 1931,
+   "framesIn": 2258,
+   "framesOut": 2258,
+   "audibleOutFrames": 1706,
    "detectedTurns": 2,
    "scriptedTurns": 2,
    "overSegmented": 0,
@@ -3243,7 +3243,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 1,
    "unheardSentences": 0,
-   "callMs": 49660,
+   "callMs": 45160,
    "endedBecause": "timeline_exhausted",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 900
@@ -3270,8 +3270,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [],
@@ -3326,7 +3326,7 @@
      },
      {
       "who": "agent",
-      "text": "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. I'm calling Golden Crane Noodle House about a reservation you have tonight at 7:30, under Dana. They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there. It's a complimentary visit, so please don't bring them a bill. The details are in the email our team sent you — there is nothing you need to do. Thank you."
+      "text": "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. I'm calling Golden Crane Noodle House about a reservation you have tonight at 7:30, under Dana. They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there. The details are in the email our team sent you — there is nothing you need to do. Thank you."
      }
     ],
     "toolCalls": [
@@ -3339,13 +3339,13 @@
     ],
     "spoken": [
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
-     "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. I'm calling Golden Crane Noodle House about a reservation you have tonight at 7:30, under Dana. They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there. It's a complimentary visit, so please don't bring them a bill. The details are in the email our team sent you — there is nothing you need to do. Thank you."
+     "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. I'm calling Golden Crane Noodle House about a reservation you have tonight at 7:30, under Dana. They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there. The details are in the email our team sent you — there is nothing you need to do. Thank you."
     ],
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:adb3ed5fb02559fa1a69bb8db454bb70d9d39127ebf52bedbb3e85b4209d702d"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:e407fafa05db1ef3a3b0df33a1b72f29190c04b2abea3f5ad526f588b9468b80"
   },
   "audio": {
    "deadAirMs": [
@@ -3406,7 +3406,7 @@
      },
      {
       "who": "agent",
-      "text": "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. I'm calling Golden Crane Noodle House about a reservation you have tonight at 7:30, under Dana. They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there. It's a complimentary visit, so please don't bring them a bill. The details are in the email our team sent you — there is nothing you need to do. Thank you."
+      "text": "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. I'm calling Golden Crane Noodle House about a reservation you have tonight at 7:30, under Dana. They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there. The details are in the email our team sent you — there is nothing you need to do. Thank you."
      }
     ],
     "toolCalls": [
@@ -3419,13 +3419,13 @@
     ],
     "spoken": [
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
-     "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. I'm calling Golden Crane Noodle House about a reservation you have tonight at 7:30, under Dana. They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there. It's a complimentary visit, so please don't bring them a bill. The details are in the email our team sent you — there is nothing you need to do. Thank you."
+     "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. I'm calling Golden Crane Noodle House about a reservation you have tonight at 7:30, under Dana. They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there. The details are in the email our team sent you — there is nothing you need to do. Thank you."
     ],
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:adb3ed5fb02559fa1a69bb8db454bb70d9d39127ebf52bedbb3e85b4209d702d"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:e407fafa05db1ef3a3b0df33a1b72f29190c04b2abea3f5ad526f588b9468b80"
   },
   "audio": {
    "deadAirMs": [
@@ -3484,8 +3484,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:bacf0c535212e0066ca35754485d52e5831d3e760c20f4a1e8b92a01c8fa8b0b"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:8fe10fb99aac1c52177d08133ffe921f1462a1e9f192e6c8bc8d469c348aa033"
   },
   "audio": {
    "deadAirMs": [],
@@ -3544,7 +3544,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -3575,15 +3575,15 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "I've passed that to our team and someone will call you back about it today."
     ],
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:66ad3d84f371848e231a800cb2567c7fbd2727925c30290c0999a77d1470232a",
-   "journal": "sha256:7bfcae6f29bf1065c5160c2c9faedaccca8ea437147bc92e15aada70b0c56c51"
+   "allowedSentences": "sha256:f25d4d7b2c6dcc3681f4dc1c47e739b3b1d2ef14d8419b9fbf56cfa5732e8dd7",
+   "journal": "sha256:78f563893e2326a8b2efd783a63482f05ad82b74a98270a989ee72ed7a97b6a6"
   },
   "audio": {
    "deadAirMs": [
@@ -3606,9 +3606,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2420,
-   "framesOut": 2420,
-   "audibleOutFrames": 1976,
+   "framesIn": 2195,
+   "framesOut": 2195,
+   "audibleOutFrames": 1751,
    "detectedTurns": 2,
    "scriptedTurns": 2,
    "overSegmented": 0,
@@ -3616,7 +3616,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 1,
    "unheardSentences": 0,
-   "callMs": 48400,
+   "callMs": 43900,
    "endedBecause": "timeline_exhausted",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 0
@@ -3649,7 +3649,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -3680,15 +3680,15 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "I've passed that to our team and someone will call you back about it today."
     ],
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:66ad3d84f371848e231a800cb2567c7fbd2727925c30290c0999a77d1470232a",
-   "journal": "sha256:7bfcae6f29bf1065c5160c2c9faedaccca8ea437147bc92e15aada70b0c56c51"
+   "allowedSentences": "sha256:f25d4d7b2c6dcc3681f4dc1c47e739b3b1d2ef14d8419b9fbf56cfa5732e8dd7",
+   "journal": "sha256:78f563893e2326a8b2efd783a63482f05ad82b74a98270a989ee72ed7a97b6a6"
   },
   "audio": {
    "deadAirMs": [
@@ -3711,9 +3711,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2510,
-   "framesOut": 2510,
-   "audibleOutFrames": 1931,
+   "framesIn": 2285,
+   "framesOut": 2285,
+   "audibleOutFrames": 1706,
    "detectedTurns": 2,
    "scriptedTurns": 2,
    "overSegmented": 0,
@@ -3721,7 +3721,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 1,
    "unheardSentences": 0,
-   "callMs": 50200,
+   "callMs": 45700,
    "endedBecause": "timeline_exhausted",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 900
@@ -3748,8 +3748,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [],
@@ -3808,7 +3808,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -3847,7 +3847,7 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "I'm not sure what's been arranged for this visit and I don't want to guess — our team will confirm it by email today.",
      "Thanks for your time."
@@ -3855,8 +3855,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:12beeee1388d3107feef1f8877d2718786efb990344c5197a473b9c9a95c3eb2",
-   "journal": "sha256:1eed391f23cb152a390c4ed11776be66a4b778274207d1871f6721777afa2178"
+   "allowedSentences": "sha256:1d1b3b2041f44e040e9283d4e32f63d98c391784d3bd2568d788c628d4abce81",
+   "journal": "sha256:c94662e84670a9eecb03c9a78a0da4913b05af42a96321c7d508a53a874d0ed4"
   },
   "audio": {
    "deadAirMs": [
@@ -3880,9 +3880,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2746,
-   "framesOut": 2746,
-   "audibleOutFrames": 2259,
+   "framesIn": 2521,
+   "framesOut": 2521,
+   "audibleOutFrames": 2034,
    "detectedTurns": 3,
    "scriptedTurns": 3,
    "overSegmented": 0,
@@ -3890,7 +3890,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 0,
    "unheardSentences": 0,
-   "callMs": 54920,
+   "callMs": 50420,
    "endedBecause": "agent_ended",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 0
@@ -3923,7 +3923,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -3962,7 +3962,7 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "I'm not sure what's been arranged for this visit and I don't want to guess — our team will confirm it by email today.",
      "Thanks for your time."
@@ -3970,8 +3970,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:12beeee1388d3107feef1f8877d2718786efb990344c5197a473b9c9a95c3eb2",
-   "journal": "sha256:1eed391f23cb152a390c4ed11776be66a4b778274207d1871f6721777afa2178"
+   "allowedSentences": "sha256:1d1b3b2041f44e040e9283d4e32f63d98c391784d3bd2568d788c628d4abce81",
+   "journal": "sha256:c94662e84670a9eecb03c9a78a0da4913b05af42a96321c7d508a53a874d0ed4"
   },
   "audio": {
    "deadAirMs": [
@@ -3995,9 +3995,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2926,
-   "framesOut": 2926,
-   "audibleOutFrames": 2259,
+   "framesIn": 2701,
+   "framesOut": 2701,
+   "audibleOutFrames": 2034,
    "detectedTurns": 3,
    "scriptedTurns": 3,
    "overSegmented": 0,
@@ -4005,7 +4005,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 0,
    "unheardSentences": 0,
-   "callMs": 58520,
+   "callMs": 54020,
    "endedBecause": "agent_ended",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 900
@@ -4032,8 +4032,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:acc59df959ad8b0e05d1fdab605930312cc98c29651b74ea4ec0566e006d0cbb"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:37795b00dfdb5bd48de1f8ab82271a7413670f8981eb9ef18a8d89319ad3f82c"
   },
   "audio": {
    "deadAirMs": [],
@@ -4092,7 +4092,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -4131,7 +4131,7 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "The brand is covering the meal for two, up to sixty dollars, excluding alcohol.",
      "Thanks for your time."
@@ -4139,8 +4139,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:c9394c3797d93e8156205026d8eb824869a48e86a405255727cd4f566aa9b1f8",
-   "journal": "sha256:003fd703f00d4cb3f0ce6c3762a55c0e0c1a3b409c8d92b7944eb9ba22ad5cdb"
+   "allowedSentences": "sha256:986dad4ba8e5c05e89825886bfdd9f3105e021f433d967f5f30756fb7f454904",
+   "journal": "sha256:ba4f53a8f02727fb86137db087ce0f9119f4be2795c20a84b216c59e26a86858"
   },
   "audio": {
    "deadAirMs": [
@@ -4164,9 +4164,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2525,
-   "framesOut": 2525,
-   "audibleOutFrames": 2124,
+   "framesIn": 2300,
+   "framesOut": 2300,
+   "audibleOutFrames": 1899,
    "detectedTurns": 3,
    "scriptedTurns": 3,
    "overSegmented": 0,
@@ -4174,7 +4174,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 0,
    "unheardSentences": 0,
-   "callMs": 50500,
+   "callMs": 46000,
    "endedBecause": "agent_ended",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 0
@@ -4207,7 +4207,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -4246,7 +4246,7 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "The brand is covering the meal for two, up to sixty dollars, excluding alcohol.",
      "Thanks for your time."
@@ -4254,8 +4254,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:c9394c3797d93e8156205026d8eb824869a48e86a405255727cd4f566aa9b1f8",
-   "journal": "sha256:003fd703f00d4cb3f0ce6c3762a55c0e0c1a3b409c8d92b7944eb9ba22ad5cdb"
+   "allowedSentences": "sha256:986dad4ba8e5c05e89825886bfdd9f3105e021f433d967f5f30756fb7f454904",
+   "journal": "sha256:ba4f53a8f02727fb86137db087ce0f9119f4be2795c20a84b216c59e26a86858"
   },
   "audio": {
    "deadAirMs": [
@@ -4279,9 +4279,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2705,
-   "framesOut": 2705,
-   "audibleOutFrames": 2124,
+   "framesIn": 2480,
+   "framesOut": 2480,
+   "audibleOutFrames": 1899,
    "detectedTurns": 3,
    "scriptedTurns": 3,
    "overSegmented": 0,
@@ -4289,7 +4289,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 0,
    "unheardSentences": 0,
-   "callMs": 54100,
+   "callMs": 49600,
    "endedBecause": "agent_ended",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 900
@@ -4316,8 +4316,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:c2bba6483e6532b0f215536e780e1b0475e39a06c8b84adeba56bf05fb6511ff"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:debc12d60d3415f21d993328ec290d6ec6629091e13d1e458809db6bf9f53c72"
   },
   "audio": {
    "deadAirMs": [],
@@ -4376,7 +4376,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -4407,15 +4407,15 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "Sorry to have bothered you."
     ],
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:d979585811b30051dc9601779671cb7329faccf2488f3c37be98266055ee86e3"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:83717b8e67973403f01990682d49e5b9709d46fd96e40ccf3ab2b318900c5b06"
   },
   "audio": {
    "deadAirMs": [
@@ -4438,9 +4438,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2269,
-   "framesOut": 2269,
-   "audibleOutFrames": 1863,
+   "framesIn": 2044,
+   "framesOut": 2044,
+   "audibleOutFrames": 1638,
    "detectedTurns": 2,
    "scriptedTurns": 2,
    "overSegmented": 0,
@@ -4448,7 +4448,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 0,
    "unheardSentences": 0,
-   "callMs": 45380,
+   "callMs": 40880,
    "endedBecause": "agent_ended",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 0
@@ -4481,7 +4481,7 @@
      },
      {
       "who": "agent",
-      "text": "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
      },
      {
       "who": "agent",
@@ -4512,15 +4512,15 @@
      "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.",
      "I'm calling about a reservation you have tonight at 7:30, under Dana.",
      "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
-     "It's a complimentary visit, so please don't bring them a bill. We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
      "Anything you'd like us to pass along, or any questions?",
      "Sorry to have bothered you."
     ],
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:d979585811b30051dc9601779671cb7329faccf2488f3c37be98266055ee86e3"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:83717b8e67973403f01990682d49e5b9709d46fd96e40ccf3ab2b318900c5b06"
   },
   "audio": {
    "deadAirMs": [
@@ -4543,9 +4543,9 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 2404,
-   "framesOut": 2404,
-   "audibleOutFrames": 1863,
+   "framesIn": 2179,
+   "framesOut": 2179,
+   "audibleOutFrames": 1638,
    "detectedTurns": 2,
    "scriptedTurns": 2,
    "overSegmented": 0,
@@ -4553,7 +4553,7 @@
    "unansweredTurns": 0,
    "cutShortSentences": 0,
    "unheardSentences": 0,
-   "callMs": 48080,
+   "callMs": 43580,
    "endedBecause": "agent_ended",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 900
@@ -4580,8 +4580,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:d07c548821953ce846b3135867e22bedcd63275224df06d66febaf970fba58d7",
-   "journal": "sha256:f9e366f870075af60470cd3bc514cff70b4675b571d57f46aac2c45222ef6204"
+   "allowedSentences": "sha256:f0bbfe020d7b29defea6d80c34e40c25a31f345cc992a019e823b53dea379cce",
+   "journal": "sha256:9fb97915736fda2029769315b95cd5a2b0fed89b5489aedfe4b973898a4bb2d9"
   },
   "audio": {
    "deadAirMs": [],

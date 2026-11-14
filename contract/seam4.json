@@ -16,14 +16,13 @@
   "derived_from": {
     "repo": "creatorainco/platform-backend",
     "ref": "origin/dev",
-    "commit": "dbe6c96de",
-    "read_on": "2026-11-09",
+    "commit": "9db9c705f",
+    "read_on": "2026-11-14",
     "files": [
       "src/infrastructure/routes/reservations.routes.ts",
       "src/infrastructure/controllers/reservations.controller.ts",
       "src/infrastructure/services/venueCall.service.ts",
       "src/helpers/emails/venueOperationsKb.ts",
-      "src/helpers/emails/venueCompLine.ts",
       "src/helpers/location/venueCallScript.ts",
       "src/helpers/location/venueCallToken.ts",
       "src/helpers/location/venueCallRecord.ts",
@@ -105,27 +104,38 @@
     {
       "method": "POST",
       "path": "/reservations/call-event",
-      "when": "during the call, before speaking any deferral",
+      "when": "during the call, before speaking any deferral; and once more as the call ends (call_ended)",
       "request_body": {
         "kind": "one of event_kinds",
         "question_verbatim": "string, max 1000, VERBATIM not a paraphrase - optional",
         "reason": "one of callback_reasons - optional",
-        "answerer": "one of answerer_kinds - optional"
+        "answerer": "one of answerer_kinds - optional",
+        "seq": "call_ended only, required there: integer >= 0, the runtime's report counter",
+        "end_reason": "call_ended only, required there: one of call_ended.end_reasons",
+        "disclosure_heard": "call_ended only, required there: boolean, whether the venue heard the full AI disclosure",
+        "turns": "call_ended only, required there: array of { speaker, text, at_ms? }, see call_ended.turns"
       },
       "response_fields": [
         "recorded",
         "say",
-        "do_not_call"
+        "do_not_call",
+        "replay",
+        "transcript_id"
       ],
-      "note": "asked_to_stop_calling is written SYNCHRONOUSLY before this responds. `say` is empty string for answerer_reported - the agent says nothing, it is a report to us.",
+      "note": "asked_to_stop_calling is written SYNCHRONOUSLY before this responds. `say` is empty string for answerer_reported and for call_ended - the agent says nothing, they are reports to us. `replay` and `transcript_id` appear only on call_ended.",
       "ledger": {
         "key": "attempt_id",
         "note": "ONE ledger row per call. The row in reservation_call_attempts is keyed by call_id = the attempt_id inside the token. The first event of a call writes the row; every later event of the same call folds into it (its note is appended) and the disposition only moves UP disposition_rank, so a late, weaker event can never undo a stop. A re-dial is a new call and MUST carry a token minted with a NEW attempt_id: reuse one and the second call's events fold into the first call's row, and the 3-per-day attempt count never sees it.",
         "disposition_rank": [
+          "dial_requested",
+          "dial_unconfirmed",
+          "unknown_outcome",
+          "ended_unreported",
           "failed",
           "no_answer",
           "busy",
           "left_voicemail",
+          "language_barrier",
           "spoke_to_staff",
           "refused",
           "wrong_number",
@@ -188,7 +198,8 @@
   "event_kinds": [
     "unanswered_question",
     "human_callback",
-    "answerer_reported"
+    "answerer_reported",
+    "call_ended"
   ],
   "callback_reasons": [
     "wants_to_cancel",
@@ -205,13 +216,50 @@
     "voicemail",
     "wrong_number"
   ],
+  "call_ended": {
+    "route": "/reservations/call-event",
+    "end_reasons": [
+      "completed",
+      "venue_hung_up",
+      "max_duration",
+      "silence_timeout",
+      "refused",
+      "stream_error",
+      "shutdown"
+    ],
+    "turns": {
+      "max_items": 200,
+      "max_text_chars": 2000,
+      "speakers": [
+        "agent",
+        "venue"
+      ],
+      "fields": [
+        "speaker",
+        "text",
+        "at_ms"
+      ]
+    },
+    "seq_rule": "The same or an OLDER seq is a no-op: the backend answers { recorded: true, say: '', do_not_call: false, replay: true, transcript_id: null } and writes nothing. A retry of the same report must therefore reuse its seq, and a later, fuller report must carry a higher one.",
+    "note": "Posted by the runtime once per call, from the supervisor's finally. The turns go to reservation_call_transcripts (staff-only, expires 90 days out) and never reach a log line, on either side. Duration and who answered come from the carrier, on the backend's signed /webhooks/twilio/voice-status, not from here."
+  },
+  "twiml": {
+    "decided_by": "C1 (audit-venue-call-agent finish-plan 2026-11-10, option a): ladder D ships with no <Connect action>; the action arrives only with N5.",
+    "dial_response": "<Response><Connect><Stream url=\"wss://<agent host>/stream\"><Parameter name=\"token\" value=\"<venue call token>\"/></Stream></Connect></Response>",
+    "stream_path": "/stream",
+    "parameter_name": "token",
+    "after_connect": "nothing",
+    "connect_action": null,
+    "after_stream_response": "<Response><Hangup/></Response>",
+    "note": "The backend builds this TwiML, not this repo. Nothing follows </Connect>, so when the agent closes the media socket Twilio runs out of TwiML and the call ends: closing the socket IS the hangup. When N5 adds a <Connect action> route for the human handoff, every response from that route that is not a handoff must be exactly after_stream_response, so a non-handoff end still hangs up exactly once. Change connect_action here in the same PR that changes the backend."
+  },
   "tool_names": [
     "lookup_booking_fact",
     "log_unanswered_question",
     "request_human_callback",
     "report_answerer"
   ],
-  "script_version": "venue-precall/v4",
+  "script_version": "venue-precall/v5",
   "known_divergences": [
     {
       "id": "comp-clause",

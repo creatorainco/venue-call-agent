@@ -75,7 +75,7 @@ export interface FixtureExpectations {
     must_not_say_matching?: string[];
     /**
      * Patterns that may appear ONLY inside a sentence the backend supplied on this call, quoted.
-     * For words the backend itself may say (the v4 opening's comp sentence) but the agent must
+     * For words the backend itself may say (an authored comp clause; v4's opening, dropped in v5) but the agent must
      * never say in its own words. Holds a pattern, never the sentence: the backend owns that.
      */
     must_not_improvise_matching?: string[];

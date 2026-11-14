@@ -72,13 +72,45 @@ export const FACT_TOPICS: readonly FactTopic[] = [
     'still_active',
 ];
 
-export type EventKind = 'unanswered_question' | 'human_callback' | 'answerer_reported';
+export type EventKind = 'unanswered_question' | 'human_callback' | 'answerer_reported' | 'call_ended';
 
 export const EVENT_KINDS: readonly EventKind[] = [
     'unanswered_question',
     'human_callback',
     'answerer_reported',
+    'call_ended',
 ];
+
+/** `call_ended` only: how the call ended, as the runtime saw it. The backend's `end_reason`. */
+export type EndReason =
+    | 'completed'
+    | 'venue_hung_up'
+    | 'max_duration'
+    | 'silence_timeout'
+    | 'refused'
+    | 'stream_error'
+    | 'shutdown';
+
+export const END_REASONS: readonly EndReason[] = [
+    'completed',
+    'venue_hung_up',
+    'max_duration',
+    'silence_timeout',
+    'refused',
+    'stream_error',
+    'shutdown',
+];
+
+/** The backend's caps on one `call_ended` report (Joi, swagger): beyond either, the POST is a 400. */
+export const MAX_TURNS = 200;
+export const MAX_TURN_CHARS = 2000;
+
+export interface Turn {
+    speaker: 'agent' | 'venue';
+    text: string;
+    /** Milliseconds from the start of the call, when known. */
+    at_ms?: number | null;
+}
 
 export type CallbackReason =
     | 'wants_to_cancel'
@@ -149,6 +181,17 @@ export interface CallEventInput {
     question_verbatim?: string | null;
     reason?: CallbackReason | null;
     answerer?: AnswererKind | null;
+    /**
+     * `call_ended` only (required there): the report counter. The same or an older `seq` is a no-op
+     * on the backend, so a retry reuses its `seq` and a later, fuller report carries a higher one.
+     */
+    seq?: number;
+    /** `call_ended` only (required there). */
+    end_reason?: EndReason;
+    /** `call_ended` only (required there): whether the venue heard the full AI disclosure. */
+    disclosure_heard?: boolean;
+    /** `call_ended` only (required there). Staff-only on the backend; never logged on either side. */
+    turns?: Turn[];
 }
 
 export interface CallEventResult {
@@ -158,9 +201,13 @@ export interface CallEventResult {
      *
      * 🔴 THE AGENT MAY NOT SPEAK A DEFERRAL BEFORE THIS RETURNS. The promise "someone will follow
      * up" is only true once the row exists, because the row IS the queue. Empty string for
-     * `answerer_reported` — nothing is said to the venue on that one.
+     * `answerer_reported` and `call_ended` — nothing is said to the venue on either.
      */
     say: string;
     /** True when this call suppressed further attempts, synchronously, mid-call. */
     do_not_call: boolean;
+    /** `call_ended` only: true when this `seq` was already on record, so nothing was written. */
+    replay?: boolean;
+    /** `call_ended` only: the transcript row the ledger now points at. */
+    transcript_id?: string | null;
 }

@@ -43,6 +43,8 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
+import { END_REASONS, EVENT_KINDS, MAX_TURN_CHARS, MAX_TURNS } from '../seam/types.ts';
+
 const FIXTURES = JSON.parse(
     readFileSync(fileURLToPath(new URL('./fixtures/scenarios.json', import.meta.url)), 'utf8'),
 ) as MockFixtures;
@@ -150,8 +152,24 @@ function eventSentence(body: { kind?: string; reason?: string }): string {
     return FIXTURES.event_sentences[keyed] ?? FIXTURES.event_sentences[body.kind ?? ''] ?? '';
 }
 
+/** Why a call_ended body would fail the backend's validation, or null when it would pass. */
+function callEndedProblem(body: Record<string, unknown>): string | null {
+    if (!Number.isInteger(body.seq) || (body.seq as number) < 0) return 'seq must be an integer >= 0';
+    if (!(END_REASONS as readonly string[]).includes(String(body.end_reason))) return `end_reason not in the contract: ${String(body.end_reason)}`;
+    if (typeof body.disclosure_heard !== 'boolean') return 'disclosure_heard must be a boolean';
+    if (!Array.isArray(body.turns)) return 'turns must be an array';
+    if (body.turns.length > MAX_TURNS) return `more than ${MAX_TURNS} turns`;
+    for (const turn of body.turns as Array<Record<string, unknown>>) {
+        if (turn?.speaker !== 'agent' && turn?.speaker !== 'venue') return 'a turn with no agent/venue speaker';
+        if (typeof turn.text !== 'string' || turn.text.length > MAX_TURN_CHARS) return `a turn text that is not a string of <= ${MAX_TURN_CHARS} chars`;
+    }
+    return null;
+}
+
 export async function startMockSeam(options: MockSeamOptions = {}): Promise<MockSeam> {
     const journal: JournalEntry[] = [];
+    /** call_ended: the highest `seq` on record per booking, for the replay rule. */
+    const lastSeq = new Map<string, number>();
     const latency = Math.max(0, options.latencyMs ?? 0);
 
     const server = createServer((req, res) => {
@@ -216,8 +234,25 @@ export async function startMockSeam(options: MockSeamOptions = {}): Promise<Mock
 
         // call-event
         const kind = String(body.kind ?? '');
-        if (!['unanswered_question', 'human_callback', 'answerer_reported'].includes(kind)) {
+        if (!(EVENT_KINDS as readonly string[]).includes(kind)) {
             return send(res, 400, { mock_error: `not an event kind in the contract: ${kind}` });
+        }
+        if (kind === 'call_ended') {
+            // The backend's Joi: all four fields required on call_ended, and the caps on turns. A
+            // malformed report is a 400 there, so it is a 400 here, not a quiet success.
+            const problem = callEndedProblem(body);
+            if (problem) return send(res, 400, { mock_error: `call_ended: ${problem}` });
+            // The same or an older seq is a no-op that writes nothing (the backend's replay rule).
+            const key = parsed.reservationId ?? name;
+            const seq = body.seq as number;
+            const last = lastSeq.get(key);
+            if (last !== undefined && seq <= last) {
+                return ok(res, route, name, body, { recorded: true, say: '', do_not_call: false, replay: true, transcript_id: null });
+            }
+            lastSeq.set(key, seq);
+            return ok(res, route, name, body, {
+                recorded: true, say: '', do_not_call: false, replay: false, transcript_id: `mock-transcript-${key}-${seq}`,
+            });
         }
         const stop = kind === 'human_callback' && body.reason === 'asked_to_stop_calling';
         return ok(res, route, name, body, {

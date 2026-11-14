@@ -35,9 +35,9 @@ fixture is checked into a repository while a real booking is somebody's dinner.
 backend responses live; this one only says what the venue says and what must be true afterwards.
 
 `must_not_say_matching` bans a word outright. `must_not_improvise_matching` is for a word the
-backend itself may say: since `venue-precall/v4` the opening carries the backend's fixed comp
-sentence, so "complimentary" is fine quoted and a hard failure in the agent's own words. It holds a
-pattern, never the sentence; whether the sentence is spoken at all is the backend's call.
+backend itself may say: an authored comp clause (`comp-known`), or, in `venue-precall/v4` only, the
+opening's fixed comp sentence, which v5 dropped. Quoted, the word is fine; in the agent's own words
+it is a hard failure. It holds a pattern, never the sentence; the backend owns that.
 
 ## Two things the format deliberately does not let you do
 
