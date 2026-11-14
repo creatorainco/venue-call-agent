@@ -20,7 +20,8 @@
     "contract:derive": "node scripts/derive-contract.mjs",
     "typecheck": "tsc --noEmit",
     "verify": "npm run check:no-facts && node scripts/doctor.mjs --control && npm run typecheck && npm test",
-    "mint-token": "node scripts/mint-token.mjs"
+    "mint-token": "node scripts/mint-token.mjs",
+    "probe:speech": "node scripts/probe-speech.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
