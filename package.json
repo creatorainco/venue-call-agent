@@ -21,7 +21,8 @@
     "typecheck": "tsc --noEmit",
     "verify": "npm run check:no-facts && node scripts/doctor.mjs --control && npm run typecheck && npm test",
     "mint-token": "node scripts/mint-token.mjs",
-    "probe:speech": "node scripts/probe-speech.mjs"
+    "probe:speech": "node scripts/probe-speech.mjs",
+    "soak:edge": "node src/soak/edge.ts"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
