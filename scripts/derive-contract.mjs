@@ -139,6 +139,12 @@ const orderedMembers = (text, constName) => {
     return out.length ? out : null;
 };
 
+/** `export const NAME = 123;` for each name, as strings in the order given, or null if any is missing. */
+const numberConsts = (text, names) => {
+    const out = names.map((name) => new RegExp(`\\b${name}\\s*(?::[^=]+)?=\\s*([\\d_]+)\\s*;`).exec(text)?.[1]?.replace(/_/g, ''));
+    return out.every((v) => v !== undefined) ? out : null;
+};
+
 const stringConst = (text, name) => {
     const m = new RegExp(`${name}\\s*=\\s*'([^']+)'`).exec(text);
     return m ? m[1] : null;
@@ -290,6 +296,8 @@ const positiveControl = async () => {
         router.post('/thing', handler);
         export interface FakeShape { one: string; two: { nested: string }; three: number; }
         export const FAKE_VERSION = 'v/9';
+        export const FAKE_MAX = 2_000;
+        export const FAKE_MIN: number = 7;
         export const FAKE_SENTENCE =
             'Zip — zap, it\\'s zop.';
         export const FAKE_FACTS: Fact[] = [
@@ -337,6 +345,8 @@ const positiveControl = async () => {
         ['routePaths', routePaths(SAMPLE), ['/thing']],
         ['interfaceFields', interfaceFields(SAMPLE, 'FakeShape'), ['one', 'three', 'two']],
         ['stringConst', [stringConst(SAMPLE, 'FAKE_VERSION')], ['v/9']],
+        ['numberConsts', numberConsts(SAMPLE, ['FAKE_MAX', 'FAKE_MIN']), ['2000', '7']],
+        ['numberConsts (one missing)', numberConsts(SAMPLE, ['FAKE_MAX', 'FAKE_GONE']), null],
         ['orderedMembers', orderedMembers(SAMPLE, 'FAKE_RANK'), ['zeta', 'eta', 'theta']],
         ['constSentence', constSentence(SAMPLE, 'FAKE_SENTENCE'), 'Zip — zap, it\'s zop.'],
         ['factsById', factsById(SAMPLE, 'FAKE_FACTS'), { 'first-one': 'Qux\'s quux, "quoted".', 'second-one': 'Corge.' }],
@@ -460,6 +470,8 @@ const observed = {
     'sentence: what_the_creator_will_do (VENUE_OPERATIONS_FACTS)': wrap(facts?.['what-the-creator-will-do']),
     'sentences: call-event replies, branch by branch (eventSentence)': eventReturns,
     'call-event: a report that says nothing (eventSentence returns \'\')': eventReturns && [String(eventReturns.includes(''))],
+    'call_ended: end reasons, in order (VENUE_CALL_END_REASONS)': orderedMembers(service, 'VENUE_CALL_END_REASONS'),
+    'call_ended: turn caps (VENUE_CALL_MAX_TURNS, VENUE_CALL_MAX_TURN_CHARS)': numberConsts(service, ['VENUE_CALL_MAX_TURNS', 'VENUE_CALL_MAX_TURN_CHARS']),
 };
 
 const ctx = fixtures.default_context;
@@ -483,6 +495,10 @@ const expected = {
     'sentence: what_the_creator_will_do (VENUE_OPERATIONS_FACTS)': [fixtures.default_facts.what_the_creator_will_do.say],
     'sentences: call-event replies, branch by branch (eventSentence)': EVENT_SENTENCE_KEYS.map((k) => fixtures.event_sentences[k] ?? `(no mock key ${k})`),
     'call-event: a report that says nothing (eventSentence returns \'\')': [String(Object.values(fixtures.event_sentences).includes(''))],
+    'call_ended: end reasons, in order (VENUE_CALL_END_REASONS)': contract.call_ended?.end_reasons ?? [],
+    'call_ended: turn caps (VENUE_CALL_MAX_TURNS, VENUE_CALL_MAX_TURN_CHARS)': contract.call_ended
+        ? [String(contract.call_ended.turns.max_items), String(contract.call_ended.turns.max_text_chars)]
+        : [],
 };
 
 function wrap(s) {

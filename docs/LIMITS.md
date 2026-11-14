@@ -47,18 +47,31 @@ number is readable; `npm run contract:derive` is what holds it true.
 
 ---
 
-## 4. Fixed: one call is one ledger row. Three fields are still not recorded
+## 4. Fixed: one call is one ledger row, and the end of a call is reported
 
 The backend writes **one** ledger row per call, keyed by the `attempt_id` inside the token; every
 later event of that call folds into it, and the attempt number counts calls, not events. A re-dial
 must therefore carry a token minted with a **new** `attempt_id` — reuse one and the second call
 folds into the first and the daily attempt count never sees it.
 
-Still not written, because nothing reports them: the **number actually dialled**, the **call's
-duration** and the **consent jurisdiction** the call was placed under. All three are known only
-when a call ends, and the backend has no call-complete route to receive them. The missing endpoint
-is the bug; this repository should not invent a place to keep them. The seam routes also have no
-rate limit of their own yet. **Owner: the backend.**
+The end of a call now has a route. Since backend 9db9c705f (TASK-3753 s4) `call-event` takes a
+fourth kind, `call_ended`, carrying `seq`, `end_reason`, `disclosure_heard` and the `turns`; the
+turns go to a staff-only transcript table that expires 90 days out, and the same or an older `seq`
+is a no-op (`replay: true`). Its shape is `call_ended` in `contract/seam4.json`. The **duration**
+and **who answered** come from the carrier, on the backend's signed `/webhooks/twilio/voice-status`,
+not from this repository. The **number dialled** and the **consent jurisdiction** belong to the
+dial: the backend stamps them when it places the call (a DB CHECK requires both on a live row), so
+nothing here reports them either. What is still open on
+this side: the runtime does not post `call_ended` yet (that is the next step, from the supervisor's
+`finally`), so until it does a live call's ledger row carries no transcript and no `end_reason`.
+
+The seam routes are rate-limited, and the previous version of this page said they were not. All
+three carry the backend's `publicTenantReadRateLimiter`: 120 requests per IP per 15 minutes, then a
+429. One call makes one `call-context`, a handful of `call-fact` and `call-event` posts and one
+`call_ended`, so a single call is nowhere near it; a burst of calls from one egress IP is what
+would reach it, and a 429 reads to the client as `SeamUnavailable` (`HTTP 429`), handled exactly
+like a backend outage. A limiter keyed by attempt rather than by IP is planned on the backend
+(TASK-3753 s5). **Owner: the backend.**
 
 ---
 
@@ -69,12 +82,13 @@ paying?" gets the honest deferral on every call. The mock's default scenario rep
 `comp-known` scenario is the world after the clause exists. `contract/seam4.json` records it under
 `known_divergences` as `comp-clause`.
 
-Since `venue-precall/v4` (backend C-225) the opening's third beat and the voicemail carry ONE fixed
-comp sentence written in the backend, not per campaign. That does not change the above: the
-`comp_terms` answer still defers. The mock copies the sentence verbatim from the backend's builders
-and nothing in `src/` or the fixtures holds it; the fixtures allow the word only inside a backend
-sentence (`must_not_improvise_matching`). Whether that sentence is spoken at all is an open product
-question for the backend, which may drop it in a later script version; re-derive when it does.
+`venue-precall/v4` (backend C-225) put ONE fixed comp sentence, written in the backend, into the
+opening's third beat and the voicemail. `venue-precall/v5` (TASK-3753 C4) dropped it again: the
+third beat is now only "We wanted your team to know ahead of time...", and the opening says nothing
+about who pays. The `comp_terms` answer still defers either way. The mock copies the opening
+verbatim from the backend's builders and nothing in `src/` or the fixtures holds it; the fixtures
+still allow comp words only inside a backend sentence (`must_not_improvise_matching`), which under
+v5 means never, since no backend sentence on the default path carries one.
 
 ⚠️ Do not reach for other prose on the campaign because it is the only text available. A bot
 telling a restaurant its comp is a line of product marketing copy is exactly the fabrication this

@@ -32,7 +32,7 @@ describe('call-context — everything the opening needs', () => {
 
         assert.ok(ctx.disclosure_sentence.length > 0, 'the disclosure must be present');
         assert.equal(ctx.opening_script.length, 4, 'the notice is four beats — a fifth is where a busy person hangs up');
-        assert.equal(ctx.script_version, 'venue-precall/v4');
+        assert.equal(ctx.script_version, 'venue-precall/v5');
         assert.equal(ctx.still_active, true);
         assert.deepEqual(ctx.answerable_topics.length, 8);
     });

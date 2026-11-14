@@ -228,18 +228,22 @@ export function createSeamClient(options: SeamClientOptions): SeamClient {
         if (payload?.recorded !== true) {
             throw new SeamUnavailable('/reservations/call-event', 'the event was not recorded');
         }
-        // CORE-A16: `say` may be empty ONLY for `answerer_reported`, which says nothing to the
-        // venue. Every other kind returns the sentence the agent speaks next (a deferral, a
-        // goodbye), and an empty one there is a silence where a promise should be.
+        // CORE-A16: `say` may be empty ONLY for the two reports, `answerer_reported` and
+        // `call_ended`, which say nothing to the venue. Every other kind returns the sentence the
+        // agent speaks next (a deferral, a goodbye), and an empty one there is a silence where a
+        // promise should be.
         if (typeof payload.say !== 'string') {
             throw new SeamUnavailable('/reservations/call-event', 'an event result with no sentence field');
         }
-        if (input.kind !== 'answerer_reported' && !isSentence(payload.say)) {
+        if (!SILENT_KINDS.has(input.kind) && !isSentence(payload.say)) {
             throw new SeamUnavailable('/reservations/call-event', `empty sentence for ${input.kind}`);
         }
         return payload;
     }
 }
+
+/** The event kinds that are reports to us, not lines for the venue: their `say` is ''. */
+const SILENT_KINDS: ReadonlySet<CallEventInput['kind']> = new Set(['answerer_reported', 'call_ended']);
 
 function isStopCalling(input: CallEventInput): boolean {
     return input.kind === 'human_callback' && input.reason === 'asked_to_stop_calling';

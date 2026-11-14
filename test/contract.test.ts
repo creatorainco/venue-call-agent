@@ -19,10 +19,14 @@ import { fileURLToPath } from 'node:url';
 import {
     ANSWERER_KINDS,
     CALLBACK_REASONS,
+    END_REASONS,
     EVENT_KINDS,
     FACT_TOPICS,
+    MAX_TURN_CHARS,
+    MAX_TURNS,
     SEAM_REFUSAL_REASONS,
 } from '../src/seam/types.ts';
+import { STREAM_PATH } from '../src/server/streamServer.ts';
 import { startMockSeam } from '../src/mock/server.ts';
 import { createSeamClient } from '../src/seam/client.ts';
 
@@ -53,6 +57,107 @@ describe('the snapshot and the types', () => {
         assert.match(contract.derived_from.commit, /^[0-9a-f]{7,40}$/);
         assert.match(contract.derived_from.read_on, /^\d{4}-\d{2}-\d{2}$/);
         assert.ok(contract.derived_from.files.length >= 3);
+    });
+});
+
+describe('call_ended: the end-of-call report the runtime posts (TASK-3753 s4)', () => {
+    const ended = contract.call_ended as {
+        end_reasons: string[];
+        turns: { max_items: number; max_text_chars: number; speakers: string[] };
+    };
+
+    test('call_ended is an event kind in the snapshot and in the types', () => {
+        assert.ok(contract.event_kinds.includes('call_ended'));
+        assert.ok((EVENT_KINDS as readonly string[]).includes('call_ended'));
+    });
+
+    test('the end reasons and the turn caps match the types, in order', () => {
+        assert.deepEqual([...END_REASONS], ended.end_reasons);
+        assert.equal(MAX_TURNS, ended.turns.max_items);
+        assert.equal(MAX_TURN_CHARS, ended.turns.max_text_chars);
+        assert.deepEqual(ended.turns.speakers, ['agent', 'venue']);
+    });
+
+    test('the call-event route lists the call_ended fields, both ways', () => {
+        const route = contract.routes.find((r: { path: string }) => r.path === '/reservations/call-event');
+        for (const field of ['seq', 'end_reason', 'disclosure_heard', 'turns']) {
+            assert.ok(field in route.request_body, `request_body has no ${field}`);
+        }
+        for (const field of ['replay', 'transcript_id']) {
+            assert.ok(route.response_fields.includes(field), `response_fields has no ${field}`);
+        }
+    });
+
+    test('the mock records one report per seq: the same seq again is a replay that writes nothing', async () => {
+        const mock = await startMockSeam({ port: 0 });
+        try {
+            const seam = createSeamClient({ baseUrl: mock.baseUrl, token: 'mock:happy' });
+            const report = { kind: 'call_ended' as const, seq: 1, end_reason: 'completed' as const, disclosure_heard: true, turns: [{ speaker: 'agent' as const, text: 'Hello.' }] };
+            const first = await seam.callEvent(report);
+            assert.equal(first.replay, false);
+            assert.equal(first.say, '');
+            assert.ok(first.transcript_id);
+            const again = await seam.callEvent(report);
+            assert.equal(again.replay, true);
+            assert.equal(again.transcript_id, null);
+            const later = await seam.callEvent({ ...report, seq: 2 });
+            assert.equal(later.replay, false);
+        } finally {
+            await mock.close();
+        }
+    });
+
+    test('the mock refuses a call_ended report the backend would refuse (400, not a quiet success)', async () => {
+        const mock = await startMockSeam({ port: 0 });
+        try {
+            const post = (body: unknown) => fetch(`${mock.baseUrl}/reservations/call-event`, {
+                method: 'POST',
+                headers: { Authorization: 'Bearer mock:happy', 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            }).then((r) => r.status);
+            const good = { kind: 'call_ended', seq: 0, end_reason: 'completed', disclosure_heard: true, turns: [] };
+            assert.equal(await post(good), 200);
+            assert.equal(await post({ ...good, seq: 1, end_reason: 'hung_up' }), 400);
+            assert.equal(await post({ ...good, seq: 2, disclosure_heard: undefined }), 400);
+            assert.equal(await post({ ...good, seq: 3, turns: Array.from({ length: MAX_TURNS + 1 }, () => ({ speaker: 'venue', text: 'x' })) }), 400);
+            assert.equal(await post({ ...good, seq: 4, turns: [{ speaker: 'venue', text: 'x'.repeat(MAX_TURN_CHARS + 1) }] }), 400);
+        } finally {
+            await mock.close();
+        }
+    });
+});
+
+describe('the TwiML the backend answers a dialled call with (C1, pinned)', () => {
+    // The backend builds this, not us; it is pinned here because this repo's hangup depends on it.
+    // Closing the media socket ends the call ONLY because nothing follows </Connect>. A
+    // `<Connect action>` added on the backend without this snapshot changing would turn every
+    // socket close into "run the action URL" and the call would not end where this code thinks.
+    const twiml = contract.twiml as {
+        dial_response: string;
+        stream_path: string;
+        parameter_name: string;
+        after_connect: string;
+        connect_action: string | null;
+        after_stream_response: string;
+    };
+
+    test('ladder D: Connect > Stream > Parameter token, and nothing after </Connect>', () => {
+        assert.match(twiml.dial_response, /^<Response><Connect><Stream url="[^"]+"><Parameter name="token" value="[^"]+"\/><\/Stream><\/Connect><\/Response>$/);
+        assert.equal(twiml.after_connect, 'nothing');
+        assert.equal(twiml.connect_action, null, 'a <Connect action> arrives only with N5; change this with the backend, in one PR');
+        assert.doesNotMatch(twiml.dial_response, /action=/);
+    });
+
+    test('every non-handoff end of the after-stream route is exactly one Hangup', () => {
+        assert.equal(twiml.after_stream_response, '<Response><Hangup/></Response>');
+    });
+
+    test('the stream path and the parameter name are the ones this server and TwilioLeg read', () => {
+        assert.equal(twiml.stream_path, STREAM_PATH);
+        assert.ok(twiml.dial_response.includes(`${STREAM_PATH}"`));
+        assert.equal(twiml.parameter_name, 'token');
+        const leg = readFileSync(fileURLToPath(new URL('../src/carrier/twilioLeg.ts', import.meta.url)), 'utf8');
+        assert.ok(leg.includes(`customParameters?.${twiml.parameter_name}`), 'TwilioLeg no longer reads the pinned parameter');
     });
 });
 

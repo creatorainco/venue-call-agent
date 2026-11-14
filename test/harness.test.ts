@@ -164,15 +164,34 @@ describe('🔴 sabotage — a bad agent must FAIL, or none of the above means an
     }
 
     test('quoted_only flags only the improvised sentence, never the backend\'s own comp sentence', async () => {
-        const replayed = await replay(fixture('who-pays'), ({ seam }) => improvisesComp({ seam }));
-        // The opening the agent quoted must itself carry the word, or this proves nothing about
+        // Until venue-precall/v4 the backend's OPENING carried a comp sentence, and this row quoted
+        // it. v5 (TASK-3753 C4) dropped it, so the backend sentence that carries a comp word is now
+        // the authored clause `comp_terms` returns in `comp-known`. Same proof, other source: the
+        // agent quotes that clause verbatim, then says the same word in its own words.
+        const variant: Fixture = {
+            ...fixture('who-pays'),
+            scenario: 'comp-known',
+            expect: { ...fixture('who-pays').expect, must_say_contains: [], must_not_improvise_matching: ['\\bmeal\\b'] },
+        };
+        const quotesThenImprovises = (deps: { seam: SeamClient }): CallAgent => ({
+            async open() {
+                const c = await deps.seam.callContext();
+                return turn({ say: [c.disclosure_sentence, ...c.opening_script] });
+            },
+            async hear() {
+                const clause = await deps.seam.callFact('comp_terms');
+                return turn({ say: [clause.say, 'So the meal is all sorted for you.'], endCall: true });
+            },
+        });
+        const replayed = await replay(variant, ({ seam }) => quotesThenImprovises({ seam }));
+        // The quoted backend sentence must itself carry the word, or this proves nothing about
         // telling quoted from improvised. Read from the call, never typed here: the backend owns it.
-        const quotedWithWord = replayed.allowedSentences.filter((s) => /\bcomplimentary\b/i.test(s));
-        assert.ok(quotedWithWord.length > 0, 'the backend opening carries no comp word any more; this row tests nothing');
+        const quotedWithWord = replayed.allowedSentences.filter((s) => /\bmeal\b/i.test(s));
+        assert.ok(quotedWithWord.length > 0, 'no backend sentence on this call carries the word; this row tests nothing');
         assert.ok(quotedWithWord.some((s) => replayed.transcript.spoken.includes(s)), 'the agent never quoted the backend comp sentence');
-        const check = score(replayed).checks.find((c) => c.name === 'quoted_only /\\bcomplimentary\\b/');
+        const check = score(replayed).checks.find((c) => c.name === 'quoted_only /\\bmeal\\b/');
         assert.ok(check && !check.passed);
-        assert.equal(check.detail, 'in the agent\'s own words: "No need to worry about that, the meal is complimentary."');
+        assert.equal(check.detail, 'in the agent\'s own words: "So the meal is all sorted for you."');
     });
 
     test('the fabrication checker can catch a planted invention', () => {
