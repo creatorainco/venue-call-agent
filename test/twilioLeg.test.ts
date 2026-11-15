@@ -97,7 +97,7 @@ describe('TwilioLeg: start and the token', () => {
             r.twilio.start({ customParameters });
             assert.equal(r.starts.length, 0, JSON.stringify(customParameters));
             assert.deepEqual(r.hangups, ['transport_failed']);
-            assert.deepEqual(r.closes, [1000]);
+            assert.deepEqual(r.closes, [1008], 'a leg that never went live closes as refused');
         }
     });
 
@@ -126,7 +126,7 @@ describe('TwilioLeg: start and the token', () => {
             const r = rig();
             plant(r);
             assert.deepEqual(r.hangups, ['transport_failed']);
-            assert.deepEqual(r.closes, [1000]);
+            assert.deepEqual(r.closes, [1008], 'a leg that never went live closes as refused');
         }
     });
 });
