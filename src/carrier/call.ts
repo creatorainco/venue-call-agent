@@ -50,6 +50,14 @@ import { CallSupervisor } from './supervisor.ts';
 import type { DisclosureRecord } from './outputGate.ts';
 import { canTransition } from '../state.ts';
 import type { CallState } from '../state.ts';
+import { CascadeBridge } from './cascadeBridge.ts';
+import type { CallerTurn } from './bridge.ts';
+import type { CallAgent } from '../agent/contract.ts';
+import { FIXED_PHRASES } from '../agent/phrases.ts';
+import type { CallContext, Turn } from '../seam/types.ts';
+import type { SpeechStreamFactory } from '../speech/stt.ts';
+import type { Tts } from '../speech/tts.ts';
+import type { CallEndedSink, CapTimer } from './supervisor.ts';
 
 export interface AudioCallOptions {
     /** Turn detection. Defaults to the pinned block in src/tuning/liveDefaults.ts. */
@@ -505,6 +513,178 @@ export async function audioCall(
     } finally {
         await mock.close();
     }
+}
+
+/**
+ * A LIVE CALL: the fixture-free loop beside `audioCall`, over a real leg (I3P-01).
+ *
+ * Same shape as `audioCall` and the same guarantees, with nothing scripted in it: the agent is the
+ * cascade, the bridge is `CascadeBridge` (recogniser in, synthesis out), and time is the wall
+ * clock. Every outbound frame goes through `OutputGate`, so nothing plays before the disclosure
+ * and the disclosure cannot be talked over; every way out goes through `CallSupervisor`, so the
+ * line is hung up exactly once and one `call_ended` is posted.
+ *
+ * 🔴 THE FIRST SENTENCE IS THE DISCLOSURE OR NOTHING IS SAID. `CallAgent.open()` must begin with
+ * the context's `disclosure_sentence`. A first sentence that is anything else is a bug: the call
+ * ends as `internal_error` with zero audio rather than speak to somebody who was not told.
+ *
+ * 🔴 NOTHING HERE COMPOSES A WORD. Every sentence spoken is a string the agent returned, and the
+ * agent returns only backend strings and the four fixed phrases (`src/agent/cascadeAgent.ts`).
+ *
+ * Synthesis is warmed at call start: the disclosure is awaited (it is the first thing heard), the
+ * opening, the voicemail script and the fixed phrases render in the background (I3P-05). The
+ * recogniser stream opens at call start too (I3P-08), so neither handshake sits in a turn.
+ */
+export interface LiveCallOptions {
+    /** The answered leg. `TwilioLeg` on the runtime, a fake one in the tests. */
+    leg: CallLeg & { readonly elapsedMs: number; readonly ended: boolean };
+    agent: CallAgent;
+    tts: Pick<Tts, 'synthesize' | 'prerender'>;
+    speech: SpeechStreamFactory;
+    /** The context the backend returned when it accepted the call. */
+    context: CallContext;
+    /** Where the one `call_ended` goes: the call's seam client. */
+    report?: CallEndedSink;
+    log?: (line: string) => void;
+    shutdown?: AbortSignal;
+    vad?: VadSettings;
+    maxCallMs?: number;
+    /** The armed cap. Defaults to the supervisor's wall timer; a test may pass null. */
+    capTimer?: CapTimer | null;
+}
+
+export interface LiveCallResult {
+    /** Every sentence handed to synthesis, in order. */
+    synthesised: string[];
+    /** What the `call_ended` report carried. */
+    turns: Turn[];
+    disclosure: DisclosureRecord;
+    hungUpWith: HangupReason | null;
+    failed: boolean;
+}
+
+export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult> {
+    const { leg, agent, tts, context } = options;
+    const vad = options.vad ?? VAD;
+    const log = options.log ?? ((line: string) => { process.stderr.write(`${line}\n`); });
+    const gate = new OutputGate(leg, { isSpeech: (frame) => isSpeechFrame(frame, vad), log });
+    const turns: Turn[] = [];
+    const supervisor = new CallSupervisor(gate, {
+        clock: () => leg.elapsedMs,
+        log,
+        ...(options.maxCallMs === undefined ? {} : { maxCallMs: options.maxCallMs }),
+        ...(options.capTimer === undefined ? {} : { capTimer: options.capTimer }),
+        ...(options.report ? { report: options.report } : {}),
+        ...(options.shutdown ? { shutdown: options.shutdown } : {}),
+        record: () => ({ turns, disclosureHeard: gate.disclosure().heard }),
+    });
+    gate.connect();
+
+    const bridge = new CascadeBridge(gate, { tts, speech: options.speech, vad });
+    const heard: CallerTurn[] = [];
+    let failure: Error | null = null;
+    let wake: (() => void) | null = null;
+    const poke = (): void => { const w = wake; wake = null; w?.(); };
+    bridge.on('callerTurn', (turn) => { heard.push(turn); poke(); });
+    bridge.on('error', (error) => { failure ??= error; poke(); });
+    gate.on('hangup', () => poke());
+    gate.on('inbound', (frame) => { bridge.sendAudio(frame); });
+    bridge.start();
+
+    // Warm synthesis for everything this call may say. Only the disclosure is waited for.
+    const later = [...context.opening_script, context.voicemail_script, ...FIXED_PHRASES]
+        .filter((text) => typeof text === 'string' && text.trim() !== '');
+    tts.prerender(later).catch((error: unknown) => {
+        log(`live-call ${leg.id} prerender_failed ${error instanceof Error ? error.name : typeof error}`);
+    });
+
+    const speeches: Array<Promise<SpokenResult>> = [];
+    let sentenceSeq = 0;
+    const nextId = (): string => { sentenceSeq += 1; return `s${sentenceSeq}`; };
+    const keep = (spoken: Promise<SpokenResult>): void => {
+        speeches.push(spoken.catch((error: unknown) => {
+            failure ??= error instanceof Error ? error : new Error('speak rejected');
+            poke();
+            return { sentences: [], complete: false };
+        }));
+    };
+    const said = (text: string): void => { turns.push({ speaker: 'agent', text, at_ms: Math.round(leg.elapsedMs) }); };
+
+    const guard = async (run: () => Promise<AgentTurn>): Promise<AgentTurn | null> => {
+        try {
+            return await run();
+        } catch (error) {
+            if (error instanceof SeamRefusal || error instanceof SeamUnavailable) {
+                log(`live-call ${leg.id} ${error instanceof SeamRefusal ? 'seam_refused' : 'seam_unavailable'}`);
+                supervisor.stop('seam_stopped');
+                return null;
+            }
+            throw error;
+        }
+    };
+
+    await supervisor.run(async (signal) => {
+        signal.addEventListener('abort', poke, { once: true });
+        const throwIfFailed = (): void => { if (failure !== null) throw failure; };
+
+        const opened = await guard(() => agent.open());
+        if (opened === null || leg.ended || signal.aborted) return;
+        // A recogniser that died while open() ran ends the call before it says anything.
+        throwIfFailed();
+        const [first, ...rest] = opened.say;
+        if (first !== context.disclosure_sentence) {
+            throw new Error('open() did not begin with the disclosure sentence the backend supplied');
+        }
+        keep(bridge.speakDisclosure({ id: nextId(), text: first }));
+        said(first);
+        if (rest.length) {
+            keep(bridge.speak(rest.map((text) => ({ id: nextId(), text }))));
+            rest.forEach(said);
+        }
+
+        while (true) {
+            if (failure === null && heard.length === 0 && !leg.ended && !signal.aborted) {
+                await new Promise<void>((resolve) => { wake = resolve; });
+            }
+            throwIfFailed();
+            if (leg.ended || signal.aborted) return;
+            const caller = heard.shift();
+            if (caller === undefined) continue;
+            turns.push({ speaker: 'venue', text: caller.text, at_ms: Math.round(leg.elapsedMs) });
+            const turn = await guard(() => agent.hear(caller.text));
+            if (turn === null) return;
+            throwIfFailed();
+            if (leg.ended || signal.aborted) return;
+            if (gate.state !== 'connected') {
+                const next = nextState(gate.state, turn);
+                if (next !== gate.state) gate.enter(next);
+            }
+            if (turn.say.length > 0) {
+                keep(bridge.speak(turn.say.map((text) => ({ id: nextId(), text }))));
+                turn.say.forEach(said);
+            }
+            if (turn.endCall) {
+                // Let the last sentence play out before hanging up; the cap and a drain still win.
+                const aborted = new Promise<void>((resolve) => {
+                    if (signal.aborted) resolve();
+                    else signal.addEventListener('abort', () => resolve(), { once: true });
+                });
+                await Promise.race([Promise.all(speeches), aborted]);
+                throwIfFailed();
+                if (!signal.aborted) await supervisor.hangup('agent_ended');
+                return;
+            }
+        }
+    });
+    await bridge.hangup();
+
+    return {
+        synthesised: [...bridge.synthesised],
+        turns,
+        disclosure: gate.disclosure(),
+        hungUpWith: supervisor.hungUpWith,
+        failed: supervisor.failed,
+    };
 }
 
 export function measure(

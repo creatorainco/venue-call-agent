@@ -13,3 +13,6 @@ export const ASK_FOR_STAFF = 'Could you connect me with a member of staff?';
 export const SORRY_WRONG_NUMBER = 'Sorry to have bothered you.';
 export const CLOSE_AFTER_ANSWERS = "That's everything — the details are in the email. Thanks for your time.";
 export const CLOSE_THANKS = 'Thanks for your time.';
+
+/** All four, for pre-rendering: synthesised once per process, never composed. */
+export const FIXED_PHRASES: readonly string[] = [ASK_FOR_STAFF, SORRY_WRONG_NUMBER, CLOSE_AFTER_ANSWERS, CLOSE_THANKS];

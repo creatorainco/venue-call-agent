@@ -104,6 +104,16 @@ export class StreamingStt {
         this.#rolloverMs = options.rolloverMs ?? STT.rolloverMs;
     }
 
+    /**
+     * Open the recognition stream now, at call start, rather than on the first batch (I3P-08): the
+     * gRPC handshake and the config message are paid while the disclosure plays, so the first
+     * thing the restaurant says never waits on them. Idempotent; a no-op once closed.
+     */
+    start(): void {
+        if (this.#closed || this.#stream) return;
+        this.#open();
+    }
+
     /** One carrier frame from the restaurant. */
     push(frame: Uint8Array): void {
         if (this.#closed) return;
