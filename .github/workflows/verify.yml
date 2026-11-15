@@ -30,6 +30,9 @@ on:
   push:
     branches: [main, dev]
   workflow_dispatch:
+  # deploy-main.yml calls this as a job its deploy `needs`, so production deploys only a commit this
+  # gate passed, whatever branch protection allowed (enforce_admins is off).
+  workflow_call:
 
 jobs:
   verify:
@@ -64,6 +67,22 @@ jobs:
       # answer depends on the machine, which is not something CI can assert.
       - name: the environment doctor can still see illness
         run: node scripts/doctor.mjs --control
+
+      # The workflow files themselves, linted: expressions, `needs:` and `uses:` wiring, reusable
+      # workflow inputs, and every `run:` script through shellcheck (on the hosted runner's PATH).
+      # The binary is a pinned release checked against its published SHA-256, so a moved tag or a
+      # swapped asset fails here instead of running. Bump both lines together.
+      - name: workflow lint (actionlint)
+        env:
+          ACTIONLINT_VERSION: 1.7.7
+          ACTIONLINT_SHA256: 023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757
+        run: |
+          tarball="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/$tarball"
+          curl -sSfL -o "$RUNNER_TEMP/$tarball" "$url"
+          echo "${ACTIONLINT_SHA256}  $RUNNER_TEMP/$tarball" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:

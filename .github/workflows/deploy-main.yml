@@ -1,0 +1,83 @@
+# The production deploy of venue-call-agent (venue-call plan it-09; Peter's infra yes, 2026-11-15:
+# a prod Cloud Run service, deploy-on-main, keyless federation, dark until Arm).
+#
+# A push to `main` (the dev -> main promote) first runs `verify` on that exact commit, here, as a
+# job this deploy `needs`; only a green verify starts the one Cloud Build run from
+# cloudbuild-prod.yaml. Branch protection alone is not that gate: `enforce_admins` is off
+# (verify.yml), so an owner can merge past a red check, and a deploy started beside verify would
+# ship anyway.
+#
+# No key: GitHub's OIDC token is exchanged through the `github-ci` pool as the prod dispatch
+# account ci-dispatch-vca-prod@, whose only federated member is THIS workflow file on
+# `refs/heads/main` (the `workflow_ref` attribute, mapped from the token's `job_workflow_ref`;
+# docs/DEPLOY.md 7.2 step 5). A `dev` push, a pull request, or any other workflow on `main` cannot
+# act as it. That account can start a build, read build status, and name venue-call-build-prod@ on
+# it. Nothing else.
+#
+# Until the release (it-14) creates those identities and admits `refs/heads/main` on the provider
+# (docs/DEPLOY.md section 7), this workflow fails at the federation step and deploys nothing.
+#
+# 🔴 A DEPLOYED SERVICE IS NOT A DIALLING SERVICE. This places no call and turns nothing on.
+#
+# Every third-party action is pinned to a full commit SHA, the release in a trailing comment
+# (VCA-SEC-4 / TEST-T7); Dependabot proposes the bumps.
+
+name: deploy-main
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+# One deploy at a time, and a newer push never cancels a deploy that is already rolling out.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  # The same gate a pull request passes, run again on the commit being deployed. A local reusable
+  # workflow is read from this same commit, so it needs no SHA pin. `secrets: inherit` hands it the
+  # venue-name list its first step checks; it gets no token write and no federation.
+  verify:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/verify.yml
+    secrets: inherit
+
+  deploy:
+    needs: verify
+    # A manual run from any other branch would be refused by the federation anyway; say so here first.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      # Only cloudbuild-prod.yaml is read from the checkout; the build fetches the commit itself.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: projects/204616170539/locations/global/workloadIdentityPools/github-ci/providers/creatorainco
+          service_account: ci-dispatch-vca-prod@creatorain-27e9e.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      # --suppress-logs: the dispatch account cannot read Cloud Logging, so gcloud polls the build's
+      # status instead of tailing its log, and exits non-zero when the build fails. The step log
+      # carries the console link to the full build log.
+      - name: build, push and deploy venue-call-agent
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          gcloud builds submit --no-source \
+            --config=cloudbuild-prod.yaml \
+            --project=creatorain-27e9e \
+            --region=us-central1 \
+            --substitutions="_COMMIT_SHA=${SHA}" \
+            --suppress-logs
