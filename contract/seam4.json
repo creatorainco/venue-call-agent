@@ -238,7 +238,22 @@
         "speaker",
         "text",
         "at_ms"
-      ]
+      ],
+      "stage_fields": [
+        "venue_end_ms",
+        "stt_final_ms",
+        "intent_ms",
+        "intent_source",
+        "seam_ms",
+        "tts_first_byte_ms",
+        "first_frame_out_ms"
+      ],
+      "intent_sources": [
+        "keyword",
+        "model",
+        "fallback"
+      ],
+      "stage_fields_note": "Optional, agent side (I3P-03). Points on the call clock in ms from call start: venue_end_ms, stt_final_ms, tts_first_byte_ms, first_frame_out_ms. Durations in ms: intent_ms, seam_ms; intent_source says which stage decided. A venue turn carries venue_end_ms and stt_final_ms; the first agent sentence of a reply carries the rest. NOT POSTED: the backend's Joi for turns lists only `fields` and refuses any other key, so the runtime posts `fields` and writes the stage timings to a `turn_timing` log line (numbers and the source word, never text) until the backend accepts them. See known_divergences turn-stage-timings."
     },
     "seq_rule": "The same or an OLDER seq is a no-op: the backend answers { recorded: true, say: '', do_not_call: false, replay: true, transcript_id: null } and writes nothing. A retry of the same report must therefore reuse its seq, and a later, fuller report must carry a higher one.",
     "note": "Posted by the runtime once per call, from the supervisor's finally. The turns go to reservation_call_transcripts (staff-only, expires 90 days out) and never reach a log line, on either side. Duration and who answered come from the carrier, on the backend's signed /webhooks/twilio/voice-status, not from here."
@@ -266,6 +281,12 @@
       "what": "comp_terms has no authored clause to return on the deployed backend yet, so it always returns the honest refusal.",
       "mock_default": "Scenario `happy` reproduces today: comp_terms refuses with reason not_agreed. Scenario `comp-known` returns an authored clause, which is what the comp-clause backend change delivers.",
       "why": "Both branches must be exercised. Today's is the one deployed; tomorrow's is the one being built."
+    },
+    {
+      "id": "turn-stage-timings",
+      "what": "The backend accepts speaker, text and at_ms on a call_ended turn and refuses any other key (Joi.object with no unknown()), so the seven optional stage timings cannot be posted yet.",
+      "mock_default": "The mock refuses an unknown turn key with a 400, as the backend does. The runtime posts call_ended.turns.fields only and logs the stage timings as turn_timing lines.",
+      "why": "Per-turn latency on admin needs the backend to accept and store these fields (I3P-03, the platform-backend half). Until it does, posting them would lose the whole transcript to a 400."
     }
   ]
 }

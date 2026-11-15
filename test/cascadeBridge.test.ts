@@ -192,6 +192,34 @@ describe('🔴 a live session on a fake leg', () => {
         assert.deepEqual(result.turns.filter((t) => t.speaker === 'venue').map((t) => t.text), CALLER);
     });
 
+    it('stamps the stage timings (I3P-03): venue turns when heard, each reply first sentence when decided and sounded', async () => {
+        const { result, log } = await runLive();
+        const venue = result.turns.filter((t) => t.speaker === 'venue');
+        assert.equal(venue.length, CALLER.length);
+        for (const t of venue) {
+            assert.equal(typeof t.venue_end_ms, 'number');
+            assert.equal(typeof t.stt_final_ms, 'number');
+            assert.ok(t.stt_final_ms! >= t.venue_end_ms!, 'the final came before the speech ended');
+        }
+        // The disclosure was sounded, so it carries the synthesis points but no intent.
+        const disclosure = result.turns[0]!;
+        assert.equal(typeof disclosure.first_frame_out_ms, 'number');
+        assert.ok(disclosure.first_frame_out_ms! >= disclosure.tts_first_byte_ms!);
+        assert.equal(disclosure.intent_ms, undefined);
+        // Every agent turn right after a venue turn is a reply's first sentence: timed and sourced.
+        const replies = result.turns.filter((t, i) => t.speaker === 'agent' && result.turns[i - 1]?.speaker === 'venue');
+        assert.ok(replies.length >= 2, 'the call did not get going');
+        for (const r of replies) {
+            assert.equal(r.intent_source, 'keyword');
+            assert.ok(r.intent_ms! >= 0 && r.seam_ms! >= 0);
+            assert.equal(typeof r.first_frame_out_ms, 'number');
+        }
+        // And the report logged them without a word of the transcript.
+        const timing = log.filter((l) => l.includes(' turn_timing '));
+        assert.ok(timing.length >= venue.length + replies.length);
+        for (const line of timing) for (const said of [...CALLER, ...result.synthesised]) assert.ok(!line.includes(said));
+    });
+
     it('opens the recognition stream at call start, before any audio (I3P-08)', async () => {
         const { speech, streamsAtStart } = await runLive();
         assert.equal(streamsAtStart, 1);

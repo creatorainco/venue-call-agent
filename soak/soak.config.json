@@ -1,0 +1,21 @@
+{
+  "$comment": "Every threshold of the loopback soak (TASK-3749 step 1: thresholds live in the harness config, not in code). Read by scripts/soak-corpus.mjs.",
+  "gate": {
+    "p50FirstAudioMs": 2000,
+    "p90FirstAudioMs": 4000,
+    "stretchP90FirstAudioMs": 2500,
+    "coldStartMs": 1000
+  },
+  "venue": {
+    "replyWaitMs": 8000,
+    "quietMs": 1500,
+    "endWaitMs": 6000
+  },
+  "disclosure": {
+    "minWordRecall": 0.8
+  },
+  "dev": {
+    "coldProbes": 1,
+    "warmProbes": 4
+  }
+}

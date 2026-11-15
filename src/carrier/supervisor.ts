@@ -49,7 +49,7 @@
 
 import type { CallLegEvents, HangupReason } from './leg.ts';
 import { MAX_CALL_SECONDS, SEAM_TIMEOUT_MS } from '../tuning/liveDefaults.ts';
-import { MAX_TURN_CHARS, MAX_TURNS } from '../seam/types.ts';
+import { MAX_TURN_CHARS, MAX_TURNS, stageTimings, wireTurn } from '../seam/types.ts';
 import type { CallEventInput, EndReason, Turn } from '../seam/types.ts';
 
 /** What the supervisor needs of a leg. `OutputGate` and every `CallLeg` both qualify. */
@@ -270,12 +270,15 @@ export class CallSupervisor {
             seq: CALL_ENDED_SEQ,
             end_reason: endReasonFor(this.sent ?? 'internal_error', this.shutDown),
             disclosure_heard: record.disclosureHeard === true,
-            // Within the backend's caps, so an over-long call is a trimmed report, not a 400.
+            // Within the backend's caps, so an over-long call is a trimmed report, not a 400. Only
+            // the wire fields: the backend refuses any other key on a turn (seam/types.ts
+            // `TurnStageTimings`), so the stage timings go to the log below, never the POST.
             turns: record.turns.slice(0, MAX_TURNS).map((turn) => ({
-                ...turn,
+                ...wireTurn(turn),
                 text: turn.text.slice(0, MAX_TURN_CHARS),
             })),
         };
+        this.logStageTimings(record.turns);
         let timer: NodeJS.Timeout | undefined;
         const timeout = new Promise<'timeout'>((resolve) => {
             // Not unref'd: this timer may be the only thing keeping the loop alive while a seam
@@ -291,6 +294,19 @@ export class CallSupervisor {
         } finally {
             clearTimeout(timer);
         }
+    }
+
+    /**
+     * One `turn_timing` line per timed turn (I3P-03): the turn's index, its speaker and the stage
+     * numbers, and the intent source word. Never the text: a transcript never reaches a log line.
+     */
+    private logStageTimings(turns: readonly Turn[]): void {
+        turns.forEach((turn, i) => {
+            const timings = stageTimings(turn);
+            if (timings === null) return;
+            const fields = Object.entries(timings).map(([k, v]) => `${k}=${String(v)}`).join(' ');
+            this.log(`call-supervisor ${this.target.id} turn_timing i=${i} speaker=${turn.speaker} ${fields}`);
+        });
     }
 
     /** Why the call ended, for the finally. Said by the body, else the leg's own end. */

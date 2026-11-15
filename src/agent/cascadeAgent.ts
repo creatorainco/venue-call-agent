@@ -32,11 +32,14 @@ export interface CascadeAgentDeps {
      * agent speaks from it rather than asking the backend a second time before the first word.
      */
     context?: CallContext;
+    /** Milliseconds, monotonic. Injected so the stage timings are testable. */
+    clock?: () => number;
 }
 
 export function createCascadeAgent(deps: CascadeAgentDeps): CallAgent {
     const { seam, intents } = deps;
     const log = deps.log ?? (() => {});
+    const clock = deps.clock ?? (() => performance.now());
 
     let context: CallContext | null = null;
     let noticeDelivered = false;
@@ -63,85 +66,100 @@ export function createCascadeAgent(deps: CascadeAgentDeps): CallAgent {
 
         async hear(utterance: string): Promise<AgentTurn> {
             if (!context) throw new Error('hear() before open() — there is no context to speak from');
+            const started = clock();
             const { intent, source } = await intents.classify(utterance);
+            const decided = clock();
             log(`intent ${intent} (${source})`);
-
-            // ── 1. STOP. Before anything else. ─────────────────────────────────────────────
-            if (intent === 'stop_calling') {
-                const result = await seam.callEvent({ kind: 'human_callback', reason: 'asked_to_stop_calling' });
-                const call: ToolCall = { name: 'request_human_callback', args: { reason: 'asked_to_stop_calling' } };
-                return turn({ toolCalls: [call], say: [result.say], endCall: true });
-            }
-
-            const machine = intent === 'voicemail' || intent === 'menu';
-
-            // ── 2. A machine. The notice is never read to one. ──────────────────────────────
-            if (!answererReported && machine) {
-                answererReported = true;
-                const answerer = intent === 'voicemail' ? 'voicemail' as const : 'phone_menu' as const;
-                await seam.callEvent({ kind: 'answerer_reported', answerer });
-                const call: ToolCall = { name: 'report_answerer', args: { answerer } };
-                if (answerer === 'voicemail') {
-                    return turn({ toolCalls: [call], say: [context.voicemail_script], endCall: true });
-                }
-                staffAttempts++;
-                return turn({ toolCalls: [call], say: [ASK_FOR_STAFF] });
-            }
-
-            if (intent === 'wrong_number') {
-                await seam.callEvent({ kind: 'answerer_reported', answerer: 'wrong_number' });
-                return turn({
-                    toolCalls: [{ name: 'report_answerer', args: { answerer: 'wrong_number' } }],
-                    say: [SORRY_WRONG_NUMBER],
-                    endCall: true,
-                });
-            }
-
-            if (answererReported && !noticeDelivered && machine) {
-                staffAttempts++;
-                if (staffAttempts >= 2) {
-                    return turn({ say: [context.voicemail_script], endCall: true, note: 'two attempts, no person' });
-                }
-                return turn({ say: [ASK_FOR_STAFF] });
-            }
-
-            // ── 3. A person. Deliver the notice, once. ─────────────────────────────────────
-            if (!noticeDelivered) {
-                noticeDelivered = true;
-                return turn({ say: [...context.opening_script] });
-            }
-
-            // ── 4. They want the booking changed, or a person to ring back. ────────────────
-            if (intent === 'callback_request') {
-                const reason = /cancel/i.test(utterance)
-                    ? 'wants_to_cancel' as const
-                    : source === 'keyword' ? 'wants_to_change_time' as const : 'other' as const;
-                const result = await seam.callEvent({ kind: 'human_callback', reason });
-                return turn({ toolCalls: [{ name: 'request_human_callback', args: { reason } }], say: [result.say] });
-            }
-
-            // ── 5. A question from the closed set. "Is this a robot?" is answered by who we are,
-            //       from the backend, on top of the disclosure they already heard. ─────────────
-            const topic = intent === 'is_this_ai' ? 'who_we_are' as const : topicOf(intent);
-            if (topic) {
-                const answer = await seam.callFact(topic);
-                questionsAnswered++;
-                const closing = questionsAnswered >= 2;
-                return turn({
-                    toolCalls: [{ name: 'lookup_booking_fact', args: { topic } }],
-                    say: closing ? [answer.say, CLOSE_AFTER_ANSWERS] : [answer.say],
-                    endCall: closing,
-                });
-            }
-
-            // ── 6. They are done, or asked us to wait. ─────────────────────────────────────
-            if (intent === 'confirm' || intent === 'decline') {
-                return turn({ say: [CLOSE_THANKS], endCall: true });
-            }
-            if (intent === 'hold') return turn({ note: 'asked to hold; listening' });
-
-            // ── 7. Anything else: log the question verbatim, THEN speak the deferral. ──────
-            return logUnanswered(utterance);
+            const reply = await decide(context, utterance, intent, source);
+            // The stage timings (I3P-03): the classifier, then the backend calls that followed it.
+            return {
+                ...reply,
+                timing: { intent_ms: Math.round(decided - started), intent_source: source, seam_ms: Math.round(clock() - decided) },
+            };
         },
     };
+
+    async function decide(
+        context: CallContext,
+        utterance: string,
+        intent: Awaited<ReturnType<IntentClassifier['classify']>>['intent'],
+        source: Awaited<ReturnType<IntentClassifier['classify']>>['source'],
+    ): Promise<AgentTurn> {
+        // ── 1. STOP. Before anything else. ─────────────────────────────────────────────
+        if (intent === 'stop_calling') {
+            const result = await seam.callEvent({ kind: 'human_callback', reason: 'asked_to_stop_calling' });
+            const call: ToolCall = { name: 'request_human_callback', args: { reason: 'asked_to_stop_calling' } };
+            return turn({ toolCalls: [call], say: [result.say], endCall: true });
+        }
+
+        const machine = intent === 'voicemail' || intent === 'menu';
+
+        // ── 2. A machine. The notice is never read to one. ──────────────────────────────
+        if (!answererReported && machine) {
+            answererReported = true;
+            const answerer = intent === 'voicemail' ? 'voicemail' as const : 'phone_menu' as const;
+            await seam.callEvent({ kind: 'answerer_reported', answerer });
+            const call: ToolCall = { name: 'report_answerer', args: { answerer } };
+            if (answerer === 'voicemail') {
+                return turn({ toolCalls: [call], say: [context.voicemail_script], endCall: true });
+            }
+            staffAttempts++;
+            return turn({ toolCalls: [call], say: [ASK_FOR_STAFF] });
+        }
+
+        if (intent === 'wrong_number') {
+            await seam.callEvent({ kind: 'answerer_reported', answerer: 'wrong_number' });
+            return turn({
+                toolCalls: [{ name: 'report_answerer', args: { answerer: 'wrong_number' } }],
+                say: [SORRY_WRONG_NUMBER],
+                endCall: true,
+            });
+        }
+
+        if (answererReported && !noticeDelivered && machine) {
+            staffAttempts++;
+            if (staffAttempts >= 2) {
+                return turn({ say: [context.voicemail_script], endCall: true, note: 'two attempts, no person' });
+            }
+            return turn({ say: [ASK_FOR_STAFF] });
+        }
+
+        // ── 3. A person. Deliver the notice, once. ─────────────────────────────────────
+        if (!noticeDelivered) {
+            noticeDelivered = true;
+            return turn({ say: [...context.opening_script] });
+        }
+
+        // ── 4. They want the booking changed, or a person to ring back. ────────────────
+        if (intent === 'callback_request') {
+            const reason = /cancel/i.test(utterance)
+                ? 'wants_to_cancel' as const
+                : source === 'keyword' ? 'wants_to_change_time' as const : 'other' as const;
+            const result = await seam.callEvent({ kind: 'human_callback', reason });
+            return turn({ toolCalls: [{ name: 'request_human_callback', args: { reason } }], say: [result.say] });
+        }
+
+        // ── 5. A question from the closed set. "Is this a robot?" is answered by who we are,
+        //       from the backend, on top of the disclosure they already heard. ─────────────
+        const topic = intent === 'is_this_ai' ? 'who_we_are' as const : topicOf(intent);
+        if (topic) {
+            const answer = await seam.callFact(topic);
+            questionsAnswered++;
+            const closing = questionsAnswered >= 2;
+            return turn({
+                toolCalls: [{ name: 'lookup_booking_fact', args: { topic } }],
+                say: closing ? [answer.say, CLOSE_AFTER_ANSWERS] : [answer.say],
+                endCall: closing,
+            });
+        }
+
+        // ── 6. They are done, or asked us to wait. ─────────────────────────────────────
+        if (intent === 'confirm' || intent === 'decline') {
+            return turn({ say: [CLOSE_THANKS], endCall: true });
+        }
+        if (intent === 'hold') return turn({ note: 'asked to hold; listening' });
+
+        // ── 7. Anything else: log the question verbatim, THEN speak the deferral. ──────
+        return logUnanswered(utterance);
+    }
 }

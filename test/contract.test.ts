@@ -228,11 +228,13 @@ describe('the mock and the snapshot', () => {
 });
 
 describe('the known divergences are written down, not remembered', () => {
-    test('the one live divergence from the deployed backend is declared', () => {
+    test('the live divergences from the deployed backend are declared', () => {
         // The campaign-status entry left this list when that rule shipped — it is a rule now,
         // `campaign_rule`, checked against the backend by `npm run contract:derive`.
         const ids = (contract.known_divergences as Array<{ id: string }>).map((d) => d.id).sort();
-        assert.deepEqual(ids, ['comp-clause']);
+        // turn-stage-timings: the stage timings stay off the wire until the backend accepts them
+        // (test/turnTimings.test.ts).
+        assert.deepEqual(ids, ['comp-clause', 'turn-stage-timings']);
     });
 });
 

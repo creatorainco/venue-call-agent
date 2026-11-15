@@ -105,11 +105,77 @@ export const END_REASONS: readonly EndReason[] = [
 export const MAX_TURNS = 200;
 export const MAX_TURN_CHARS = 2000;
 
-export interface Turn {
+export interface Turn extends TurnStageTimings {
     speaker: 'agent' | 'venue';
     text: string;
     /** Milliseconds from the start of the call, when known. */
     at_ms?: number | null;
+}
+
+/** Which stage decided an intent: a keyword cue, the model, or the fallback when both failed. */
+export type IntentSource = 'keyword' | 'model' | 'fallback';
+
+/**
+ * Optional per-turn stage timings (I3P-03, I3P-13), so dead air can be split by stage.
+ *
+ * Two kinds of number, named by the plan and kept apart here:
+ *   - POINTS on the call clock (ms from the start of the call, like `at_ms`): `venue_end_ms` (the
+ *     last audible frame of the venue's turn), `stt_final_ms` (the recogniser's final arrived),
+ *     `tts_first_byte_ms` (synthesis returned audio for the sentence) and `first_frame_out_ms` (its
+ *     first frame was written to the line).
+ *   - DURATIONS: `intent_ms` (the classifier, keyword or model) and `seam_ms` (the backend calls
+ *     the turn needed after the intent was known), with `intent_source` saying who decided.
+ *
+ * A venue turn carries `venue_end_ms` and `stt_final_ms`; the FIRST agent sentence of a reply
+ * carries the rest. Every field is optional: a turn the runtime could not time carries none.
+ *
+ * 🔴 NOT ON THE WIRE YET. The backend's Joi schema for `turns` takes `speaker`, `text` and `at_ms`
+ * and refuses any other key, so a report carrying these would be a 400 and the transcript would be
+ * lost. `TURN_WIRE_FIELDS` is what the supervisor posts; the timings go to a `turn_timing` log line
+ * (numbers and the source word, never text) until the backend lists them. `contract/seam4.json`
+ * `call_ended.turns.stage_fields` and the `turn-stage-timings` divergence say the same.
+ */
+export interface TurnStageTimings {
+    venue_end_ms?: number;
+    stt_final_ms?: number;
+    intent_ms?: number;
+    intent_source?: IntentSource;
+    seam_ms?: number;
+    tts_first_byte_ms?: number;
+    first_frame_out_ms?: number;
+}
+
+/** The turn fields the backend accepts today, in contract order. */
+export const TURN_WIRE_FIELDS = ['speaker', 'text', 'at_ms'] as const;
+
+/** The optional stage timings, in contract order. Agent-side only until the backend accepts them. */
+export const TURN_STAGE_FIELDS = [
+    'venue_end_ms',
+    'stt_final_ms',
+    'intent_ms',
+    'intent_source',
+    'seam_ms',
+    'tts_first_byte_ms',
+    'first_frame_out_ms',
+] as const;
+
+export const INTENT_SOURCES: readonly IntentSource[] = ['keyword', 'model', 'fallback'];
+
+/** The turn as the backend accepts it: the wire fields only, in contract order. */
+export function wireTurn(turn: Turn): Turn {
+    const out: Turn = { speaker: turn.speaker, text: turn.text };
+    if (turn.at_ms !== undefined) out.at_ms = turn.at_ms;
+    return out;
+}
+
+/** The stage timings a turn carries, or null when it carries none. */
+export function stageTimings(turn: Turn): TurnStageTimings | null {
+    const out: Record<string, number | string> = {};
+    for (const field of TURN_STAGE_FIELDS) {
+        const value = turn[field];
+        if (value !== undefined) out[field] = value;
+    }
+    return Object.keys(out).length ? out as TurnStageTimings : null;
 }
 
 export type CallbackReason =
