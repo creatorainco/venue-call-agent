@@ -83,6 +83,15 @@ describe('awaitVoicemailBeep', () => {
         assert.equal((await awaitVoicemailBeep({ poll: verdicts([UNDECIDED]), signal: pre.signal, ...clock() })).outcome, 'aborted');
     });
 
+    it('unknown and fax are final verdicts: no more polling', async () => {
+        const u = await awaitVoicemailBeep({ poll: verdicts([UNDECIDED, { answered_by: 'unknown', message_end: false }]), intervalMs: 1000, ...clock() });
+        assert.equal(u.outcome, 'undetermined');
+        assert.equal(u.polls, 2);
+        const f = await awaitVoicemailBeep({ poll: verdicts([{ answered_by: 'fax', message_end: false }]), intervalMs: 1000, ...clock() });
+        assert.equal(f.outcome, 'fax');
+        assert.equal(f.polls, 1);
+    });
+
     it('machine_start alone is not the end of the greeting', async () => {
         const c = clock();
         const r = await awaitVoicemailBeep({

@@ -49,6 +49,7 @@ import { OutputGate } from './outputGate.ts';
 import { CallSupervisor } from './supervisor.ts';
 import type { DisclosureRecord } from './outputGate.ts';
 import { canTransition } from '../state.ts';
+import { awaitVoicemailBeep, type BeepGateOptions } from './beepGate.ts';
 import type { CallState } from '../state.ts';
 import { CascadeBridge } from './cascadeBridge.ts';
 import type { CallerTurn } from './bridge.ts';
@@ -551,6 +552,11 @@ export interface LiveCallOptions {
     maxCallMs?: number;
     /** The armed cap. Defaults to the supervisor's wall timer; a test may pass null. */
     capTimer?: CapTimer | null;
+    /**
+     * it-05: the answering-machine verdict, polled while a voicemail message waits for the beep
+     * (pb `call-answerer`). Absent: the message is spoken at once, as before.
+     */
+    answerer?: Pick<BeepGateOptions, 'poll' | 'intervalMs' | 'timeoutMs' | 'sleep' | 'now'>;
 }
 
 export interface LiveCallResult {
@@ -690,6 +696,19 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
             if (gate.state !== 'connected') {
                 const next = nextState(gate.state, turn);
                 if (next !== gate.state) gate.enter(next);
+            }
+            // it-05 (I3P-11): a voicemail message spoken over the greeting is never heard, because
+            // the recording starts at the beep. Hold it until the carrier says the greeting ended,
+            // a person answered, or the bound runs out. A fax hears nothing: hang up silent.
+            if (gate.state === 'voicemail' && turn.endCall && turn.say.length > 0 && options.answerer) {
+                const hold = await awaitVoicemailBeep({ ...options.answerer, signal });
+                log(`voicemail_hold outcome=${hold.outcome} waited_ms=${hold.waitedMs} polls=${hold.polls} poll_errors=${hold.pollErrors}`);
+                throwIfFailed();
+                if (leg.ended || signal.aborted || hold.outcome === 'aborted') return;
+                if (hold.outcome === 'fax') {
+                    await supervisor.hangup('agent_ended');
+                    return;
+                }
             }
             if (turn.say.length > 0) {
                 const sentences = turn.say.map((text) => ({ id: nextId(), text }));

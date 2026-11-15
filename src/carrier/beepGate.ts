@@ -5,8 +5,11 @@
  *
  *   message_end  the carrier's answering-machine detection (Twilio AsyncAmd, DetectMessageEnd) says
  *                the greeting ended (`machine_end_*`), read through pb's POST /reservations/call-answerer;
- *   human        the same detection says a person answered: the caller must NOT play the voicemail
- *                script, it returns to the conversation;
+ *   human        the same detection says a person answered: nothing to wait for, the caller speaks
+ *                at once (v1). Returning to the conversation instead needs the agent to leave its
+ *                voicemail state and the ledger's answerer to be re-reported: a later it-05 step;
+ *   undetermined Twilio's own bound ran out (`unknown`): it will say nothing more, speak now;
+ *   fax          a fax tone: nobody will hear a message, hang up without speaking;
  *   timeout      no verdict inside the bound (30 s by default): speak anyway. A late message beats
  *                none, and the call cap still ends the call;
  *   aborted      the call ended or is draining.
@@ -24,7 +27,7 @@ export interface AnswererVerdict {
     message_end: boolean;
 }
 
-export type BeepGateOutcome = 'message_end' | 'human' | 'timeout' | 'aborted';
+export type BeepGateOutcome = 'message_end' | 'human' | 'undetermined' | 'fax' | 'timeout' | 'aborted';
 
 export interface BeepGateOptions {
     /** One read of the verdict (pb `call-answerer`). May throw; a throw keeps waiting. */
@@ -76,6 +79,8 @@ export async function awaitVoicemailBeep(
             if (opts.signal?.aborted) return done('aborted');
             if (v.message_end) return done('message_end');
             if (v.answered_by === 'human') return done('human');
+            if (v.answered_by === 'unknown') return done('undetermined');
+            if (v.answered_by === 'fax') return done('fax');
         } catch {
             pollErrors++;
         }

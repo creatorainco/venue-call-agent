@@ -16,6 +16,7 @@
  * from `SeamRefusal` so a `catch` cannot flatten the two.
  */
 
+import type { AnswererVerdict } from '../carrier/beepGate.ts';
 import type {
     CallContext,
     CallEventInput,
@@ -103,6 +104,11 @@ export interface SeamClient {
     callContext(): Promise<CallContext>;
     callFact(topic: FactTopic): Promise<FactAnswer>;
     callEvent(input: CallEventInput): Promise<CallEventResult>;
+    /**
+     * it-05: the carrier's answering-machine verdict for this call, read while a voicemail message
+     * is held for the beep. Optional so a fake seam without it simply never holds.
+     */
+    callAnswerer?(): Promise<AnswererVerdict>;
 }
 
 const isSentence = (value: unknown): boolean => typeof value === 'string' && value.trim() !== '';
@@ -201,6 +207,17 @@ export function createSeamClient(options: SeamClientOptions): SeamClient {
                 throw new SeamUnavailable('/reservations/call-fact', `empty sentence for topic ${topic}`);
             }
             return payload;
+        },
+
+        async callAnswerer(): Promise<AnswererVerdict> {
+            const payload = await post('/reservations/call-answerer', {}) as Partial<AnswererVerdict> | null;
+            // A malformed verdict is an error, and the beep gate reads an error as "keep waiting",
+            // never as a verdict.
+            if (typeof payload?.message_end !== 'boolean'
+                || (payload.answered_by !== null && typeof payload.answered_by !== 'string')) {
+                throw new SeamUnavailable('/reservations/call-answerer', 'a verdict without message_end');
+            }
+            return { answered_by: payload.answered_by ?? null, message_end: payload.message_end };
         },
 
         async callEvent(input: CallEventInput): Promise<CallEventResult> {

@@ -196,6 +196,7 @@ export function cascadeSession(runtime: Promise<CascadeRuntime>, readyMs: number
             report: call.seam,
             log: call.log,
             shutdown: call.shutdown,
+            ...(call.seam.callAnswerer ? { answerer: { poll: () => call.seam.callAnswerer!() } } : {}),
         });
     };
 }
