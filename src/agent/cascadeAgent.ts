@@ -15,7 +15,7 @@
  * cascade is checked by the same harness, rubric and fabrication check as the stub.
  */
 
-import type { AgentTurn, CallAgent, ToolCall } from './contract.ts';
+import type { AgentTurn, CallAgent, HeardInfo, ToolCall } from './contract.ts';
 import type { SeamClient } from '../seam/client.ts';
 import type { CallContext } from '../seam/types.ts';
 import type { IntentClassifier } from './intent.ts';
@@ -35,6 +35,9 @@ export interface CascadeAgentDeps {
     /** Milliseconds, monotonic. Injected so the stage timings are testable. */
     clock?: () => number;
 }
+
+/** Intents whose reply ends the call: on an early turn, only a keyword may decide one. */
+const ENDS_THE_CALL: ReadonlySet<string> = new Set(['stop_calling', 'wrong_number', 'confirm', 'decline', 'voicemail']);
 
 export function createCascadeAgent(deps: CascadeAgentDeps): CallAgent {
     const { seam, intents } = deps;
@@ -64,11 +67,24 @@ export function createCascadeAgent(deps: CascadeAgentDeps): CallAgent {
             return turn({ say: [context.disclosure_sentence], note: 'disclosure only; listening before the notice' });
         },
 
-        async hear(utterance: string): Promise<AgentTurn> {
+        prefetch(utterance: string): void {
+            intents.prefetch?.(utterance);
+        },
+
+        async hear(utterance: string, heard?: HeardInfo): Promise<AgentTurn> {
             if (!context) throw new Error('hear() before open() — there is no context to speak from');
             const started = clock();
-            const { intent, source } = await intents.classify(utterance);
+            const classified = await intents.classify(utterance);
             const decided = clock();
+            let { intent, source } = classified;
+            // 🔴 PERF-A: an early turn may be half a sentence. The model read "Golden Crane, Marcus"
+            // as a wrong number in the 2026-11-15 soak and the call ended on a greeting. Only a
+            // keyword may end the call on an early turn; the model's reading of one cannot.
+            if (heard?.early && source === 'model' && ENDS_THE_CALL.has(intent)) {
+                log(`intent ${intent} (model) not trusted on an early turn`);
+                intent = 'unclear';
+                source = 'fallback';
+            }
             log(`intent ${intent} (${source})`);
             const reply = await decide(context, utterance, intent, source);
             // The stage timings (I3P-03): the classifier, then the backend calls that followed it.

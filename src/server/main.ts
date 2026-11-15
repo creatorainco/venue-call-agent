@@ -18,8 +18,14 @@
  * closes the line before `startCall` (src/server/streamServer.ts), so a disabled seam stays silent.
  *
  * The cascade is started and warmed at boot, without holding up `listen`: the ADC token is
- * fetched and the four fixed phrases are synthesised, which also opens TLS to the synthesis host
- * (I3P-04), so the first call does not pay for either.
+ * fetched, TLS is opened to the synthesis and intent hosts, and the four fixed phrases are
+ * synthesised (I3P-04), so the first call does not pay for any of it.
+ *
+ * 🔴 THE WARM-UP IS RETRIED INSIDE A REQUEST (PERF-A). On Cloud Run the CPU is throttled outside
+ * requests, so the boot warm-up of a fresh instance can die (`cascade_warm_failed TtsUnavailable`
+ * in the dev log, 2026-11-14). Every stream upgrade and every call start asks the warmer again;
+ * while the process is not warm that runs the warm-up, one at a time, inside the request that has
+ * the CPU, before and during the disclosure. Once warm it is a no-op.
  */
 
 import { loadConfig } from '../config.ts';
@@ -83,6 +89,13 @@ export const CASCADE_READY_MS = 5000;
 
 export type StartCall = (call: AuthorizedCall) => Promise<void>;
 
+/** What `startServer` needs from the session choice: the call handler and the upgrade hook. */
+export interface Session {
+    startCall: StartCall;
+    /** Called on every stream upgrade the server takes, inside the request: warms a cold process. */
+    onUpgrade?: () => void;
+}
+
 export interface ServerDeps {
     /** Builds the per-process cascade. Defaults to `startCascade()` over ADC; tests inject a fake. */
     cascade?: () => Promise<CascadeRuntime>;
@@ -100,30 +113,71 @@ export function speechEnabled(env: NodeJS.ProcessEnv): boolean {
  * now, in the background, and warms itself.
  */
 export function selectStartCall(env: NodeJS.ProcessEnv, deps: ServerDeps = {}): StartCall {
-    if (!speechEnabled(env)) return noAgentSession;
-    const log = deps.log ?? ((line: string) => { process.stderr.write(`${line}\n`); });
-    const runtime = (deps.cascade ?? (() => startCascade({ log })))();
-    runtime.then(
-        (rt) => warm(rt, log),
-        (error: unknown) => { log(`cascade_unavailable ${errorClass(error)}`); },
-    );
-    return cascadeSession(runtime);
+    return selectSession(env, deps).startCall;
 }
 
-/** Best effort and never thrown: a cold first sentence is slower, not broken. */
-async function warm(runtime: CascadeRuntime, log: (line: string) => void): Promise<void> {
-    try {
-        await runtime.tts.prerender(FIXED_PHRASES);
-        log('cascade_warm');
-    } catch (error) {
-        log(`cascade_warm_failed ${errorClass(error)}`);
+/** `selectStartCall` plus the upgrade hook that warms a cold process inside a request. */
+export function selectSession(env: NodeJS.ProcessEnv, deps: ServerDeps = {}): Session {
+    if (!speechEnabled(env)) return { startCall: noAgentSession };
+    const log = deps.log ?? ((line: string) => { process.stderr.write(`${line}\n`); });
+    const runtime = (deps.cascade ?? (() => startCascade({ log })))();
+    runtime.catch((error: unknown) => { log(`cascade_unavailable ${errorClass(error)}`); });
+    // Best effort and never thrown: a cold first sentence is slower, not broken.
+    const warmer = createWarmer(runtime, log);
+    void warmer.ensure();
+    return {
+        startCall: cascadeSession(runtime, CASCADE_READY_MS, warmer),
+        onUpgrade: () => { void warmer.ensure(); },
+    };
+}
+
+/** One warm-up at a time; a failed one is tried again on the next ask. Never throws. */
+export interface Warmer {
+    /** Start the warm-up unless the process is warm or one is running. */
+    ensure(): Promise<void>;
+    readonly warm: boolean;
+}
+
+/** How many times one ask tries the warm-up before it waits for the next ask. */
+export const WARM_ATTEMPTS = 2;
+
+export function createWarmer(runtime: Promise<CascadeRuntime>, log: (line: string) => void, attempts: number = WARM_ATTEMPTS): Warmer {
+    let warm = false;
+    let running: Promise<void> | null = null;
+    async function attempt(): Promise<void> {
+        let rt: CascadeRuntime;
+        try {
+            rt = await runtime;
+        } catch {
+            return; // `cascade_unavailable` is logged once, by selectSession.
+        }
+        for (let n = 1; n <= attempts && !warm; n += 1) {
+            const startedAt = Date.now();
+            try {
+                // TLS to the hosts a call uses, in parallel with the token and the fixed phrases.
+                await Promise.all([rt.preconnect?.(), rt.tts.prerender(FIXED_PHRASES)]);
+                warm = true;
+                log(`cascade_warm ms=${Date.now() - startedAt} attempt=${n}`);
+            } catch (error) {
+                log(`cascade_warm_failed ${errorClass(error)} attempt=${n}`);
+            }
+        }
     }
+    return {
+        get warm() { return warm; },
+        ensure(): Promise<void> {
+            if (warm) return Promise.resolve();
+            running ??= attempt().finally(() => { running = null; });
+            return running;
+        },
+    };
 }
 
 /** The live session: the cascade on this call's leg, or silence if the cascade is not there. */
-export function cascadeSession(runtime: Promise<CascadeRuntime>, readyMs: number = CASCADE_READY_MS): StartCall {
+export function cascadeSession(runtime: Promise<CascadeRuntime>, readyMs: number = CASCADE_READY_MS, warmer?: Warmer): StartCall {
     return async (call: AuthorizedCall): Promise<void> => {
         const startedAt = Date.now();
+        void warmer?.ensure();
         const rt = await ready(runtime, readyMs);
         // How long the accepted call waited on the cascade: the staging probe reads it.
         const waitedMs = Date.now() - startedAt;
@@ -167,7 +221,12 @@ export async function startServer(
 ): Promise<{ stream: StreamServer; port: number }> {
     assertDeployableBaseUrl(env);
     const config = loadConfig(env);
-    const stream = createStreamServer({ apiBaseUrl: config.apiBaseUrl, startCall: selectStartCall(env, deps) });
+    const session = selectSession(env, deps);
+    const stream = createStreamServer({
+        apiBaseUrl: config.apiBaseUrl,
+        startCall: session.startCall,
+        ...(session.onUpgrade ? { onUpgrade: session.onUpgrade } : {}),
+    });
     const port = await stream.listen(config.port, '0.0.0.0');
     return { stream, port };
 }

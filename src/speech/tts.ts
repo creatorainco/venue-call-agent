@@ -20,6 +20,7 @@ import type { TokenSource } from '../google/adc.ts';
 import { TTS } from '../tuning/cascadeDefaults.ts';
 
 export const TTS_ENDPOINT = 'https://texttospeech.googleapis.com/v1/text:synthesize';
+export const TTS_ORIGIN = 'https://texttospeech.googleapis.com/';
 
 export type TtsRefusalReason = 'empty' | 'too_long';
 
@@ -159,4 +160,29 @@ export function createTts(options: TtsOptions): Tts {
             return requests;
         },
     };
+}
+
+/** How long a preconnect may take before it is given up: it is an optimisation, never a gate. */
+export const PRECONNECT_TIMEOUT_MS = 3000;
+
+/**
+ * One unauthenticated HEAD per Google origin, status ignored (PERF-A): the TLS session it leaves
+ * in the fetch pool is the point, and the next request to that origin reuses it, so the first
+ * call's disclosure and first intent do not pay the handshake. No token is sent. Never throws.
+ */
+export async function preconnect(
+    origins: readonly string[],
+    fetchImpl?: typeof fetch,
+    timeoutMs: number = PRECONNECT_TIMEOUT_MS,
+): Promise<void> {
+    const doFetch = fetchImpl ?? fetch;
+    await Promise.all(origins.map(async (origin) => {
+        if (!/^https:\/\/[a-z0-9.-]+\.googleapis\.com\/$/.test(origin)) return;
+        try {
+            const response = await doFetch(origin, { method: 'HEAD', signal: AbortSignal.timeout(timeoutMs) });
+            await response.body?.cancel();
+        } catch {
+            // A failed handshake here is paid again by the first real request, which reports it.
+        }
+    }));
 }

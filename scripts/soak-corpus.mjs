@@ -252,7 +252,7 @@ async function localSoak() {
         await mock.close();
         if (runtimeLogPath) writeFileSync(resolve(ROOT, runtimeLogPath), rt.lines.map((l) => `${Math.round(l.t - rt.spawnedAt)} ${l.line}`).join('\n') + '\n');
     }
-    const warm = rt.lines.find((l) => l.line.endsWith('cascade_warm'));
+    const warm = rt.lines.find((l) => /^cascade_warm( |$)/.test(l.line));
     return {
         listeningMs: Math.round(rt.listeningMs()),
         warmedMs: warm ? Math.round(warm.t - rt.spawnedAt) : null,

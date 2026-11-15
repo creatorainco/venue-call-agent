@@ -141,3 +141,25 @@ describe('the model stage (Vertex generateContent, enum schema, ADC bearer)', ()
         assert.equal((await classifier.classify('so what is the deal exactly')).intent, 'unclear');
     });
 });
+
+describe('prefetch (PERF-A): the model starts on the interim the bridge is about to end on', () => {
+    test('a classify of the prefetched string takes the answer in flight: one request, not two', async () => {
+        const seen: Seen[] = [];
+        const classifier = createVertexClassifier({ tokens, fetchImpl: fakeFetch(modelSays('hold'), seen) });
+        classifier.prefetch!('golden crane');
+        assert.equal((await classifier.classify('golden crane')).intent, 'hold');
+        assert.equal(seen.length, 1);
+        assert.equal((await classifier.classify('golden crane')).intent, 'hold');
+        assert.equal(seen.length, 2, 'a prefetch answers one classify, then is gone');
+    });
+
+    test('a keyword line is never sent to the model, prefetched or not; a different final asks afresh', async () => {
+        const seen: Seen[] = [];
+        const classifier = createVertexClassifier({ tokens, fetchImpl: fakeFetch(modelSays('unclear'), seen) });
+        classifier.prefetch!('please stop calling');
+        assert.equal(seen.length, 0);
+        classifier.prefetch!('hello');
+        await classifier.classify('hello there');
+        assert.equal(seen.length, 2);
+    });
+});

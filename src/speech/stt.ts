@@ -40,6 +40,12 @@ export interface StreamingSttOptions {
     factory: SpeechStreamFactory;
     /** A final transcript: one thing the restaurant said, verbatim. */
     onFinal: (text: string) => void;
+    /**
+     * The words of the turn still in progress (I3P-07): every non-final result of one response,
+     * joined. A guess the recogniser may still revise; the bridge decides what, if anything, to do
+     * with it (`src/speech/turnEnd.ts`). Never logged.
+     */
+    onInterim?: (text: string) => void;
     /** The recogniser failed. The caller ends the call; there is no silent retry mid-sentence. */
     onError: (error: Error) => void;
     /** Milliseconds since an arbitrary origin. Injected so rollover is testable. */
@@ -63,7 +69,7 @@ export function streamingConfigRequest(recognizer: string): Record<string, unkno
                 languageCodes: [STT.languageCode],
             },
             streamingFeatures: {
-                interimResults: false,
+                interimResults: STT.interimResults,
                 endpointingSensitivity: STT.endpointingSensitivity,
             },
         },
@@ -81,6 +87,23 @@ export function finalTranscripts(response: unknown): string[] {
         if (text) out.push(text);
     }
     return out;
+}
+
+/**
+ * The interim words of one v2 response: the non-final results in order, joined. Google splits an
+ * interim into a stable head and an unstable tail ("press" + "1"), so the parts are read together.
+ * Empty when the response carries a final or nothing.
+ */
+export function interimTranscript(response: unknown): string {
+    const results = (response as { results?: unknown })?.results;
+    if (!Array.isArray(results)) return '';
+    const parts: string[] = [];
+    for (const r of results as Array<{ isFinal?: boolean; alternatives?: Array<{ transcript?: string }> }>) {
+        if (r?.isFinal) return '';
+        const text = r?.alternatives?.[0]?.transcript?.trim();
+        if (text) parts.push(text);
+    }
+    return parts.join(' ');
 }
 
 export class StreamingStt {
@@ -149,6 +172,10 @@ export class StreamingStt {
         this.#openedAt = this.#clock();
         stream.on('data', (response) => {
             for (const text of finalTranscripts(response)) this.#options.onFinal(text);
+            if (this.#options.onInterim) {
+                const interim = interimTranscript(response);
+                if (interim) this.#options.onInterim(interim);
+            }
         });
         stream.on('error', (error) => {
             if (!this.#closed) this.#options.onError(error);

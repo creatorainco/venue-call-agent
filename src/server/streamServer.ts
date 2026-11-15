@@ -95,6 +95,14 @@ export interface StreamServerOptions {
      * When it returns or throws, the server hangs up if the session left the line up.
      */
     startCall: (call: AuthorizedCall) => Promise<void>;
+    /**
+     * Told on every upgrade this server takes, before the backend has answered. It must not wait.
+     * main.ts warms a cold process here, inside the request that has the CPU (Cloud Run throttles
+     * it outside requests). That is a process-wide cache of the four fixed phrases and a TLS
+     * handshake, never a call's session, and a no-op once warm, so a refused upgrade opens nothing
+     * per call.
+     */
+    onUpgrade?: () => void;
     seamTimeoutMs?: number;
     /** Injectable for tests. Defaults to the global fetch. */
     fetchImpl?: typeof fetch;
@@ -210,6 +218,12 @@ export function createStreamServer(options: StreamServerOptions): StreamServer {
             refusedFull += 1;
             preauthFullLog.note('stream-server preauth_full');
             return refuse(socket, 503);
+        }
+
+        try {
+            options.onUpgrade?.();
+        } catch (error) {
+            log(`stream-server on_upgrade_failed ${errorClass(error)}`);
         }
 
         seq += 1;
