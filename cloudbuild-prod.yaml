@@ -1,0 +1,78 @@
+# The production deploy of venue-call-agent (venue-call plan it-09; Peter's infra yes, 2026-11-15:
+# a prod Cloud Run service with deploy-on-main and keyless federation, dark until Arm). Started by
+# .github/workflows/deploy-main.yml on a push to `main`, with `gcloud builds submit --no-source`:
+# the repository is public, so the build fetches the exact pushed commit itself.
+#
+# The same shape as cloudbuild.yaml (dev), with its own three identities, its own image repository
+# and its own service, so nothing a `dev` push can reach can write a production revision:
+#   - runs as venue-call-build-prod@, which can push to venue-call-agent-prod only, deploy revisions
+#     of `venue-call-agent` only (run.developer on that one service) and act as
+#     venue-call-runtime-prod@ only;
+#   - the revision runs as venue-call-runtime-prod@ (speech, Vertex, logs and metrics; no secret).
+# None of these exist until the release (it-14) creates them; docs/DEPLOY.md section 7 is the
+# owner's list, in order. Until then a push to `main` fails at the federation step and deploys
+# nothing.
+#
+# 🔴 A DEPLOYED SERVICE IS NOT A DIALLING SERVICE. Nothing here places a call or arms anything.
+# The only environment variable is the production backend's address, and the whole environment is
+# rewritten from this file on every deploy, so a variable set by hand on the service is gone at the
+# next one: nothing belongs there. Every venue-call switch lives on the backend and is the
+# operator's. test/deployConfig.test.ts holds every flag below.
+
+serviceAccount: projects/creatorain-27e9e/serviceAccounts/venue-call-build-prod@creatorain-27e9e.iam.gserviceaccount.com
+timeout: 1200s
+options:
+  # The default compute account is disabled in this project and there is no logs bucket, so the
+  # build names its account (above) and logs to Cloud Logging only.
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _COMMIT_SHA: ''
+  _IMAGE: us-central1-docker.pkg.dev/creatorain-27e9e/venue-call-agent-prod/venue-call-agent
+
+steps:
+  - id: checkout
+    name: gcr.io/cloud-builders/git
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        test -n "$_COMMIT_SHA" || { echo "_COMMIT_SHA is empty"; exit 1; }
+        git init -q app
+        cd app
+        git remote add origin https://github.com/creatorainco/venue-call-agent.git
+        git fetch -q --depth 1 origin "$_COMMIT_SHA"
+        git checkout -q FETCH_HEAD
+        test "$$(git rev-parse HEAD)" = "$_COMMIT_SHA"
+        echo "building $_COMMIT_SHA"
+
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    dir: app
+    args: ['build', '--pull', '-t', '${_IMAGE}:${_COMMIT_SHA}', '.']
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args: ['push', '${_IMAGE}:${_COMMIT_SHA}']
+
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - venue-call-agent
+      - --project=creatorain-27e9e
+      - --region=us-central1
+      - --image=${_IMAGE}:${_COMMIT_SHA}
+      - --service-account=venue-call-runtime-prod@creatorain-27e9e.iam.gserviceaccount.com
+      # Replaces the whole environment: the production backend's address is the only variable.
+      - --set-env-vars=CREATORAIN_API_BASE_URL=https://data.creatorain.com
+      - --timeout=600
+      - --concurrency=1
+      - --max-instances=5
+      # Cold start is met by pb's free warm ping at dial time (it-04); a warm instance is Peter's spend.
+      - --min-instances=0
+      - --cpu-boost
+      - --cpu-throttling
+      - --quiet

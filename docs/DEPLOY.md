@@ -1,6 +1,9 @@
 # Deploying this service — the definition, and the checklist behind it
 
-🔴 **THE DEV SERVICE EXISTS; NO PRODUCTION SERVICE DOES.** The research behind this page was read
+🔴 **THE DEV SERVICE EXISTS; THE PRODUCTION SERVICE IS WRITTEN DOWN BUT NOT CREATED.** Its build
+file and workflow (`cloudbuild-prod.yaml`, `.github/workflows/deploy-main.yml`) landed on `dev` on
+2026-11-15 (venue-call plan it-09); the identities, the federation change and the service itself
+are created at the release, in the order of §7. The research behind this page was read
 out of Google's own documentation on **2026-09-12**. §1, §2 and §5 were rewritten on **2026-11-09**
 (TASK-3748) against what the project actually holds. On **2026-11-14** (TASK-3748 step 4) the
 identities, the Artifact Registry repository and `venue-call-agent-dev` were created, and the
@@ -228,7 +231,8 @@ created on or after 2024-05-03, and the project already has the `github-ci` pool
 `creatorainco` provider. That provider lists the repositories it trusts, and this one is not on
 the list yet: adding it, and pinning the condition to pushes to `dev`, is an owner's change. Done on 2026-11-14: the condition admits
 `creatorainco/venue-call-agent` only when `assertion.ref == 'refs/heads/dev'`, and the dispatch
-account is `ci-dispatch-vca@`.
+account is `ci-dispatch-vca@`. Production has its own dispatch account and is admitted for
+`refs/heads/main` only; §7.
 
 🔴 **The provider MUST carry an attribute condition, and this is not a lint nit.** Without it, any
 GitHub repository on earth can enter the pool. The existing provider conditions on the owner id
@@ -271,3 +275,117 @@ Not hedges — questions with no answer available from documentation, each with 
 | Does a liveness probe consume the single concurrency slot? | an empirical test on a real service. Nothing in the docs says. |
 | Does closing the socket end the call, or does the carrier run what follows the stream? | a test call. Decides whether the agent's hang-up needs a carrier write it does not hold. |
 | Would Cloud Run **worker pools** — which take TCP connections rather than HTTP requests — suit a media stream better? | unresearched. It may change the 60-minute ceiling entirely. |
+
+---
+
+## 7. Production: `venue-call-agent`, deployed from `main`
+
+**The yes.** Peter, 2026-11-15 (venue-call plan it-09): a production Cloud Run service for this
+repository, deployed on every push to `main`, keyless federation for it, `--min-instances 0` with
+pb's free warm ping at dial time first. It is **dark until Arm**: the service answers the media
+socket only for a call pb has accepted, and pb refuses every call until the operator arms the
+Voice calls screen and the production seam is wired. A green production deploy places no call.
+
+**What is in the repository (2026-11-15) and what is not.** `cloudbuild-prod.yaml` and
+`.github/workflows/deploy-main.yml` are on `dev`; `test/deployConfig.test.ts` holds every flag in
+both and fails if the production files name one value that is dev's. Nothing in Google Cloud
+exists for production yet, and the provider still admits this repository for `refs/heads/dev`
+only, so a push to `main` before the steps below fails at the federation step and deploys nothing.
+The steps are run at the release (it-14), by an owner, in this order. They are written out so the
+release is a reading exercise, not a design one.
+
+### 7.1 The definition, and how it differs from dev
+
+The flags are §2's, unchanged, for the same reasons. Only the values that must be production's
+own differ:
+
+| | dev | production |
+|---|---|---|
+| service | `venue-call-agent-dev` | `venue-call-agent` |
+| backend (`CREATORAIN_API_BASE_URL`, the only variable) | `https://datadev.creatorain.com` | `https://data.creatorain.com` |
+| branch, workflow, build file | `dev`, `deploy-dev.yml`, `cloudbuild.yaml` | `main`, `deploy-main.yml`, `cloudbuild-prod.yaml` |
+| image repository | `venue-call-agent` | `venue-call-agent-prod` |
+| runtime identity | `venue-call-runtime@` | `venue-call-runtime-prod@` |
+| build identity | `venue-call-build@` | `venue-call-build-prod@` |
+| dispatch identity | `ci-dispatch-vca@` | `ci-dispatch-vca-prod@` |
+
+🔴 **Why every identity is new, not the dev one with one more grant.** The dev dispatch account can
+start any build that names `venue-call-build@`. If that build identity could also deploy
+`venue-call-agent`, a workflow edited on a feature branch and merged to `dev` could ship a
+production revision without `main` ever moving. With separate identities, nothing a `dev` push can
+act as holds a single permission on anything production. The same goes for the image repository:
+the dev build cannot write a tag the production deploy reads.
+
+**No secret, by design.** The service holds no secret and no key (`src/config.ts`, CORE-A11): pb
+mints each call's token and the Google calls use the runtime identity. So there is no
+`--set-secrets` and no Secret Manager reference. If one is ever needed, it is added as a Secret
+Manager reference (`--set-secrets NAME=secret:version`), never a literal, and the test's allowed
+flag list is changed in the same pull request so a reviewer sees it.
+
+**The environment is rewritten on every deploy** (`--set-env-vars`). That is intended: the build
+file is the only place the environment lives, so a variable set by hand on the service is gone at
+the next deploy. Nothing belongs there by hand.
+
+### 7.2 The owner's steps at the release, in order
+
+Each one is an IAM or infrastructure write: an owner runs it, at the release, after the recorded
+review of the `dev` commits. None was run on 2026-11-15.
+
+1. **The image repository.** `gcloud artifacts repositories create venue-call-agent-prod
+   --repository-format=docker --location=us-central1 --project=creatorain-27e9e`.
+2. **The runtime identity** `venue-call-runtime-prod@`, with `roles/speech.client`,
+   `roles/aiplatform.user`, `roles/logging.logWriter` and `roles/monitoring.metricWriter` on the
+   project. Nothing else.
+3. **The build identity** `venue-call-build-prod@`, with `roles/artifactregistry.writer` on
+   `venue-call-agent-prod` only, `roles/iam.serviceAccountUser` on `venue-call-runtime-prod@`
+   only, and `roles/logging.logWriter` on the project. Its `roles/run.developer` on the one service
+   comes in step 6, once the service exists.
+4. **The dispatch identity** `ci-dispatch-vca-prod@`, with the project's custom `ciBuildStarter`
+   role (`cloudbuild.builds.create` only), `roles/cloudbuild.builds.viewer`, and
+   `roles/iam.serviceAccountUser` on `venue-call-build-prod@` only.
+5. **Federation.** On the `github-ci` pool's `creatorainco` provider:
+   - widen this repository's clause of the attribute condition from
+     `assertion.ref == 'refs/heads/dev'` to
+     `assertion.ref in ['refs/heads/dev', 'refs/heads/main']`;
+   - add the mapping `attribute.repository_ref = assertion.repository + '@' + assertion.ref`;
+   - grant `roles/iam.workloadIdentityUser` on `ci-dispatch-vca-prod@` to
+     `principalSet://iam.googleapis.com/projects/204616170539/locations/global/workloadIdentityPools/github-ci/attribute.repository_ref/creatorainco/venue-call-agent@refs/heads/main`
+     and to nothing else;
+   - narrow the dev dispatch account's binding the same way, from `attribute.repository/...` to
+     `attribute.repository_ref/creatorainco/venue-call-agent@refs/heads/dev`, so a `main` push
+     acts as the production dispatcher only and a `dev` push as the dev one only.
+
+   ⚠️ **Why a mapped attribute and not the subject.** This repository's OIDC subject uses
+   GitHub's immutable form (`repo:creatorainco@<owner id>/venue-call-agent@<repo id>:ref:...`,
+   read from the repository's sub-claim setting on 2026-11-15), not the `repo:owner/name:...`
+   form most examples bind. A binding written in the familiar form matches nothing and fails as
+   an opaque permission error. The mapped attribute is built from two claims that do not change
+   shape.
+6. **The service, once, by an owner.** `venue-call-build-prod@` can deploy revisions of the one
+   service but cannot create it or set who may invoke it. So the owner creates it with §2's flags
+   and the production values from 7.1, from the image of the commit being promoted (built once
+   with `gcloud builds submit --no-source --config=cloudbuild-prod.yaml
+   --substitutions=_COMMIT_SHA=<sha>` after step 3: the image is pushed, and its deploy step fails
+   as expected because the service does not exist yet), then grants `venue-call-build-prod@`
+   `roles/run.developer` on `venue-call-agent`, then sets the one public binding (`allUsers` as
+   `roles/run.invoker`; §2 says why a public service is not an open one).
+7. **Then merge `dev` into `main`.** From here every push to `main` deploys through the workflow.
+
+**What "done" looks like** (it-09's verification): `GET /health` on the production URL answers
+200; a stream with a made-up token is refused and opens no speech session (pb answers
+`seam_disabled` until the production seam is wired, after the one-switch change ships there); and
+there is no traffic, because no Twilio number points at it. Repointing a number is a separate
+ask-then-run at the release, and the first production call is the operator's Arm.
+
+### 7.3 Stopping it, and going back
+
+The kill rungs are `docs/RUNBOOK.md` §1; the production ones name `venue-call-agent`. A bad
+revision goes back with `gcloud run services update-traffic venue-call-agent
+--to-revisions=<previous revision>=100 --region us-central1 --project creatorain-27e9e`; the next
+push to `main` deploys forward again.
+
+**Cold start.** `--min-instances 0` stays. pb is to call `GET /health` on this service when it
+starts a dial (it-04; not on pb `dev` on 2026-11-15), which warms an instance during the seconds
+the phone is ringing, for nothing. A warm
+instance (§3: about $8.51 to $16 a month) is raised only if the soak shows the warm ping misses
+the 1000 ms first-audio gate, and that spend is Peter's.
