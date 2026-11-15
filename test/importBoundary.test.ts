@@ -38,7 +38,8 @@ const codeOf = (text: string): string => text.replace(/\/\*[\s\S]*?\*\//g, '').r
 
 const SECRET_NAME = /\b(?:VENUE_CALL_SECRET|GEMINI_API_KEY|GOOGLE_API_KEY|SPEECH_TO_TEXT_CREDENTIALS|GOOGLE_APPLICATION_CREDENTIALS|TWILIO_AUTH_TOKEN|[A-Z0-9_]*_API_KEY|[A-Z0-9_]*_SECRET)\b/;
 const SCRIPTS_IMPORT = /\bfrom\s+['"](?:\.\.\/)+scripts\/|import\(\s*['"](?:\.\.\/)+scripts\//;
-const NETWORK = /\bfetch\s*\(|\?\?\s*fetch\b|globalThis\.fetch|\bnode:https?\b|\bhttps?\.request\s*\(/;
+/** A request is a fetch, an http(s) request, or an outbound WebSocket (the soak driver is HANDED its socket). */
+const NETWORK = /\bfetch\s*\(|\?\?\s*fetch\b|globalThis\.fetch|\bnode:https?\b|\bhttps?\.request\s*\(|\bnew\s+WebSocket\s*\(/;
 
 const NETWORK_ALLOWED = new Set(['src/seam/client.ts', 'src/speech/tts.ts', 'src/agent/intent.ts']);
 /** The mock seam is a SERVER standing in for pb, and the stream server's import of node:http is the listener. */
@@ -102,6 +103,11 @@ describe('CONTROLS — each rule catches a planted violation', () => {
         assert.equal(makesRequests('const f = options.fetchImpl ?? fetch;'), true);
         assert.equal(makesRequests("import https from 'node:https';"), true);
         assert.equal(makesRequests('fetchImpl?: typeof fetch;'), false);
+        // An outbound WebSocket is a request (PR #39 review): a driver under src/ must be handed one.
+        assert.equal(makesRequests("const ws = new WebSocket(url, { perMessageDeflate: false });"), true);
+        assert.equal(makesRequests("const ws = new  WebSocket (url);"), true);
+        assert.equal(makesRequests("import type { WebSocket } from 'ws';\nconst ws = connect(url, {});"), false);
+        assert.equal(makesRequests('const wss = new WebSocketServer({ noServer: true });'), false);
     });
 
     test('a non-Google host in an adapter is caught', () => {
