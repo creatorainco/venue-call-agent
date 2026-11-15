@@ -27,6 +27,11 @@ export interface CascadeAgentDeps {
     intents: IntentClassifier;
     /** One line per turn: the intent and which stage decided it. Never the utterance. */
     log?: (line: string) => void;
+    /**
+     * The context the stream server already fetched when the backend accepted the call. Given, the
+     * agent speaks from it rather than asking the backend a second time before the first word.
+     */
+    context?: CallContext;
 }
 
 export function createCascadeAgent(deps: CascadeAgentDeps): CallAgent {
@@ -52,7 +57,7 @@ export function createCascadeAgent(deps: CascadeAgentDeps): CallAgent {
 
     return {
         async open(): Promise<AgentTurn> {
-            context = await seam.callContext();
+            context = deps.context ?? await seam.callContext();
             return turn({ say: [context.disclosure_sentence], note: 'disclosure only; listening before the notice' });
         },
 

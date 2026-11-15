@@ -172,7 +172,8 @@ describe('the entrypoint `npm start` and the container run', () => {
 
         const child = spawn(process.execPath, ['src/server/main.ts'], {
             cwd: ROOT,
-            env: { ...process.env, PORT: String(port), CREATORAIN_API_BASE_URL: 'http://127.0.0.1:9' },
+            // No backend named: the silent default, so the child starts no Google client and makes no request.
+            env: { ...process.env, PORT: String(port), CREATORAIN_API_BASE_URL: '' },
             stdio: ['ignore', 'ignore', 'pipe'],
         });
         try {

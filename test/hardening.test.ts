@@ -312,7 +312,7 @@ describe('VCA-9: on Cloud Run the backend must be named, over https', () => {
             K_SERVICE: 'x',
             PORT: String(port),
             CREATORAIN_API_BASE_URL: 'https://datadev.creatorain.com',
-        });
+        }, { cascade: () => Promise.reject(new Error('no Google in this test')), log: () => {} });
         assert.equal(bound, port);
         await stream.drain(0);
     });

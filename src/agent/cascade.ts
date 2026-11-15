@@ -14,6 +14,7 @@
 
 import type { CallAgent } from './contract.ts';
 import type { SeamClient } from '../seam/client.ts';
+import type { CallContext } from '../seam/types.ts';
 import type { TokenSource } from '../google/adc.ts';
 import { createAdcTokenSource } from '../google/adc.ts';
 import type { IntentClassifier } from './intent.ts';
@@ -38,8 +39,8 @@ export interface CascadeRuntime {
     tts: Tts;
     speech: SpeechStreamFactory;
     intents: IntentClassifier;
-    /** The per-call half: an agent bound to one call's seam client. */
-    agentFor(seam: SeamClient): CallAgent;
+    /** The per-call half: an agent bound to one call's seam client (and, live, its accepted context). */
+    agentFor(seam: SeamClient, context?: CallContext): CallAgent;
 }
 
 export async function startCascade(clients: CascadeClients = {}): Promise<CascadeRuntime> {
@@ -53,6 +54,6 @@ export async function startCascade(clients: CascadeClients = {}): Promise<Cascad
         tts,
         speech,
         intents,
-        agentFor: (seam) => createCascadeAgent({ seam, intents, log }),
+        agentFor: (seam, context) => createCascadeAgent({ seam, intents, log, ...(context ? { context } : {}) }),
     };
 }
