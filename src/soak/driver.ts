@@ -183,10 +183,10 @@ export async function runLeg(connect: Connect, url: string, plan: LegPlan): Prom
     });
 }
 
-const STREAM_SID = 'MZsoakstream';
-const CALL_SID = 'CAsoakcall';
+export const STREAM_SID = 'MZsoakstream';
+export const CALL_SID = 'CAsoakcall';
 
-function startMessage(customParameters: Record<string, string>): string {
+export function startMessage(customParameters: Record<string, string>): string {
     return JSON.stringify({
         event: 'start',
         sequenceNumber: '1',
@@ -202,7 +202,7 @@ function startMessage(customParameters: Record<string, string>): string {
     });
 }
 
-const CONNECTED = JSON.stringify({ event: 'connected', protocol: 'Call', version: '1.0.0' });
+export const CONNECTED = JSON.stringify({ event: 'connected', protocol: 'Call', version: '1.0.0' });
 
 function script(
     ws: WebSocket,

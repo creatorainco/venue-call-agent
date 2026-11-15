@@ -1,0 +1,94 @@
+{
+  "$comment": "What the restaurant says on each corpus call, rendered by scripts/render-corpus.mjs. Fifteen calls replay the caller turns of test/fixtures/conversations (named by `fixture`, read at render time so the two cannot drift); five are new, digit-heavy and money-heavy. `scenario` is the mock seam scenario the call's token names. Voices are Google TTS families that are NOT Chirp, so the agent (Chirp 3 HD) never hears its own voice. This is venue speech, never agent speech.",
+  "voices": [
+    { "name": "en-US-Standard-B", "languageCode": "en-US" },
+    { "name": "en-US-Wavenet-F", "languageCode": "en-US" },
+    { "name": "en-US-Neural2-D", "languageCode": "en-US" },
+    { "name": "en-US-Standard-H", "languageCode": "en-US" },
+    { "name": "en-IN-Wavenet-B", "languageCode": "en-IN" },
+    { "name": "en-US-Wavenet-J", "languageCode": "en-US" },
+    { "name": "en-GB-Neural2-C", "languageCode": "en-GB" }
+  ],
+  "calls": [
+    { "id": "plain", "fixture": "plain" },
+    { "id": "who-pays", "fixture": "who-pays" },
+    { "id": "who-pays-after-comp-clause", "fixture": "who-pays-after-comp-clause" },
+    { "id": "two-questions-then-close", "fixture": "two-questions-then-close" },
+    { "id": "unknown-question", "fixture": "unknown-question" },
+    { "id": "wants-to-cancel", "fixture": "wants-to-cancel" },
+    { "id": "stop-calling", "fixture": "stop-calling" },
+    { "id": "wrong-number", "fixture": "wrong-number" },
+    { "id": "voicemail", "fixture": "voicemail" },
+    { "id": "phone-menu", "fixture": "phone-menu" },
+    { "id": "they-interrupt", "fixture": "they-interrupt" },
+    { "id": "talks-over-disclosure-200ms", "fixture": "talks-over-disclosure-200ms" },
+    { "id": "talks-over-most-of-disclosure", "fixture": "talks-over-most-of-disclosure" },
+    { "id": "credential-expires", "fixture": "credential-expires" },
+    { "id": "booking-hello", "fixture": "booking-cancelled", "scenario": "happy", "note": "booking-cancelled's opening line, played against a live booking: its own scenario refuses before a word is spoken, so it would time nothing" },
+    {
+      "id": "digits-party-size",
+      "scenario": "happy",
+      "turns": [
+        "Golden Crane, Marcus speaking.",
+        "Is that the party of 4 or 6? We have them down at table 12.",
+        "Okay, 7:30 for four, got it."
+      ]
+    },
+    {
+      "id": "digits-callback-number",
+      "scenario": "happy",
+      "turns": [
+        "Front desk.",
+        "If they're running late, can they ring us on 404 555 0173?",
+        "Thanks, bye."
+      ]
+    },
+    {
+      "id": "digits-time",
+      "scenario": "happy",
+      "turns": [
+        "Hello, Golden Crane.",
+        "Is it 7:15 or 7:45? We've got a 7 o'clock and an 8:30 already.",
+        "Alright, thank you."
+      ]
+    },
+    {
+      "id": "money-covered-amount",
+      "scenario": "comp-known",
+      "turns": [
+        "Hello?",
+        "How much is the brand covering, sixty dollars or a hundred and twenty?",
+        "Fine, that works."
+      ]
+    },
+    {
+      "id": "money-minimum-spend",
+      "scenario": "happy",
+      "turns": [
+        "Hi, this is the manager.",
+        "We have a $25 per person minimum on Fridays, plus 18 percent for groups of 6 or more. Is that okay?",
+        "Alright, noted."
+      ]
+    }
+  ],
+  "babble": [
+    "Could we get two more waters over here, please?",
+    "Table nine is ready for dessert.",
+    "Order up, two noodle soups and a dumpling plate.",
+    "Sorry, we're on a short wait right now, about fifteen minutes.",
+    "Can I get the check when you have a second?",
+    "Behind you, hot plate coming through.",
+    "Do you want rice with that or the noodles?",
+    "Happy birthday! Let's get a candle on that."
+  ],
+  "expect_unheard": {
+    "stop-calling-1.ulaw": "A one-word \"Yes?\" in the noise bed: STT v2 telephony returned no transcript at render (2026-11-14). Kept on purpose: a terse answer the recogniser drops is dead air on a real line, and the soak should charge it. If it ever is heard, remove this entry (the render fails until you do)."
+  },
+  "noise": {
+    "snr_db": 12,
+    "speech_rms_dbfs": -20,
+    "bed_seconds": 30,
+    "babble_level_db": -8,
+    "clink_per_second": 0.6
+  }
+}

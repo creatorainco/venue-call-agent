@@ -580,12 +580,22 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
     });
     gate.connect();
 
-    const bridge = new CascadeBridge(gate, { tts, speech: options.speech, vad });
-    const heard: CallerTurn[] = [];
+    // The stage timings (I3P-03): a sentence id points at the agent turn that first spoke it, and
+    // the bridge stamps that turn when its audio came back and when its first frame went out.
+    const timedTurns = new Map<string, Turn>();
+    const now = (): number => Math.round(leg.elapsedMs);
+    const onStage = (id: string, stage: 'tts_first_byte' | 'first_frame_out'): void => {
+        const row = timedTurns.get(id);
+        if (row === undefined) return;
+        if (stage === 'tts_first_byte') row.tts_first_byte_ms ??= now();
+        else row.first_frame_out_ms ??= now();
+    };
+    const bridge = new CascadeBridge(gate, { tts, speech: options.speech, vad, onStage });
+    const heard: Array<CallerTurn & { finalAtMs: number }> = [];
     let failure: Error | null = null;
     let wake: (() => void) | null = null;
     const poke = (): void => { const w = wake; wake = null; w?.(); };
-    bridge.on('callerTurn', (turn) => { heard.push(turn); poke(); });
+    bridge.on('callerTurn', (turn) => { heard.push({ ...turn, finalAtMs: now() }); poke(); });
     bridge.on('error', (error) => { failure ??= error; poke(); });
     gate.on('hangup', () => poke());
     gate.on('inbound', (frame) => { bridge.sendAudio(frame); });
@@ -608,7 +618,11 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
             return { sentences: [], complete: false };
         }));
     };
-    const said = (text: string): void => { turns.push({ speaker: 'agent', text, at_ms: Math.round(leg.elapsedMs) }); };
+    const said = (text: string): Turn => {
+        const row: Turn = { speaker: 'agent', text, at_ms: Math.round(leg.elapsedMs) };
+        turns.push(row);
+        return row;
+    };
 
     const guard = async (run: () => Promise<AgentTurn>): Promise<AgentTurn | null> => {
         try {
@@ -635,8 +649,9 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
         if (first !== context.disclosure_sentence) {
             throw new Error('open() did not begin with the disclosure sentence the backend supplied');
         }
-        keep(bridge.speakDisclosure({ id: nextId(), text: first }));
-        said(first);
+        const disclosureId = nextId();
+        timedTurns.set(disclosureId, said(first));
+        keep(bridge.speakDisclosure({ id: disclosureId, text: first }));
         if (rest.length) {
             keep(bridge.speak(rest.map((text) => ({ id: nextId(), text }))));
             rest.forEach(said);
@@ -650,7 +665,13 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
             if (leg.ended || signal.aborted) return;
             const caller = heard.shift();
             if (caller === undefined) continue;
-            turns.push({ speaker: 'venue', text: caller.text, at_ms: Math.round(leg.elapsedMs) });
+            turns.push({
+                speaker: 'venue',
+                text: caller.text,
+                at_ms: Math.round(leg.elapsedMs),
+                venue_end_ms: framesToMs(caller.lastAudibleFrame),
+                stt_final_ms: caller.finalAtMs,
+            });
             const turn = await guard(() => agent.hear(caller.text));
             if (turn === null) return;
             throwIfFailed();
@@ -660,8 +681,13 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
                 if (next !== gate.state) gate.enter(next);
             }
             if (turn.say.length > 0) {
-                keep(bridge.speak(turn.say.map((text) => ({ id: nextId(), text }))));
-                turn.say.forEach(said);
+                const sentences = turn.say.map((text) => ({ id: nextId(), text }));
+                const rows = turn.say.map(said);
+                // The reply's first sentence carries how the reply was decided and when it sounded.
+                const lead = rows[0]!;
+                if (turn.timing) Object.assign(lead, turn.timing);
+                timedTurns.set(sentences[0]!.id, lead);
+                keep(bridge.speak(sentences));
             }
             if (turn.endCall) {
                 // Let the last sentence play out before hanging up; the cap and a drain still win.

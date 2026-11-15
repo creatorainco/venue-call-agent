@@ -43,7 +43,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { END_REASONS, EVENT_KINDS, MAX_TURN_CHARS, MAX_TURNS } from '../seam/types.ts';
+import { END_REASONS, EVENT_KINDS, MAX_TURN_CHARS, MAX_TURNS, TURN_WIRE_FIELDS } from '../seam/types.ts';
 
 const FIXTURES = JSON.parse(
     readFileSync(fileURLToPath(new URL('./fixtures/scenarios.json', import.meta.url)), 'utf8'),
@@ -162,6 +162,9 @@ function callEndedProblem(body: Record<string, unknown>): string | null {
     for (const turn of body.turns as Array<Record<string, unknown>>) {
         if (turn?.speaker !== 'agent' && turn?.speaker !== 'venue') return 'a turn with no agent/venue speaker';
         if (typeof turn.text !== 'string' || turn.text.length > MAX_TURN_CHARS) return `a turn text that is not a string of <= ${MAX_TURN_CHARS} chars`;
+        // Joi.object() refuses a key it does not list, so the stage timings are a 400 there today.
+        const unknown = Object.keys(turn).find((k) => !(TURN_WIRE_FIELDS as readonly string[]).includes(k));
+        if (unknown !== undefined) return `a turn key the backend does not accept: ${unknown}`;
     }
     return null;
 }

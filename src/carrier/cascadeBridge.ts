@@ -46,6 +46,11 @@ export interface CascadeBridgeOptions {
     vad: VadSettings;
     /** Injected so the recogniser's rollover is testable. */
     sttClock?: () => number;
+    /**
+     * Told when a sentence's synthesis returned (`tts_first_byte`) and when its first frame was
+     * written to the gate (`first_frame_out`): the stage timings (I3P-03). The id, never the text.
+     */
+    onStage?: (id: string, stage: 'tts_first_byte' | 'first_frame_out') => void;
 }
 
 /** The sentence on the leg, waiting for its mark. */
@@ -78,6 +83,7 @@ export class CascadeBridge implements SpeechBridge {
     private readonly tts: Pick<Tts, 'synthesize'>;
     private readonly detector: TurnDetector;
     private readonly stt: StreamingStt;
+    private readonly onStage: NonNullable<CascadeBridgeOptions['onStage']>;
     private readonly handlers: { [K in keyof SpeechBridgeEvents]: Array<SpeechBridgeEvents[K]> } = {
         callerTurn: [],
         interim: [],
@@ -102,6 +108,7 @@ export class CascadeBridge implements SpeechBridge {
     constructor(gate: OutputGate, options: CascadeBridgeOptions) {
         this.gate = gate;
         this.tts = options.tts;
+        this.onStage = options.onStage ?? (() => {});
         this.detector = new TurnDetector(options.vad);
         this.stt = new StreamingStt({
             factory: options.speech,
@@ -202,6 +209,7 @@ export class CascadeBridge implements SpeechBridge {
                 this.fail(failure);
                 throw failure;
             }
+            this.onStage(id, 'tts_first_byte');
             const frames = toFrames(audio);
             if (dropped() || frames.length === 0) {
                 out.push({ id, text, heardMs: 0, fullMs: msOf(frames.length) });
@@ -222,6 +230,7 @@ export class CascadeBridge implements SpeechBridge {
             const mark = `say:${this.markSeq}`;
             this.playing = { mark, id, text, frames: frames.length, protected: protect, resolve };
             if (protect) this.gate.beginDisclosure();
+            this.onStage(id, 'first_frame_out');
             for (const frame of frames) this.gate.write(frame);
             // The disclosure carries no mark of its own: the gate's mark behind the range is the
             // one that says it played, and it survives a barge-in. A mark of ours would sit in the

@@ -17,6 +17,7 @@
  * repository applies to it unchanged.
  */
 
+import type { IntentSource } from '../seam/types.ts';
 import type { AnswererKind, CallbackReason, FactTopic } from '../seam/types.ts';
 
 export type ToolName =
@@ -58,6 +59,11 @@ export interface AgentTurn {
     endCall: boolean;
     /** Free-text, for the transcript only. Never spoken. */
     note?: string;
+    /**
+     * How long deciding this turn took, when the agent measured it (I3P-03, I3P-13): the intent
+     * classifier, which stage decided, and the backend calls after it. Numbers only, never text.
+     */
+    timing?: { intent_ms: number; intent_source: IntentSource; seam_ms: number };
 }
 
 export interface CallAgent {

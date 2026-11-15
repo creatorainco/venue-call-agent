@@ -12,3 +12,6 @@
 *.mjs  text eol=lf
 *.md   text eol=lf
 *.yml  text eol=lf
+
+# Audio (the soak corpus, soak/fixtures/*.ulaw): raw mu-law bytes, never a line-ending rewrite.
+*.ulaw binary

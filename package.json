@@ -22,7 +22,9 @@
     "verify": "npm run check:no-facts && node scripts/doctor.mjs --control && npm run typecheck && npm test",
     "mint-token": "node scripts/mint-token.mjs",
     "probe:speech": "node scripts/probe-speech.mjs",
-    "soak:edge": "node scripts/soak-edge.mjs"
+    "soak:edge": "node scripts/soak-edge.mjs",
+    "soak:render": "node scripts/render-corpus.mjs --verify",
+    "soak:corpus": "node scripts/soak-corpus.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
