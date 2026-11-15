@@ -76,6 +76,16 @@ export interface TwilioLegOptions {
 /** A start parameter longer than this is not a token the backend minted. */
 export const MAX_TOKEN_LENGTH = 4096;
 
+/**
+ * How the socket closes, so the far end can tell a refusal from a call that ran (VCA-12, the edge
+ * soak). A leg that ends before the backend accepted it (no usable token, a refused token, a
+ * protocol violation, busy, the pre-auth deadline) closes 1008 `refused`; a call that was accepted
+ * closes 1000. The reason is one fixed word for every refusal, so a stranger learns no more than
+ * "not taken": which check failed stays in our log. Twilio ends the stream on any close.
+ */
+export const CLOSE_REFUSED = { code: 1008, reason: 'refused' } as const;
+export const CLOSE_ENDED = { code: 1000, reason: '' } as const;
+
 /** Two frames (40 ms) ahead of real time: enough for timer jitter, short enough for barge-in. */
 const DEFAULT_LEAD_FRAMES = 2;
 
@@ -439,6 +449,7 @@ export class TwilioLeg implements CallLeg {
 
     private end(reason: HangupReason): void {
         if (this.phase === 'ended') return;
+        const close = this.phase === 'live' ? CLOSE_ENDED : CLOSE_REFUSED;
         this.phase = 'ended';
         this.endedBecause = reason;
         this.stopPacer?.();
@@ -450,7 +461,7 @@ export class TwilioLeg implements CallLeg {
         this.sentMarks.clear();
         this.swallow.clear();
         try {
-            this.socket.close(1000, '');
+            this.socket.close(close.code, close.reason);
         } catch {
             // Already closed. Ending is unconditional either way.
         }

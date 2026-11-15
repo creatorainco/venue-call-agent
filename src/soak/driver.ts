@@ -2,8 +2,10 @@
  * THE FAKE CARRIER: a client that opens the media WebSocket the way Twilio's `<Connect><Stream>`
  * does, and records what the far side did with it (TASK-3749 step 1, the driver).
  *
- * It places no call and reaches no carrier. It is a WebSocket client and nothing else: point it at
- * a local `npm start`, or at the dev Cloud Run service, and it plays the part of the phone line.
+ * It places no call and reaches no carrier. It drives a WebSocket client it is HANDED (`connect`):
+ * `src/` opens no connection of its own outside the three adapters (test/importBoundary.test.ts,
+ * CORE-A11), so `scripts/soak-edge.mjs` and the tests supply `new WebSocket(...)`. Point it at a
+ * local `npm start`, or at the dev Cloud Run service, and it plays the part of the phone line.
  *
  * Two families of leg:
  *
@@ -15,16 +17,21 @@
  *     JSON), `binary` (a binary frame), and `no-start` (connect and say nothing).
  *
  * What is measured comes from the wire, never from the server's own account of itself: whether the
- * upgrade was taken, who closed, with what code, how long it took, and every outbound message by
- * event kind. A `media` frame whose payload is not all μ-law silence is counted as AUDIO, because
+ * upgrade was taken, who closed, with what code and reason, how long it took, and every outbound
+ * message by event kind. A refusal is read off the wire too: a refused upgrade, or the close the
+ * stream server sends for a leg it never accepted (`CLOSE_REFUSED`, 1008 `refused`). A `media` frame whose payload is not all μ-law silence is counted as AUDIO, because
  * the first safety property of a refused or unwired call is that it says nothing.
  *
  * 🔴 NEVER LOG THE TOKEN. The outcome carries the leg kind, not the token it was given.
  */
 
-import { WebSocket } from 'ws';
+import type { ClientOptions, WebSocket } from 'ws';
 import { CARRIER_AUDIO, MULAW_SILENCE } from '../audio/format.ts';
 import { speechFrame } from '../carrier/fakeLeg.ts';
+import { CLOSE_REFUSED } from '../carrier/twilioLeg.ts';
+
+/** Opens the client socket. Supplied by the caller: `(url, options) => new WebSocket(url, options)`. */
+export type Connect = (url: string, options: ClientOptions) => WebSocket;
 
 export const LEG_KINDS = ['twilio', 'no-token', 'bad-token', 'garbage', 'binary', 'no-start'] as const;
 export type LegKind = (typeof LEG_KINDS)[number];
@@ -53,7 +60,13 @@ export interface LegOutcome {
     httpStatus: number | null;
     /** The close code we saw, if the socket opened. */
     closeCode: number | null;
-    /** Who ended it: the server, us after our script finished, or us at the timeout. */
+    /** The close reason we saw, if any. A short fixed word from our server, never a secret. */
+    closeReason: string | null;
+    /**
+     * Who ended it: the server with a close frame, us after our script finished, us at the timeout,
+     * or `error`: the socket failed, or dropped without a close frame (1006), which is a reset or a
+     * crash and never a clean server-side end.
+     */
     closedBy: 'server' | 'client' | 'timeout' | 'error';
     /** From the connect attempt to the close (or the refused upgrade). */
     msToClose: number;
@@ -67,7 +80,7 @@ export interface LegOutcome {
     error: string | null;
 }
 
-export async function runLeg(url: string, plan: LegPlan): Promise<LegOutcome> {
+export async function runLeg(connect: Connect, url: string, plan: LegPlan): Promise<LegOutcome> {
     if (plan.kind === 'twilio' && !plan.token) throw new Error('a twilio leg needs a token');
     const mediaMs = plan.mediaMs ?? 3000;
     const timeoutMs = plan.timeoutMs ?? 15_000;
@@ -77,6 +90,7 @@ export async function runLeg(url: string, plan: LegPlan): Promise<LegOutcome> {
         upgraded: false,
         httpStatus: null,
         closeCode: null,
+        closeReason: null,
         closedBy: 'server',
         msToClose: 0,
         received: {},
@@ -86,8 +100,9 @@ export async function runLeg(url: string, plan: LegPlan): Promise<LegOutcome> {
     };
 
     return new Promise<LegOutcome>((resolve) => {
-        const ws = new WebSocket(url, { perMessageDeflate: false, handshakeTimeout: timeoutMs });
+        const ws = connect(url, { perMessageDeflate: false, handshakeTimeout: timeoutMs });
         let ourClose: LegOutcome['closedBy'] | null = null;
+        let errored = false;
         let pacer: NodeJS.Timeout | null = null;
         let done = false;
 
@@ -100,12 +115,12 @@ export async function runLeg(url: string, plan: LegPlan): Promise<LegOutcome> {
             resolve(outcome);
         };
         const closeOurs = (by: LegOutcome['closedBy']): void => {
-            if (ws.readyState !== WebSocket.OPEN) return;
+            if (ws.readyState !== ws.OPEN) return;
             ourClose ??= by;
             ws.close(1000, '');
         };
         const giveUp = setTimeout(() => {
-            if (ws.readyState === WebSocket.OPEN) {
+            if (ws.readyState === ws.OPEN) {
                 closeOurs('timeout');
                 // A peer that never answers the close handshake is cut.
                 setTimeout(() => { ws.terminate(); }, 2000).unref();
@@ -125,14 +140,18 @@ export async function runLeg(url: string, plan: LegPlan): Promise<LegOutcome> {
         });
         ws.on('error', (error: Error) => {
             outcome.error = /^[A-Za-z_$][\w$]*$/.test(error.name) ? error.name : 'Error';
+            errored = true;
             if (!outcome.upgraded && outcome.httpStatus === null) {
                 outcome.closedBy = 'error';
                 finish();
             }
         });
-        ws.on('close', (code: number) => {
+        ws.on('close', (code: number, reason: Buffer) => {
             outcome.closeCode = code;
-            outcome.closedBy = ourClose ?? 'server';
+            outcome.closeReason = reason.length ? String(reason).slice(0, 64) : null;
+            // 1006: the connection went without a close frame. After an error, or with no frame at
+            // all, nobody ended the call cleanly: a reset or a crash must not read as a server end.
+            outcome.closedBy = ourClose ?? (errored || code === 1006 ? 'error' : 'server');
             finish();
         });
         ws.on('message', (data, isBinary) => {
@@ -153,7 +172,7 @@ export async function runLeg(url: string, plan: LegPlan): Promise<LegOutcome> {
                 if (!isSilentPayload(message.media.payload)) outcome.audibleFrames += 1;
             }
             // Twilio echoes a mark once the audio queued before it has played.
-            if (event === 'mark' && ws.readyState === WebSocket.OPEN) {
+            if (event === 'mark' && ws.readyState === ws.OPEN) {
                 ws.send(JSON.stringify({ event: 'mark', streamSid: STREAM_SID, mark: message.mark ?? {} }));
             }
         });
@@ -193,7 +212,7 @@ function script(
     setPacer: (timer: NodeJS.Timeout) => void,
     end: () => void,
 ): void {
-    const send = (text: string): void => { if (ws.readyState === WebSocket.OPEN) ws.send(text); };
+    const send = (text: string): void => { if (ws.readyState === ws.OPEN) ws.send(text); };
     switch (plan.kind) {
         case 'twilio':
             send(CONNECTED);
@@ -213,7 +232,7 @@ function script(
             send('{"event":"start", this is not json');
             return;
         case 'binary':
-            if (ws.readyState === WebSocket.OPEN) ws.send(Buffer.from([0xde, 0xad, 0xbe, 0xef]), { binary: true });
+            if (ws.readyState === ws.OPEN) ws.send(Buffer.from([0xde, 0xad, 0xbe, 0xef]), { binary: true });
             return;
         case 'no-start':
             // Say nothing; the server's pre-auth deadline should close us.
@@ -232,7 +251,7 @@ function stream(
     const frames = Math.max(1, Math.round(mediaMs / CARRIER_AUDIO.frameMs));
     let i = 0;
     const timer = setInterval(() => {
-        if (ws.readyState !== WebSocket.OPEN) {
+        if (ws.readyState !== ws.OPEN) {
             clearInterval(timer);
             return;
         }
@@ -261,18 +280,34 @@ export function isSilentPayload(payload: string): boolean {
     return true;
 }
 
+/** The far side refused the leg: it refused the upgrade, or closed with `CLOSE_REFUSED`. */
+export function refusedOnWire(outcome: LegOutcome): boolean {
+    if (outcome.httpStatus !== null) return true;
+    return outcome.closeCode === CLOSE_REFUSED.code && outcome.closeReason === CLOSE_REFUSED.reason;
+}
+
 /**
- * The safety reading of one leg, by what it was expected to be.
+ * The safety reading of one leg, by what it was expected to be. Every leg must send no audio and
+ * be ended by the server with a close frame (or a refused upgrade). Then:
  *
- *   - `refused`: the server ended it (a refused upgrade or a server-side close), and sent no audio.
- *   - `accepted-silent`: the server took the call, sent no audio (no agent is wired, or the agent
- *     ended before speaking), and ended it itself.
+ *   - `refused`: the wire shows the refusal (`refusedOnWire`). A leg the server took and then hung
+ *     up on is NOT a refusal, however silent: an auth bypass at the edge must fail here.
+ *   - `accepted-silent`: the server took the call (the upgrade, and no refusal close), sent no
+ *     audio (no agent is wired, or the agent ended before speaking), and ended it itself.
  */
 export function judge(outcome: LegOutcome, expect: 'refused' | 'accepted-silent'): { pass: boolean; why: string[] } {
     const why: string[] = [];
     if (outcome.audibleFrames > 0) why.push(`${outcome.audibleFrames} audible outbound frame(s)`);
-    if (outcome.closedBy !== 'server') why.push(`closed by ${outcome.closedBy}, not the server`);
-    if (outcome.error && outcome.closedBy === 'error') why.push(`socket error ${outcome.error}`);
-    if (expect === 'accepted-silent' && !outcome.upgraded) why.push('upgrade refused');
+    if (outcome.closedBy !== 'server') {
+        why.push(`closed by ${outcome.closedBy}, not the server${outcome.error ? ` (socket error ${outcome.error})` : ''}`);
+    }
+    const refused = refusedOnWire(outcome);
+    if (expect === 'refused' && !refused) {
+        why.push(`no refusal on the wire (close ${outcome.closeCode ?? 'none'} ${JSON.stringify(outcome.closeReason ?? '')})`);
+    }
+    if (expect === 'accepted-silent') {
+        if (!outcome.upgraded) why.push('upgrade refused');
+        else if (refused) why.push(`refused (close ${outcome.closeCode} ${JSON.stringify(outcome.closeReason ?? '')}), not accepted`);
+    }
     return { pass: why.length === 0, why };
 }

@@ -1,8 +1,8 @@
 /**
  * The safety soak at the edge (TASK-3749 step 3, the 3-call soak, and VCA-12). The command is
- * `npm run soak:edge` (`scripts/soak-edge.mjs`), which supplies the health reader: `src/` makes no
- * network request outside the three adapters (test/importBoundary.test.ts), so this file is handed
- * one.
+ * `npm run soak:edge` (`scripts/soak-edge.mjs`), which supplies the socket factory and the health
+ * reader: `src/` opens no connection outside the three adapters (test/importBoundary.test.ts,
+ * CORE-A11), so this file and the driver are handed both.
  *
  * Runs `legs` Twilio-shaped legs with the token given, then, with `bogus`, the five sockets a
  * stranger might send. Legs run one after another: the service takes one call per instance, and a
@@ -13,7 +13,7 @@
  */
 
 import { BOGUS_KINDS, judge, runLeg } from './driver.ts';
-import type { LegKind, LegOutcome } from './driver.ts';
+import type { Connect, LegKind, LegOutcome } from './driver.ts';
 
 export interface EdgeSoakOptions {
     baseUrl: string;
@@ -23,6 +23,8 @@ export interface EdgeSoakOptions {
     expect: 'refused' | 'accepted-silent';
     mediaMs?: number;
     timeoutMs?: number;
+    /** Opens the client socket for each leg: `(url, options) => new WebSocket(url, options)`. */
+    connect: Connect;
     /** Reads the health endpoint and answers its HTTP status, or 0 if it could not be reached. */
     health: (url: string) => Promise<number>;
 }
@@ -56,7 +58,7 @@ export async function runEdgeSoak(options: EdgeSoakOptions): Promise<EdgeSoakRep
 
     const report: EdgeSoakReport = { target: base.origin, startedAt: new Date().toISOString(), rows: [], pass: true };
     for (const step of plan) {
-        const outcome = await runLeg(wsUrl.toString(), {
+        const outcome = await runLeg(options.connect, wsUrl.toString(), {
             kind: step.kind,
             ...(step.kind === 'twilio' && options.token ? { token: options.token } : {}),
             ...(options.mediaMs !== undefined ? { mediaMs: options.mediaMs } : {}),
