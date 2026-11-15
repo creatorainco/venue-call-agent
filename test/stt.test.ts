@@ -7,7 +7,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 
-import { StreamingStt, finalTranscripts, streamingConfigRequest, type RecognizeStream, type SpeechStreamFactory } from '../src/speech/stt.ts';
+import { StreamingStt, finalTranscripts, interimTranscript, streamingConfigRequest, type RecognizeStream, type SpeechStreamFactory } from '../src/speech/stt.ts';
 import { STT } from '../src/tuning/cascadeDefaults.ts';
 
 class FakeStream extends EventEmitter implements RecognizeStream {
@@ -38,13 +38,44 @@ function fakeFactory(): SpeechStreamFactory & { streams: FakeStream[] } {
 const frame = (fill = 0x7f) => new Uint8Array(160).fill(fill);
 
 describe('the first message on every stream is the config, with the audio declared', () => {
-    test('MULAW, 8000 Hz, mono, explicit decoding, the telephony model, finals only', () => {
+    test('MULAW, 8000 Hz, mono, explicit decoding, the telephony model, interim results on', () => {
         const config = streamingConfigRequest('projects/p/locations/us/recognizers/_') as any;
         assert.equal(config.recognizer, 'projects/p/locations/us/recognizers/_');
         assert.deepEqual(config.streamingConfig.config.explicitDecodingConfig,
             { encoding: 'MULAW', sampleRateHertz: 8000, audioChannelCount: 1 });
         assert.equal(config.streamingConfig.config.model, STT.model);
-        assert.equal(config.streamingConfig.streamingFeatures.interimResults, false);
+        assert.equal(config.streamingConfig.streamingFeatures.interimResults, true);
+        assert.equal(config.streamingConfig.streamingFeatures.endpointingSensitivity, 'ENDPOINTING_SENSITIVITY_SHORT');
+    });
+});
+
+describe('interim results (I3P-07): read, never mistaken for a final', () => {
+    test('the stable head and the unstable tail of one response are read together', () => {
+        const response = { results: [
+            { alternatives: [{ transcript: 'for hours press' }], stability: 0.9 },
+            { alternatives: [{ transcript: '1' }], stability: 0.01 },
+        ] };
+        assert.equal(interimTranscript(response), 'for hours press 1');
+        assert.deepEqual(finalTranscripts(response), []);
+    });
+
+    test('a response carrying a final has no interim; garbage has neither', () => {
+        assert.equal(interimTranscript({ results: [{ isFinal: true, alternatives: [{ transcript: 'hello' }] }] }), '');
+        assert.equal(interimTranscript(null), '');
+        assert.equal(interimTranscript({ results: 'x' }), '');
+    });
+
+    test('onInterim gets the interim, onFinal only the final', () => {
+        const factory = fakeFactory();
+        const finals: string[] = [];
+        const interims: string[] = [];
+        const stt = new StreamingStt({ factory, onFinal: (t) => finals.push(t), onInterim: (t) => interims.push(t), onError: () => {} });
+        stt.start();
+        const [s] = factory.streams;
+        s!.emit('data', { results: [{ alternatives: [{ transcript: 'hel' }] }] });
+        s!.emit('data', { results: [{ isFinal: true, alternatives: [{ transcript: 'hello' }] }] });
+        assert.deepEqual(interims, ['hel']);
+        assert.deepEqual(finals, ['hello']);
     });
 });
 

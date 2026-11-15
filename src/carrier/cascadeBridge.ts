@@ -23,6 +23,11 @@
  * is not, so `speakDisclosure()` awaits the audio first (pre-rendered, so it is a cache hit) and
  * only then opens the range, writes it and closes it.
  *
+ * A TURN MAY END ON THE INTERIM (I3P-07). With interim results on, a still interim that a keyword
+ * cue decides, or a short invited answer, ends the venue's turn before the recogniser's final
+ * (`src/speech/turnEnd.ts`); the final that follows is dropped when it is the same turn and
+ * answered as a new one when it is not. `earlyTurnEnd: false` restores final-only turns.
+ *
  * HOW MUCH WAS HEARD. A sentence whose mark came back was heard in full. One cut by a barge-in was
  * heard up to the frames the clear threw away. One still playing when the line went down is
  * reported as unheard: the carrier's queue is gone and nothing can say how far it got, and this
@@ -30,6 +35,7 @@
  */
 
 import { CARRIER_AUDIO, MULAW_SILENCE } from '../audio/format.ts';
+import { TURN_END } from '../tuning/cascadeDefaults.ts';
 import { StreamingStt } from '../speech/stt.ts';
 import type { SpeechStreamFactory } from '../speech/stt.ts';
 import type { Tts } from '../speech/tts.ts';
@@ -39,6 +45,8 @@ import type { Frame } from './leg.ts';
 import type { OutputGate } from './outputGate.ts';
 import { TurnDetector } from './vad.ts';
 import type { VadSettings } from './vad.ts';
+import { continues, earlySettleMs, earlyTurn, ForegroundSpeech, sameTurn } from '../speech/turnEnd.ts';
+import type { EarlyTurn } from '../speech/turnEnd.ts';
 
 export interface CascadeBridgeOptions {
     tts: Pick<Tts, 'synthesize'>;
@@ -51,6 +59,18 @@ export interface CascadeBridgeOptions {
      * written to the gate (`first_frame_out`): the stage timings (I3P-03). The id, never the text.
      */
     onStage?: (id: string, stage: 'tts_first_byte' | 'first_frame_out') => void;
+    /** End a turn on a still interim (`src/speech/turnEnd.ts`). Default true. */
+    earlyTurnEnd?: boolean;
+    /**
+     * Told the interim a settle timer is now waiting on: the turn this bridge may end early, so
+     * the agent can start on it (`CallAgent.prefetch`). Text, never logged.
+     */
+    onSpeculate?: (text: string) => void;
+    /** Event words and numbers only, never a transcript: `turn_end early`, `final_same_turn`. */
+    log?: (line: string) => void;
+    /** Injected so the interim's settle timer is testable. */
+    setTimer?: (fn: () => void, ms: number) => unknown;
+    clearTimer?: (handle: unknown) => void;
 }
 
 /** The sentence on the leg, waiting for its mark. */
@@ -90,6 +110,21 @@ export class CascadeBridge implements SpeechBridge {
         error: [],
     };
     private readonly ids = new Set<string>();
+    private readonly earlyEnabled: boolean;
+    private readonly log: (line: string) => void;
+    private readonly onSpeculate: (text: string) => void;
+    private readonly setTimer: (fn: () => void, ms: number) => unknown;
+    private readonly clearTimer: (handle: unknown) => void;
+    /** The next venue turn is the hello after the disclosure: a short one may end on the interim. */
+    private expectShort = true;
+    /** The interim being watched, and its settle timer. */
+    private interimText = '';
+    private settleTimer: unknown = null;
+    private speculateTimer: unknown = null;
+    /** The turn ended on an interim, until the recogniser's final for it arrives. */
+    private early: EarlyTurn | null = null;
+    /** The person at the phone against the room: an early end needs their voice, not babble. */
+    private readonly foreground = new ForegroundSpeech();
 
     private frame = -1;
     private lastAudible = -1;
@@ -109,10 +144,16 @@ export class CascadeBridge implements SpeechBridge {
         this.gate = gate;
         this.tts = options.tts;
         this.onStage = options.onStage ?? (() => {});
+        this.earlyEnabled = options.earlyTurnEnd ?? true;
+        this.log = options.log ?? (() => {});
+        this.onSpeculate = options.onSpeculate ?? (() => {});
+        this.setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
+        this.clearTimer = options.clearTimer ?? ((handle) => clearTimeout(handle as NodeJS.Timeout));
         this.detector = new TurnDetector(options.vad);
         this.stt = new StreamingStt({
             factory: options.speech,
             onFinal: (text) => this.onFinal(text),
+            onInterim: (text) => this.onInterim(text),
             onError: (error) => this.fail(error),
             ...(options.sttClock ? { clock: options.sttClock } : {}),
         });
@@ -129,6 +170,15 @@ export class CascadeBridge implements SpeechBridge {
         if (!this.closed) this.stt.start();
     }
 
+    /**
+     * Whether the venue's next turn is the hello after the disclosure (true at call start; the call
+     * loop clears it at the first venue turn). Such a short turn may end on the interim; see
+     * `src/speech/turnEnd.ts`.
+     */
+    expectShortTurn(value: boolean): void {
+        this.expectShort = value;
+    }
+
     on<K extends keyof SpeechBridgeEvents>(event: K, handler: SpeechBridgeEvents[K]): void {
         this.handlers[event].push(handler);
     }
@@ -137,6 +187,7 @@ export class CascadeBridge implements SpeechBridge {
         if (this.closed) return;
         this.frame += 1;
         this.stt.push(frame);
+        if (this.earlyEnabled) this.foreground.push(frame);
         const event = this.detector.push(frame);
         if (event?.kind === 'speech_started' && this.speaking()) this.interrupt();
         if (event?.kind === 'turn_ended') this.lastAudible = event.lastAudibleAt ?? this.frame;
@@ -170,6 +221,7 @@ export class CascadeBridge implements SpeechBridge {
     async hangup(): Promise<void> {
         if (this.closed) return;
         this.closed = true;
+        this.cancelSettle();
         this.stt.close();
         this.abandon();
     }
@@ -267,8 +319,73 @@ export class CascadeBridge implements SpeechBridge {
 
     private onFinal(text: string): void {
         if (this.closed || this.lineDown) return;
+        this.cancelSettle();
+        this.interimText = '';
+        const early = this.early;
+        this.early = null;
+        if (early !== null && sameTurn(early, text)) {
+            this.log('final_same_turn');
+            return;
+        }
+        if (early !== null) this.log('final_new_turn');
+        this.emitTurn(text, false);
+    }
+
+    /**
+     * A still interim that `earlySettleMs` accepts ends the turn when its timer fires. Every new
+     * interim restarts the wait, so a turn still being spoken never ends here.
+     */
+    private onInterim(text: string): void {
+        if (this.closed || this.lineDown) return;
+        this.emit('interim', text);
+        if (!this.earlyEnabled || text === this.interimText) return;
+        this.interimText = text;
+        this.cancelSettle();
+        if (this.early !== null) {
+            if (continues(this.early, text)) return;
+            // The recogniser started a new utterance without finalising the last one.
+            this.early = null;
+        }
+        const settle = earlySettleMs(text, this.expectShort);
+        if (settle === null) return;
+        // The agent may start on it once it has stood a moment: not on every revision, and only
+        // for a person at the phone, never the room's babble.
+        this.speculateTimer = this.setTimer(() => {
+            this.speculateTimer = null;
+            if (this.interimText === text && this.early === null && this.foreground.heard()) this.onSpeculate(text);
+        }, Math.min(settle, TURN_END.speculateAfterMs));
+        this.settleTimer = this.setTimer(() => {
+            this.settleTimer = null;
+            if (this.closed || this.lineDown || this.interimText !== text || this.early !== null) return;
+            if (!this.foreground.heard()) {
+                this.log('turn_end room_only');
+                return;
+            }
+            this.early = earlyTurn(text);
+            this.expectShort = false;
+            this.log(`turn_end early settle_ms=${settle}`);
+            this.emitTurn(text, true);
+        }, settle);
+    }
+
+    private cancelSettle(): void {
+        if (this.speculateTimer !== null) {
+            this.clearTimer(this.speculateTimer);
+            this.speculateTimer = null;
+        }
+        if (this.settleTimer === null) return;
+        this.clearTimer(this.settleTimer);
+        this.settleTimer = null;
+    }
+
+    private emitTurn(text: string, early: boolean): void {
         const lastAudibleFrame = this.lastAudible >= 0 ? this.lastAudible : Math.max(0, this.frame);
-        this.emit('callerTurn', { text, lastAudibleFrame, detectedFrame: Math.max(lastAudibleFrame, this.frame) });
+        this.emit('callerTurn', {
+            text,
+            lastAudibleFrame,
+            detectedFrame: Math.max(lastAudibleFrame, this.frame),
+            ...(early ? { early: true } : {}),
+        });
     }
 
     private fail(error: Error): void {

@@ -66,6 +66,15 @@ export interface AgentTurn {
     timing?: { intent_ms: number; intent_source: IntentSource; seam_ms: number };
 }
 
+/** How a turn was heard, when the bridge knows more than the words. */
+export interface HeardInfo {
+    /**
+     * Ended on a still interim, before the recogniser's final (PERF-A): possibly the head of a
+     * longer sentence. The call must not end on a model's reading of it.
+     */
+    early?: boolean;
+}
+
 export interface CallAgent {
     /**
      * The line was answered. The returned turn MUST begin with the disclosure sentence.
@@ -76,7 +85,13 @@ export interface CallAgent {
     open(): Promise<AgentTurn>;
 
     /** Something was said to us. Verbatim, not summarised. */
-    hear(utterance: string): Promise<AgentTurn>;
+    hear(utterance: string, heard?: HeardInfo): Promise<AgentTurn>;
+
+    /**
+     * Optional. What will probably be heard next, before it is final: an agent may start working
+     * it out early (the cascade starts its intent model). Never answered, never spoken from.
+     */
+    prefetch?(utterance: string): void;
 }
 
 /** What a transcript looks like once a call is over. Assert on this, never on audio. */

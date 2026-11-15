@@ -57,7 +57,60 @@ export const STT = {
      * fresh one at 4:30 so the cap never lands mid-sentence.
      */
     rolloverMs: 270_000,
+    /**
+     * SHORT, not SUPERSHORT. Measured 2026-11-14 on the soak corpus (47 clips, noise bed, interim
+     * results on, `telephony` in `us`): end of speech to the final was p50 1117 / p90 2177 ms on
+     * SHORT and p50 1173 / p90 2170 ms on SUPERSHORT, the same within noise, so the telephony model
+     * does not act on the finer setting. Short turns are ended early on the interim instead
+     * (`src/speech/turnEnd.ts`).
+     */
     endpointingSensitivity: 'ENDPOINTING_SENSITIVITY_SHORT',
+    /**
+     * Interim results on (I3P-07): a one-word "Hello?" shows as an interim 0.1-0.3 s after the
+     * speech ends, while its final came 1.7-5.7 s later in the noise bed. The interim is what
+     * lets a turn end before the recogniser's endpointer calls it.
+     */
+    interimResults: true,
+} as const;
+
+/**
+ * Ending a turn on the interim, before the recogniser's final (I3P-07). The interim must have
+ * stood unchanged this long: Google revises an interim every 100-300 ms while words are coming,
+ * so a still interim is a pause, not a word in flight.
+ */
+export const TURN_END = {
+    /** A keyword cue in the interim decides the turn (stop, wrong number, a machine, a question). */
+    cueSettleMs: 450,
+    /** The hello after the disclosure ("Hello?", "Golden Crane."): no cue needed. */
+    shortSettleMs: 600,
+    /**
+     * "Short" is at most this many words: a greeting is a name and a role ("Hi, this is the
+     * manager." is five). At 3 the soak's "Hi, this is the manager" waited for a final that never
+     * came, and the venue heard nothing for 8 s (2026-11-15 run).
+     */
+    shortWords: 6,
+    /**
+     * The final that follows an early end is the same turn, and is dropped, when it decides the
+     * same cue and carries at most this many words more (babble glued to "hello"). Anything else
+     * in it is a new turn and is answered.
+     */
+    sameTurnExtraWords: 4,
+    /**
+     * The intent model starts on an interim once it has stood this long (`CallAgent.prefetch`):
+     * not on every revision, which sent four requests for one "hello" in the 2026-11-15 run.
+     */
+    speculateAfterMs: 250,
+    /**
+     * The voice at the phone, not the room (`ForegroundSpeech`): the room's floor is the 20th
+     * percentile of the last 3 s of frame energy, and a frame 9 dB over it is the person on the
+     * line. An early end needs 8 such frames (160 ms) in the last 2.5 s. Measured on the corpus
+     * bed: at most 2 in any 2 s of room alone, at least 13 in every clip.
+     */
+    floorFrames: 150,
+    floorPercentile: 0.2,
+    foregroundMarginDb: 9,
+    foregroundWindowFrames: 125,
+    foregroundMinFrames: 8,
 } as const;
 
 /** Text-to-speech: a Chirp 3 HD voice, MULAW 8 kHz so the bytes go to the line untouched. */

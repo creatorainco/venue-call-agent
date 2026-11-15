@@ -146,6 +146,40 @@ describe('🔴 the model never speaks', () => {
     });
 });
 
+describe('🔴 an early turn (PERF-A): the call never ends on a model reading of half a sentence', () => {
+    for (const intent of ['wrong_number', 'confirm', 'decline', 'stop_calling', 'voicemail'] as const) {
+        test(`a model ${intent} on an early hello is not trusted: the notice is delivered, the call stays open`, async () => {
+            const intents: IntentClassifier = { classify: async () => ({ intent, source: 'model' }) };
+            const seam = createSeamClient({ baseUrl: mock.baseUrl, token: 'mock:happy' });
+            const agent = createCascadeAgent({ seam, intents });
+            const context = await seam.callContext();
+            await agent.open();
+            const turn = await agent.hear('golden crane marcus', { early: true });
+            assert.equal(turn.endCall, false);
+            assert.deepEqual(turn.say, [...context.opening_script]);
+            assert.equal(turn.timing?.intent_source, 'fallback');
+        });
+    }
+
+    test('CONTROL: the same model reading on a final turn ends the call', async () => {
+        const intents: IntentClassifier = { classify: async () => ({ intent: 'wrong_number', source: 'model' }) };
+        const seam = createSeamClient({ baseUrl: mock.baseUrl, token: 'mock:happy' });
+        const agent = createCascadeAgent({ seam, intents });
+        await agent.open();
+        const turn = await agent.hear('golden crane marcus');
+        assert.equal(turn.endCall, true);
+    });
+
+    test('a keyword still ends the call on an early turn: "stop calling" is never half of anything', async () => {
+        const intents: IntentClassifier = { classify: async () => ({ intent: 'stop_calling', source: 'keyword' }) };
+        const seam = createSeamClient({ baseUrl: mock.baseUrl, token: 'mock:happy' });
+        const agent = createCascadeAgent({ seam, intents });
+        await agent.open();
+        const turn = await agent.hear('please stop calling us', { early: true });
+        assert.equal(turn.endCall, true);
+    });
+});
+
 describe('real Google through ADC (run by hand: CASCADE_ADC_TEST=1)', { skip: process.env.CASCADE_ADC_TEST !== '1' }, () => {
     test('the intent model answers inside the enum and synthesis returns μ-law bytes', async () => {
         const cascade = await startCascade();

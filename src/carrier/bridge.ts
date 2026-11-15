@@ -37,6 +37,12 @@ export interface CallerTurn {
     lastAudibleFrame: number;
     /** Frame the detector decided the turn was over. Always >= lastAudibleFrame. */
     detectedFrame: number;
+    /**
+     * The turn was ended on a still interim, before the recogniser's final (PERF-A). Its words may
+     * be the head of a longer sentence, so an agent must not end the call on a model's reading of
+     * them (`HeardInfo.early`).
+     */
+    early?: boolean;
 }
 
 /**

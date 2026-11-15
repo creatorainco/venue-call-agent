@@ -590,7 +590,14 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
         if (stage === 'tts_first_byte') row.tts_first_byte_ms ??= now();
         else row.first_frame_out_ms ??= now();
     };
-    const bridge = new CascadeBridge(gate, { tts, speech: options.speech, vad, onStage });
+    const bridge = new CascadeBridge(gate, {
+        tts,
+        speech: options.speech,
+        vad,
+        onStage,
+        log: (line) => log(`live-call ${leg.id} ${line}`),
+        onSpeculate: (text) => agent.prefetch?.(text),
+    });
     const heard: Array<CallerTurn & { finalAtMs: number }> = [];
     let failure: Error | null = null;
     let wake: (() => void) | null = null;
@@ -672,7 +679,11 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
                 venue_end_ms: framesToMs(caller.lastAudibleFrame),
                 stt_final_ms: caller.finalAtMs,
             });
-            const turn = await guard(() => agent.hear(caller.text));
+            // Only the hello after the disclosure is an invited short turn. A question of ours, such
+            // as the opening's "any questions?", invites a question, and "hang on, who's paying?"
+            // must not end at "hang on" (soak 2026-11-15).
+            bridge.expectShortTurn(false);
+            const turn = await guard(() => agent.hear(caller.text, caller.early ? { early: true } : undefined));
             if (turn === null) return;
             throwIfFailed();
             if (leg.ended || signal.aborted) return;

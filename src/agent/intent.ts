@@ -78,6 +78,12 @@ export interface IntentResult {
 
 export interface IntentClassifier {
     classify(utterance: string): Promise<IntentResult>;
+    /**
+     * Start classifying a likely turn before it is final (PERF-A): the interim the bridge is about
+     * to end the turn on. A `classify` of the same string takes the answer already in flight.
+     * Never answered by itself; a guess that is never classified is dropped.
+     */
+    prefetch?(utterance: string): void;
 }
 
 /**
@@ -123,6 +129,9 @@ export const INTENT_INSTRUCTION = [
     'unclear: anything else, or you are unsure.',
 ].join('\n');
 
+/** The origin `vertexIntentUrl` addresses for the pinned location: what the warm-up preconnects. */
+export const INTENT_ORIGIN = INTENT_LOCATION === 'global' ? 'https://aiplatform.googleapis.com/' : `https://${INTENT_LOCATION}-aiplatform.googleapis.com/`;
+
 export function vertexIntentUrl(projectId: string, model: string = INTENT_MODEL, location: string = INTENT_LOCATION): string {
     const host = location === 'global' ? 'aiplatform.googleapis.com' : `${location}-aiplatform.googleapis.com`;
     return `https://${host}/v1/projects/${projectId}/locations/${location}/publishers/google/models/${model}:generateContent`;
@@ -158,6 +167,10 @@ export interface VertexClassifierOptions {
     log?: (line: string) => void;
 }
 
+/** At most this many guesses in flight; a guess not classified within the TTL is dropped. */
+export const PREFETCH_ENTRIES = 4;
+export const PREFETCH_TTL_MS = 10_000;
+
 /** Keywords first, then the model. Any model failure is `unclear`, never a guess. */
 export function createVertexClassifier(options: VertexClassifierOptions): IntentClassifier {
     const doFetch = options.fetchImpl ?? fetch;
@@ -189,17 +202,35 @@ export function createVertexClassifier(options: VertexClassifierOptions): Intent
         }
     }
 
+    async function modelIntent(utterance: string): Promise<IntentResult> {
+        try {
+            const intent = await ask(utterance);
+            return intent ? { intent, source: 'model' } : { intent: 'unclear', source: 'fallback' };
+        } catch (error) {
+            log(`intent model unavailable: ${(error as Error)?.name === 'AbortError' ? `no reply in ${timeoutMs}ms` : (error as Error)?.message}`);
+            return { intent: 'unclear', source: 'fallback' };
+        }
+    }
+
+    /** Answers started by `prefetch`, by exact utterance, bounded and short-lived. */
+    const early = new Map<string, Promise<IntentResult>>();
+
     return {
         async classify(utterance: string): Promise<IntentResult> {
             const hit = keywordIntent(utterance);
             if (hit) return { intent: hit, source: 'keyword' };
-            try {
-                const intent = await ask(utterance);
-                return intent ? { intent, source: 'model' } : { intent: 'unclear', source: 'fallback' };
-            } catch (error) {
-                log(`intent model unavailable: ${(error as Error)?.name === 'AbortError' ? `no reply in ${timeoutMs}ms` : (error as Error)?.message}`);
-                return { intent: 'unclear', source: 'fallback' };
+            const started = early.get(utterance);
+            if (started) {
+                early.delete(utterance);
+                return started;
             }
+            return modelIntent(utterance);
+        },
+        prefetch(utterance: string): void {
+            if (keywordIntent(utterance) || early.has(utterance)) return;
+            early.set(utterance, modelIntent(utterance));
+            while (early.size > PREFETCH_ENTRIES) early.delete(early.keys().next().value!);
+            setTimeout(() => early.delete(utterance), PREFETCH_TTL_MS).unref?.();
         },
     };
 }
