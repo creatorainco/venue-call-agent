@@ -57,7 +57,16 @@ export interface DeployEnv {
     dispatchSa: string;
     /** The pb base (context/api-usage.md); the seam paths hang off its root. */
     apiBaseUrl: string;
+    /**
+     * The deploy job `needs` a `verify` job that calls verify.yml on the same commit. Production
+     * only (2026-11-15 review of it-09): `enforce_admins` is off, so branch protection alone lets an
+     * owner merge past a red check, and a deploy running beside verify would ship that commit.
+     */
+    gatedOnVerify: boolean;
 }
+
+/** The one local reusable workflow a deploy may call; it is read from the same commit, so no pin. */
+const VERIFY_CALL = './.github/workflows/verify.yml';
 
 export const DEV: DeployEnv = {
     name: 'dev',
@@ -70,6 +79,7 @@ export const DEV: DeployEnv = {
     buildSa: sa('venue-call-build'),
     dispatchSa: sa('ci-dispatch-vca'),
     apiBaseUrl: 'https://datadev.creatorain.com',
+    gatedOnVerify: false,
 };
 
 export const PROD: DeployEnv = {
@@ -83,6 +93,7 @@ export const PROD: DeployEnv = {
     buildSa: sa('venue-call-build-prod'),
     dispatchSa: sa('ci-dispatch-vca-prod'),
     apiBaseUrl: 'https://data.creatorain.com',
+    gatedOnVerify: true,
 };
 
 /** The `gcloud run deploy` step's arguments, as `{ flag: value }` (a bare flag maps to `true`). */
@@ -161,6 +172,19 @@ export function dockerfileFindings(dockerfile: string, nvmrc: string): string[] 
     return wrong;
 }
 
+/** One job's lines under `jobs:`, up to the next line at two spaces or less of indent ('' if none). */
+export function jobBlock(workflow: string, name: string): string {
+    const lines = workflow.split('\n');
+    const start = lines.indexOf(`  ${name}:`);
+    if (start < 0) return '';
+    const out: string[] = [];
+    for (const line of lines.slice(start + 1)) {
+        if (/^ {0,2}\S/.test(line)) break;
+        out.push(line);
+    }
+    return out.join('\n');
+}
+
 /** The workflow: pushes to its one branch only, keyless, every action pinned, its own build file. */
 export function workflowFindings(workflow: string, env: DeployEnv): string[] {
     const wrong: string[] = [];
@@ -172,11 +196,21 @@ export function workflowFindings(workflow: string, env: DeployEnv): string[] {
         wrong.push(`the workflow names a branch other than ${env.branch}`);
     }
     if (/pull_request/.test(on)) wrong.push('a pull request must never deploy');
-    if (!workflow.includes(`if: github.ref == 'refs/heads/${env.branch}'`)) wrong.push(`the job does not refuse a run off ${env.branch}`);
+    const deployJob = jobBlock(workflow, 'deploy');
+    const verifyJob = jobBlock(workflow, 'verify');
+    if (!deployJob.includes(`    if: github.ref == 'refs/heads/${env.branch}'`)) wrong.push(`the deploy job does not refuse a run off ${env.branch}`);
     if (!/^ {2}id-token: write$/m.test(workflow)) wrong.push('no id-token: write, so federation cannot work');
     if (/credentials_json|GOOGLE_CREDENTIALS|service_account_key/.test(workflow)) wrong.push('a service-account key is referenced');
     for (const [, ref] of workflow.matchAll(/uses:\s*(\S+)/g)) {
+        if (ref === VERIFY_CALL) continue;
         if (!/@[0-9a-f]{40}$/.test(ref ?? '')) wrong.push(`${ref} is not pinned to a full commit SHA`);
+    }
+    if (env.gatedOnVerify) {
+        if (!/^ {4}needs: verify$/m.test(deployJob)) wrong.push('the deploy job does not `needs: verify`');
+        if (!new RegExp(`^ {4}uses: ${VERIFY_CALL.replace(/[.]/g, '\\.')}$`, 'm').test(verifyJob)) {
+            wrong.push(`the verify job does not call ${VERIFY_CALL}`);
+        }
+        if (!/^ {4}if: github\.ref == /m.test(verifyJob)) wrong.push('the verify job does not refuse a run off the branch');
     }
     const accounts = [...workflow.matchAll(/^\s*service_account: (\S+)$/gm)].map((m) => m[1]);
     if (accounts.length !== 1 || accounts[0] !== env.dispatchSa) {
@@ -248,6 +282,14 @@ describe('the dev and production deploy files', () => {
         assert.equal(strip(read(PROD.cloudbuild), PROD), strip(read(DEV.cloudbuild), DEV));
     });
 
+    it('verify.yml can be called by the prod deploy and lints the workflows with a checked binary', () => {
+        const verify = read('.github/workflows/verify.yml');
+        const on = verify.match(/^on:\n([\s\S]*?)\n(?=\S)/m)?.[1] ?? '';
+        assert.match(on, /^ {2}workflow_call:$/m, 'verify.yml has no workflow_call trigger, so deploy-main cannot need it');
+        assert.match(verify, /sha256sum -c -/, 'actionlint is run without checking its SHA-256');
+        assert.match(verify, /^ {10}"\$RUNNER_TEMP\/actionlint"/m, 'verify.yml no longer runs actionlint');
+    });
+
     it('the Dockerfile pins Node by digest to the .nvmrc line and runs as non-root', () => {
         const wrong = dockerfileFindings(read('Dockerfile'), read('.nvmrc'));
         assert.deepEqual(wrong, [], wrong.join('\n'));
@@ -280,7 +322,10 @@ describe('the dev and production deploy files', () => {
             assert.ok(workflowFindings(wf.replace(push, `  pull_request:\n    branches: [${env.branch}]`), env).some((f) => /push to|pull request/.test(f)));
             assert.ok(workflowFindings(wf.replace(push, `  push:\n    branches: [${env.branch}, feature]`), env).some((f) => /push to|other than/.test(f)));
             assert.ok(workflowFindings(wf.replace('  id-token: write', '  id-token: none'), env).some((f) => /id-token/.test(f)));
-            assert.ok(workflowFindings(wf.replace(`refs/heads/${env.branch}'`, "refs/heads/x'"), env).some((f) => /refuse a run/.test(f)));
+            // The LAST `if:` is the deploy job's (prod's verify job comes first and has its own plant).
+            const at = wf.lastIndexOf(`refs/heads/${env.branch}'`);
+            const offBranch = `${wf.slice(0, at)}refs/heads/x'${wf.slice(at + `refs/heads/${env.branch}'`.length)}`;
+            assert.ok(workflowFindings(offBranch, env).some((f) => /deploy job does not refuse a run/.test(f)));
         }
         assert.match(deployFindings('steps: []\n', DEV).join(), /no `- id: deploy` step/);
 
@@ -311,6 +356,20 @@ describe('the dev and production deploy files', () => {
             assert.ok(workflowFindings(main.replace(from, to), PROD).length > 0, `prod workflow: planting ${to} was not caught`);
             assert.ok(crossFindings(`${prod}\n${main.replace(from, to)}`, PROD, DEV).length > 0, `cross-check missed ${to}`);
         }
+
+        // The prod deploy no longer waiting on verify, calling another local workflow, or verify
+        // that runs on any branch.
+        const gatePlants: Array<[string, string, RegExp]> = [
+            ['    needs: verify\n', '', /needs: verify/],
+            [`uses: ${VERIFY_CALL}`, 'uses: ./.github/workflows/other.yml', /does not call|full commit SHA/],
+            ["  verify:\n    if: github.ref == 'refs/heads/main'\n", '  verify:\n', /verify job does not refuse/],
+        ];
+        for (const [from, to, expect] of gatePlants) {
+            assert.ok(main.includes(from), `the control's anchor ${JSON.stringify(from)} is gone from ${PROD.workflow}`);
+            const findings = workflowFindings(main.replace(from, to), PROD);
+            assert.ok(findings.some((f) => expect.test(f)), `prod workflow: ${JSON.stringify(to)} was not caught: ${findings.join('; ')}`);
+        }
+        assert.deepEqual(workflowFindings(read(DEV.workflow), DEV), [], 'dev is not gated, and must not be held to it');
 
         // The prefix trap: the prod service name inside the dev one is not a finding, a bare one is.
         assert.deepEqual(crossFindings('run deploy venue-call-agent-dev', DEV, PROD), []);

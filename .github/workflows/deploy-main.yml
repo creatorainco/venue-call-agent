@@ -1,13 +1,18 @@
 # The production deploy of venue-call-agent (venue-call plan it-09; Peter's infra yes, 2026-11-15:
 # a prod Cloud Run service, deploy-on-main, keyless federation, dark until Arm).
 #
-# A push to `main` (the dev -> main promote, after `verify` passed on it) starts one Cloud Build run
-# from cloudbuild-prod.yaml and waits for it. No key: GitHub's OIDC token is exchanged through the
-# `github-ci` pool as the prod dispatch account ci-dispatch-vca-prod@, whose only federated member
-# is this repository at `refs/heads/main` (the `repository_ref` attribute, docs/DEPLOY.md 7.2
-# step 5), so a `dev` push or a pull request cannot act as it. That account can start a build,
-# read build status, and name venue-call-build-prod@ on it.
-# Nothing else.
+# A push to `main` (the dev -> main promote) first runs `verify` on that exact commit, here, as a
+# job this deploy `needs`; only a green verify starts the one Cloud Build run from
+# cloudbuild-prod.yaml. Branch protection alone is not that gate: `enforce_admins` is off
+# (verify.yml), so an owner can merge past a red check, and a deploy started beside verify would
+# ship anyway.
+#
+# No key: GitHub's OIDC token is exchanged through the `github-ci` pool as the prod dispatch
+# account ci-dispatch-vca-prod@, whose only federated member is THIS workflow file on
+# `refs/heads/main` (the `workflow_ref` attribute, mapped from the token's `job_workflow_ref`;
+# docs/DEPLOY.md 7.2 step 5). A `dev` push, a pull request, or any other workflow on `main` cannot
+# act as it. That account can start a build, read build status, and name venue-call-build-prod@ on
+# it. Nothing else.
 #
 # Until the release (it-14) creates those identities and admits `refs/heads/main` on the provider
 # (docs/DEPLOY.md section 7), this workflow fails at the federation step and deploys nothing.
@@ -34,7 +39,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The same gate a pull request passes, run again on the commit being deployed. A local reusable
+  # workflow is read from this same commit, so it needs no SHA pin. `secrets: inherit` hands it the
+  # venue-name list its first step checks; it gets no token write and no federation.
+  verify:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/verify.yml
+    secrets: inherit
+
   deploy:
+    needs: verify
     # A manual run from any other branch would be refused by the federation anyway; say so here first.
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest

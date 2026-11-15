@@ -23,11 +23,12 @@ Use the first rung that exists and works. Each one is enough on its own.
 | 2. Seam off | Remove `VENUE_CALL_SECRET` from the pb service environment and let it redeploy. | Every seam operation refuses `seam_disabled` before it reads the database, so no call can be authorised and a live one ends at its next seam operation. | The operator restores the key. |
 | 3. Agent unreachable | Production: `gcloud run services update venue-call-agent --project creatorain-27e9e --region us-central1 --ingress internal`. Dev: the same on `venue-call-agent-dev`. | The carrier can no longer open a media socket. pb's TwiML has nothing after `</Connect>`, so a call whose stream cannot open ends without a word. Live sockets end when the revision rolls (SIGTERM, then a drain of `DRAIN_GRACE_MS` in `src/server/main.ts`). | The operator, `--ingress all`. |
 | 4. End one live call | The Twilio Calls API: update that call SID with `Status=completed` (pb holds the carrier credentials; the call SID is on the ledger row). | That one call, immediately. | Nothing to undo. |
-| 5. Twilio account: voice off at the carrier | Twilio console, **Voice, Settings, Geo permissions**: untick the United States (and every other ticked country) for outbound calls. | Every outbound call the account places, from any environment, whatever pb or this service does. Dev and production share the one account (and its SMS programs keep working: geo permissions are per channel). | The operator re-ticks the country. |
+| 5. Twilio account: voice off at the carrier | Twilio console, **Voice, Settings, Geo permissions**: untick the United States (and every other ticked country) for outbound calls. | Every NEW outbound call the account tries to place, from any environment, whatever pb or this service does. Dev and production share the one account. It does not end a call already connected: geo permissions are checked when a call is placed, so a live call goes on until rung 4 ends it. | The operator re-ticks the country. |
 
 Rung 3 works today on dev and on production once `venue-call-agent` exists (`docs/DEPLOY.md` §7;
 it is created at the release). Rungs 4 and 5 work today. Rung 5 is the last resort: it is the one rung that
-still holds when pb itself is broken and keeps placing dials. Once pb's stop-only fuse ships (`VENUE_CALL_DIALLING_FUSE=off` on the pb
+still holds when pb itself is broken and keeps placing dials. Pair it with rung 4 for every call
+already connected, since rung 5 only stops new ones. Once pb's stop-only fuse ships (`VENUE_CALL_DIALLING_FUSE=off` on the pb
 service: it stops new dials and can never start one), setting it is a pause and anyone may do it;
 removing it is the operator's. Rung 2 works today on any pb environment where the key is set. Rung 1
 arrives with TASK-3746 (`platform_feature_controls`), and pb's tests for it (any staff may kill,

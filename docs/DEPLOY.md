@@ -231,8 +231,8 @@ created on or after 2024-05-03, and the project already has the `github-ci` pool
 `creatorainco` provider. That provider lists the repositories it trusts, and this one is not on
 the list yet: adding it, and pinning the condition to pushes to `dev`, is an owner's change. Done on 2026-11-14: the condition admits
 `creatorainco/venue-call-agent` only when `assertion.ref == 'refs/heads/dev'`, and the dispatch
-account is `ci-dispatch-vca@`. Production has its own dispatch account and is admitted for
-`refs/heads/main` only; §7.
+account is `ci-dispatch-vca@`. Production has its own dispatch account, bound to the one workflow
+file `deploy-main.yml` on `refs/heads/main` only; §7.2 step 5.
 
 🔴 **The provider MUST carry an attribute condition, and this is not a lint nit.** Without it, any
 GitHub repository on earth can enter the pool. The existing provider conditions on the owner id
@@ -288,11 +288,20 @@ Voice calls screen and the production seam is wired. A green production deploy p
 
 **What is in the repository (2026-11-15) and what is not.** `cloudbuild-prod.yaml` and
 `.github/workflows/deploy-main.yml` are on `dev`; `test/deployConfig.test.ts` holds every flag in
-both and fails if the production files name one value that is dev's. Nothing in Google Cloud
-exists for production yet, and the provider still admits this repository for `refs/heads/dev`
-only, so a push to `main` before the steps below fails at the federation step and deploys nothing.
-The steps are run at the release (it-14), by an owner, in this order. They are written out so the
-release is a reading exercise, not a design one.
+both and fails if the production files name one value that is dev's. The production deploy job
+`needs` a `verify` job that runs `verify.yml` on the commit being deployed, so a red commit never
+ships even when an owner merges past the required check (`enforce_admins` is off). Nothing in
+Google Cloud exists for production yet, and the provider still admits this repository for
+`refs/heads/dev` only, so a push to `main` before the steps below fails at the federation step and
+deploys nothing.
+
+**Who runs the steps, and when.** They are infrastructure writes, so each is ask-then-run: the
+agent asks in the dialog, gets the yes, and runs it; nobody is handed a command. They belong to
+the venue-call plan's release iteration, `iterations/venue-call-agent-investigate-every-remai-2026-11-14/iteration-14.md`
+in the hub, which lists them in its change set ahead of the `venue-call-agent` `dev -> main`
+promote. Until they run, it-09's own verification (below, "What done looks like") is open, and the
+plan's `progress.md` says so. They are written out in order so the release is a reading exercise,
+not a design one.
 
 ### 7.1 The definition, and how it differs from dev
 
@@ -343,24 +352,40 @@ review of the `dev` commits. None was run on 2026-11-15.
 4. **The dispatch identity** `ci-dispatch-vca-prod@`, with the project's custom `ciBuildStarter`
    role (`cloudbuild.builds.create` only), `roles/cloudbuild.builds.viewer`, and
    `roles/iam.serviceAccountUser` on `venue-call-build-prod@` only.
-5. **Federation.** On the `github-ci` pool's `creatorainco` provider:
-   - widen this repository's clause of the attribute condition from
-     `assertion.ref == 'refs/heads/dev'` to
-     `assertion.ref in ['refs/heads/dev', 'refs/heads/main']`;
-   - add the mapping `attribute.repository_ref = assertion.repository + '@' + assertion.ref`;
-   - grant `roles/iam.workloadIdentityUser` on `ci-dispatch-vca-prod@` to
-     `principalSet://iam.googleapis.com/projects/204616170539/locations/global/workloadIdentityPools/github-ci/attribute.repository_ref/creatorainco/venue-call-agent@refs/heads/main`
-     and to nothing else;
-   - narrow the dev dispatch account's binding the same way, from `attribute.repository/...` to
-     `attribute.repository_ref/creatorainco/venue-call-agent@refs/heads/dev`, so a `main` push
-     acts as the production dispatcher only and a `dev` push as the dev one only.
+5. **Federation.** On the `github-ci` pool's `creatorainco` provider, in this order, so that no
+   moment exists in which a `main` push is admitted while the dev dispatcher still answers to the
+   whole repository:
+   1. add the mapping `attribute.workflow_ref = assertion.job_workflow_ref`. For a job defined in
+      the workflow file itself, GitHub sets that claim to
+      `creatorainco/venue-call-agent/.github/workflows/<file>@<ref>`;
+   2. **re-run one `pb-ci` job and one `demo-ci` job** (the provider is shared, and a mapping is
+      evaluated on every token it exchanges). Both must still authenticate before going on. The
+      size limit is not the risk: Google caps all mapped attributes of one token at 8,192 bytes
+      together (IAM quotas page, "Mapped attributes total size", read 2026-11-15), and this value is
+      a repository name, a workflow path and a ref, a few hundred bytes at most;
+   3. narrow the dev dispatch account's binding: grant `roles/iam.workloadIdentityUser` on
+      `ci-dispatch-vca@` to
+      `principalSet://iam.googleapis.com/projects/204616170539/locations/global/workloadIdentityPools/github-ci/attribute.workflow_ref/creatorainco/venue-call-agent/.github/workflows/deploy-dev.yml@refs/heads/dev`,
+      then remove its `attribute.repository/creatorainco/venue-call-agent` member, and re-run
+      `deploy-dev` once to prove the dev deploy still authenticates;
+   4. grant `roles/iam.workloadIdentityUser` on `ci-dispatch-vca-prod@` to
+      `principalSet://iam.googleapis.com/projects/204616170539/locations/global/workloadIdentityPools/github-ci/attribute.workflow_ref/creatorainco/venue-call-agent/.github/workflows/deploy-main.yml@refs/heads/main`
+      and to nothing else;
+   5. only now widen this repository's clause of the attribute condition from
+      `assertion.ref == 'refs/heads/dev'` to
+      `assertion.ref in ['refs/heads/dev', 'refs/heads/main']`.
+
+   From then on a `main` push can act as the production dispatcher only from `deploy-main.yml`,
+   and a `dev` push as the dev one only from `deploy-dev.yml`. Another workflow file merged to
+   `main` (or to `dev`) can exchange a token but holds no binding on either account, and so can
+   act as neither.
 
    ⚠️ **Why a mapped attribute and not the subject.** This repository's OIDC subject uses
    GitHub's immutable form (`repo:creatorainco@<owner id>/venue-call-agent@<repo id>:ref:...`,
    read from the repository's sub-claim setting on 2026-11-15), not the `repo:owner/name:...`
    form most examples bind. A binding written in the familiar form matches nothing and fails as
-   an opaque permission error. The mapped attribute is built from two claims that do not change
-   shape.
+   an opaque permission error. The sub-claim setting changes only `sub`; `job_workflow_ref` keeps
+   its name-based shape, which is what the bindings above are written in.
 6. **The service, once, by an owner.** `venue-call-build-prod@` can deploy revisions of the one
    service but cannot create it or set who may invoke it. So the owner creates it with §2's flags
    and the production values from 7.1, from the image of the commit being promoted (built once
@@ -371,7 +396,7 @@ review of the `dev` commits. None was run on 2026-11-15.
    `roles/run.invoker`; §2 says why a public service is not an open one).
 7. **Then merge `dev` into `main`.** From here every push to `main` deploys through the workflow.
 
-**What "done" looks like** (it-09's verification): `GET /health` on the production URL answers
+**What "done" looks like** (it-09's verification, open until steps 1 to 6 run at it-14): `GET /health` on the production URL answers
 200; a stream with a made-up token is refused and opens no speech session (pb answers
 `seam_disabled` until the production seam is wired, after the one-switch change ships there); and
 there is no traffic, because no Twilio number points at it. Repointing a number is a separate
