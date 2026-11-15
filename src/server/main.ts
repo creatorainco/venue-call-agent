@@ -123,12 +123,16 @@ async function warm(runtime: CascadeRuntime, log: (line: string) => void): Promi
 /** The live session: the cascade on this call's leg, or silence if the cascade is not there. */
 export function cascadeSession(runtime: Promise<CascadeRuntime>, readyMs: number = CASCADE_READY_MS): StartCall {
     return async (call: AuthorizedCall): Promise<void> => {
+        const startedAt = Date.now();
         const rt = await ready(runtime, readyMs);
+        // How long the accepted call waited on the cascade: the staging probe reads it.
+        const waitedMs = Date.now() - startedAt;
         if (rt === null) {
-            call.log(`stream ${call.leg.id} cascade_unavailable`);
+            call.log(`stream ${call.leg.id} cascade_unavailable waited_ms=${waitedMs}`);
             await noAgentSession(call);
             return;
         }
+        call.log(`stream ${call.leg.id} cascade_ready waited_ms=${waitedMs}`);
         await liveCall({
             leg: call.leg,
             agent: rt.agentFor(call.seam, call.context),

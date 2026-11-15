@@ -238,6 +238,44 @@ describe('CascadeBridge, barge-in', () => {
         assert.ok(leg.cleared > 0, 'nothing was cleared');
     });
 
+    /**
+     * 🔴 A "hello?" over the disclosure (PR #40 review). The disclosure is protected, so the
+     * barge-in clears only what is held behind it. Before the fix the bridge's own mark sat in that
+     * held queue, the clear dropped it, the disclosure never settled and every later sentence
+     * waited behind it until the call cap. `talkMs` 600 is under half the range (no replay);
+     * 1_600 is over half (one replay): both must still let the next sentence play.
+     */
+    for (const talkMs of [600, 1_600]) {
+        it(`a barge-in during the disclosure (${talkMs} ms of talk) still lets the next sentence play`, async () => {
+            const leg = new RecordingLeg({ turns: [{ text: 'hello?', segmentsMs: [talkMs], startWhen: { atMs: 500 } }], trailingSilenceMs: 6_000 });
+            const gate = new OutputGate(leg, { isSpeech: (f) => isSpeechFrame(f, VAD), log: () => {} });
+            gate.connect();
+            const tts = fakeTts(100);
+            const bridge = new CascadeBridge(gate, { tts, speech: fakeSpeech(), vad: VAD });
+            leg.on('inbound', (f) => bridge.sendAudio(f));
+            bridge.start();
+            let disclosureDone = false;
+            const disclosure = bridge.speakDisclosure({ id: 'd', text: 'the disclosure' });
+            void disclosure.then(() => { disclosureDone = true; });
+            await tick();
+            while (!disclosureDone && leg.advance()) await tick();
+            assert.equal(disclosureDone, true, 'the disclosure never settled after a barge-in over it');
+            assert.ok(leg.elapsedMs > 500, 'the far end did not speak during the disclosure');
+            assert.equal(gate.disclosure().heard, true);
+            assert.equal((await disclosure).complete, true);
+
+            let nextDone = false;
+            const next = bridge.speak([{ id: 'n', text: 'next' }]);
+            void next.then(() => { nextDone = true; });
+            while (!nextDone && leg.advance()) await tick();
+            await bridge.hangup();
+            assert.equal(nextDone, true, 'the sentence after the disclosure never settled: the agent went mute');
+            assert.equal((await next).complete, true);
+            assert.ok(leg.written.some((f) => f[0] === tts.byteFor('next')), 'the next sentence never reached the wire');
+            assert.equal(bridge.speaking(), false);
+        });
+    }
+
     it('toFrames pads the last frame with μ-law silence', () => {
         const frames = toFrames(new Uint8Array(CARRIER_AUDIO.bytesPerFrame + 10).fill(0x20));
         assert.equal(frames.length, 2);

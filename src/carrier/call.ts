@@ -629,6 +629,8 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
 
         const opened = await guard(() => agent.open());
         if (opened === null || leg.ended || signal.aborted) return;
+        // A recogniser that died while open() ran ends the call before it says anything.
+        throwIfFailed();
         const [first, ...rest] = opened.say;
         if (first !== context.disclosure_sentence) {
             throw new Error('open() did not begin with the disclosure sentence the backend supplied');

@@ -110,6 +110,7 @@ export class CascadeBridge implements SpeechBridge {
             ...(options.sttClock ? { clock: options.sttClock } : {}),
         });
         gate.on('marked', (name) => this.onMarked(name));
+        gate.onDisclosureHeard(() => this.onDisclosureHeard());
         gate.on('hangup', () => {
             this.lineDown = true;
             this.abandon();
@@ -211,7 +212,10 @@ export class CascadeBridge implements SpeechBridge {
         return { sentences: out, complete: out.every((s) => s.fullMs > 0 && s.heardMs === s.fullMs) };
     }
 
-    /** Write one sentence and its mark; resolves once the mark is back, or the sentence is cut. */
+    /**
+     * Write one sentence and its mark; resolves once the mark is back, or the sentence is cut. The
+     * disclosure resolves when the gate reports its protected range heard (`onDisclosureHeard`).
+     */
     private write(id: string, text: string, frames: Frame[], protect: boolean): Promise<SentenceOutcome> {
         return new Promise<SentenceOutcome>((resolve) => {
             this.markSeq += 1;
@@ -219,14 +223,24 @@ export class CascadeBridge implements SpeechBridge {
             this.playing = { mark, id, text, frames: frames.length, protected: protect, resolve };
             if (protect) this.gate.beginDisclosure();
             for (const frame of frames) this.gate.write(frame);
+            // The disclosure carries no mark of its own: the gate's mark behind the range is the
+            // one that says it played, and it survives a barge-in. A mark of ours would sit in the
+            // gate's held queue, and the barge-in's clear() would drop it, leaving the disclosure
+            // unsettled and every later sentence waiting behind it for the rest of the call.
             if (protect) this.gate.endDisclosure();
-            this.gate.mark(mark);
+            else this.gate.mark(mark);
         });
     }
 
     private onMarked(name: string): void {
         const current = this.playing;
         if (current === null || name !== current.mark) return;
+        this.settle(current, current.frames);
+    }
+
+    private onDisclosureHeard(): void {
+        const current = this.playing;
+        if (current === null || !current.protected) return;
         this.settle(current, current.frames);
     }
 

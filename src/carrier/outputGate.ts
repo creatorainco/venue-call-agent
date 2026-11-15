@@ -113,6 +113,7 @@ export class OutputGate implements CallLeg {
     private dropped = 0;
     private heldCleared = 0;
     private readonly replayHandlers: Array<(frames: number) => void> = [];
+    private readonly heardHandlers: Array<() => void> = [];
 
     constructor(leg: CallLeg, options: OutputGateOptions) {
         this.leg = leg;
@@ -190,6 +191,16 @@ export class OutputGate implements CallLeg {
     /** Called with the number of frames replayed, so a bridge can move its own bookkeeping. */
     onReplay(handler: (frames: number) => void): void {
         this.replayHandlers.push(handler);
+    }
+
+    /**
+     * Called once the carrier acknowledges the latest protected range (after any replay), which is
+     * the only moment the disclosure is known to have played. A bridge settles its disclosure here
+     * rather than on a mark of its own: a mark placed behind the range is held by this gate, and a
+     * barge-in during the disclosure clears what is held, that mark with it.
+     */
+    onDisclosureHeard(handler: () => void): void {
+        this.heardHandlers.push(handler);
     }
 
     write(frame: Frame): void {
@@ -320,7 +331,7 @@ export class OutputGate implements CallLeg {
         for (const item of held) {
             if ('frame' in item) this.leg.write(item.frame);
             else this.leg.mark(item.mark);
-        }
+        }        for (const handler of this.heardHandlers) handler();
     }
 }
 
