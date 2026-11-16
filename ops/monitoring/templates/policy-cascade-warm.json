@@ -1,0 +1,51 @@
+{
+  "displayName": "vca-@ENV@ speech cascade not warming",
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "@SERVICE@: either the speech cascade could not start (cascade_unavailable, any count) or its warm-up failed more than 4 times in 30 minutes (cascade_warm_failed). A cold start alone writes up to 2 warm failures before it warms, so 1 or 2 are normal. What to do: ops/monitoring/README.md section speech cascade."
+  },
+  "userLabels": { "service": "venue-call-agent", "env": "@ENV@" },
+  "severity": "WARNING",
+  "combiner": "OR",
+  "enabled": true,
+  "notificationChannels": ["@CHANNEL@"],
+  "alertStrategy": { "autoClose": "3600s" },
+  "conditions": [
+    {
+      "displayName": "cascade_unavailable over 5 min > 0",
+      "conditionThreshold": {
+        "filter": "metric.type=\"logging.googleapis.com/user/vca_cascade_warm_failed_@ENV@\" AND resource.type=\"cloud_run_revision\" AND metric.label.token=\"cascade_unavailable\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_SUM",
+            "crossSeriesReducer": "REDUCE_SUM",
+            "groupByFields": ["resource.label.service_name"]
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0,
+        "duration": "0s",
+        "trigger": { "count": 1 }
+      }
+    },
+    {
+      "displayName": "cascade_warm_failed over 30 min > 4",
+      "conditionThreshold": {
+        "filter": "metric.type=\"logging.googleapis.com/user/vca_cascade_warm_failed_@ENV@\" AND resource.type=\"cloud_run_revision\" AND metric.label.token=\"cascade_warm_failed\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "1800s",
+            "perSeriesAligner": "ALIGN_SUM",
+            "crossSeriesReducer": "REDUCE_SUM",
+            "groupByFields": ["resource.label.service_name"]
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 4,
+        "duration": "0s",
+        "trigger": { "count": 1 }
+      }
+    }
+  ]
+}

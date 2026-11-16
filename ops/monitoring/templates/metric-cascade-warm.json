@@ -1,0 +1,20 @@
+{
+  "name": "vca_cascade_warm_failed_@ENV@",
+  "description": "venue-call-agent (@SERVICE@): the speech cascade failed to warm up (cascade_warm_failed) or could not start at all (cascade_unavailable). Source lines: ops/monitoring/README.md.",
+  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"@SERVICE@\" AND log_id(\"run.googleapis.com/stderr\") AND textPayload=~\"^cascade_(warm_failed|unavailable) \"",
+  "metricDescriptor": {
+    "metricKind": "DELTA",
+    "valueType": "INT64",
+    "unit": "1",
+    "labels": [
+      {
+        "key": "token",
+        "valueType": "STRING",
+        "description": "cascade_warm_failed or cascade_unavailable."
+      }
+    ]
+  },
+  "labelExtractors": {
+    "token": "REGEXP_EXTRACT(textPayload, \"^(cascade_warm_failed|cascade_unavailable) \")"
+  }
+}
