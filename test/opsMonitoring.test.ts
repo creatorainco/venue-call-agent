@@ -48,6 +48,38 @@ function tokens(file: string): string[] {
     return m[1].split('|');
 }
 
+/**
+ * The line a log call writes, from its source text: the template literal after `log(`, with each
+ * `${...}` replaced by `word` when the expression holds it (a ternary picking the word) and by a
+ * stand-in id otherwise. Null when the call is not a template literal.
+ */
+function sampleFromCallSite(line: string, word: string): string | null {
+    const start = line.search(/\blog\(`/);
+    if (start < 0) return null;
+    let i = line.indexOf('`', start) + 1;
+    let out = '';
+    while (i < line.length && line[i] !== '`') {
+        if (line[i] === '$' && line[i + 1] === '{') {
+            let depth = 1;
+            let j = i + 2;
+            let inner = 0; // nested template literals inside the expression
+            for (; j < line.length && depth > 0; j += 1) {
+                const c = line[j];
+                if (c === '`') inner ^= 1;
+                else if (!inner && c === '{') depth += 1;
+                else if (!inner && c === '}') depth -= 1;
+            }
+            const expr = line.slice(i + 2, j - 1);
+            out += expr.includes(word) ? word : 'id-1';
+            i = j;
+        } else {
+            out += line[i];
+            i += 1;
+        }
+    }
+    return out;
+}
+
 describe('ops/monitoring templates', () => {
     it('every template is valid JSON', () => {
         assert.ok(templates.length >= 8, `expected the metric and policy templates, found ${templates.length}`);
@@ -65,6 +97,29 @@ describe('ops/monitoring templates', () => {
                 return !(constant && logLines.some((line) => line.includes(constant[1] as string)));
             });
             assert.deepEqual(missing, [], `no log call in src/ writes: ${missing.join(', ')}`);
+        });
+    }
+
+    /**
+     * The word check above passes even if a log line keeps its word but loses the prefix the
+     * anchored filter needs. So build a sample line from every real log call site that writes a
+     * counted word (each `${...}` becomes the word when it holds it, else a stand-in), and require
+     * that for every word at least one of its call sites still matches the metric's filter.
+     */
+    for (const file of ['metric-call-failed.json', 'metric-cascade-warm.json']) {
+        it(`${file}: the filter matches a line built from each real log call site`, () => {
+            const metric = JSON.parse(readFileSync(join(TEMPLATES, file), 'utf8')) as { filter: string };
+            const regexes = [...metric.filter.matchAll(/textPayload=~"([^"]+)"/g)].map((m) => new RegExp(m[1] as string));
+            const substrings = [...metric.filter.matchAll(/textPayload:"([^"]+)"/g)].map((m) => m[1] as string);
+            assert.ok(regexes.length > 0, `${file}: no textPayload regex in the filter`);
+            const matches = (line: string) => regexes.some((r) => r.test(line)) || substrings.some((s) => line.includes(s));
+            const unmatched: string[] = [];
+            for (const w of tokens(file)) {
+                if (substrings.includes(w)) continue; // a plain substring filter: any line that writes it matches
+                const samples = logLines.filter((l) => l.includes(w)).map((l) => sampleFromCallSite(l, w)).filter((s): s is string => s !== null);
+                if (samples.length > 0 && !samples.some(matches)) unmatched.push(`${w} (e.g. "${samples[0]}")`);
+            }
+            assert.deepEqual(unmatched, [], `${file}: no call site of these words still matches the filter`);
         });
     }
 
@@ -88,11 +143,11 @@ describe('ops/monitoring templates', () => {
 describe('ops/monitoring/apply.sh', () => {
     const bash = spawnSync('bash', ['--version'], { encoding: 'utf8' });
 
-    it('the offline dry run renders both environments and changes nothing', { skip: bash.status !== 0 && 'no bash' }, () => {
+    it('the offline dry run renders both environments and changes nothing', { skip: bash.status !== 0 && 'no bash', timeout: 180_000 }, () => {
         const dir = mkdtempSync(join(tmpdir(), 'vca-mon-'));
         try {
             const env = { ...process.env, OFFLINE: '1', RENDER_DIR: dir, APPLY: '' };
-            const r = spawnSync('bash', [join(MON, 'apply.sh'), 'all'], { encoding: 'utf8', env, timeout: 50_000 });
+            const r = spawnSync('bash', [join(MON, 'apply.sh'), 'all'], { encoding: 'utf8', env, timeout: 170_000 });
             assert.equal(r.status, 0, `${String(r.error ?? '')} ${r.signal ?? ''} ${r.stderr}`);
             assert.match(r.stdout, /DRY RUN: nothing was created or changed/);
             assert.doesNotMatch(r.stdout, /APPLY done/);

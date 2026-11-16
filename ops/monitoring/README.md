@@ -17,14 +17,19 @@ OFFLINE=1 bash ops/monitoring/apply.sh all  # dry run with no gcloud calls at al
 - Templates: `templates/*.json`, rendered with the service, environment, channel and host filled in.
   `RENDER_DIR=<dir>` keeps the rendered files for review.
 - Idempotent: it looks everything up first. Metrics and policies that exist are updated from the file;
-  an uptime check, topic or channel that exists is left alone; an existing budget gets its amount set.
-  A list call that fails (rate limit, permission) stops a real run rather than create a duplicate.
+  a topic or channel that exists is left alone; an uptime check that exists is left alone unless it
+  probes a different host than the service URL today, in which case it is deleted and re-created; an
+  existing budget gets its amount, project and label filter, thresholds and notification targets set
+  from the script again.
+  A read that fails for any reason other than not-found (rate limit, permission) stops a real run
+  rather than skip or duplicate something, and warns on a dry run.
 - Notifications go to the email channel for `NOTIFY_EMAIL` (default peter@creatorain.com), which
   already exists. It is created only if it is missing, and only on a real run.
 - Prod: the service `venue-call-agent` does not exist until the release (it-14). Until then the
   script skips the prod uptime check and its policy and says so; rerun it after the first deploy.
 - Git Bash: the script sets `MSYS_NO_PATHCONV=1` (else `--path=/health` becomes a Windows path) and,
-  because that breaks the gcloud shell wrapper, runs `lib/gcloud.py` directly.
+  because that breaks the gcloud shell wrapper, runs `lib/gcloud.py` directly, with `CLOUDSDK_PYTHON`
+  if set, else the SDK's own `platform/bundledpython/python.exe`, else `python` on PATH.
 
 ## What the service logs, and what the filters match
 
@@ -73,9 +78,11 @@ Every policy is named `vca-<env> ...` and labelled `env=<env>`, `service=venue-c
   `internal_error` or `exited_without_reason`: a bug here; file it with the socket's lines.
 
 **Speech cascade not warming** (`vca_cascade_warm_failed_<env>`): `cascade_unavailable` once, or
-`cascade_warm_failed` more than 4 times in 30 min. A cold start normally writes up to two
-`cascade_warm_failed TtsUnavailable` lines before `cascade_warm ms=...` (seen on dev 2026-11-15), so
-one cold start does not fire it. Check: the runtime service account still has its speech roles, the
+`cascade_warm_failed` more than 6 times in 30 min. A cold start normally writes up to two
+`cascade_warm_failed TtsUnavailable` lines before `cascade_warm ms=...` (seen on dev 2026-11-15), and
+with min-instances 0 the 15-minute uptime probe can itself cold-start an idle instance, so two idle
+cold starts plus one call's warm-up stay under it. Known edge: three cold starts in one 30-minute
+window, each failing both warm attempts, plus one more failure would still fire it with no real fault. Check: the runtime service account still has its speech roles, the
 Text-to-Speech and Speech-to-Text APIs are enabled, and the quota pages for both.
 
 **5xx responses** (Cloud Run `request_count`, `5xx` > 2 in 5 min). A 503 on `/health` is an
@@ -103,7 +110,10 @@ each update to the topic for anything that wants to act on it.
 The budget is filtered on the project and the label `env=<env>`. It counts only cost from resources
 that carry that label, and today neither Cloud Run service has one: the deploy steps in
 `cloudbuild.yaml` and `cloudbuild-prod.yaml` need `--labels=env=dev` / `--labels=env=prod` before
-these budgets count anything. Speech and Vertex API calls are not labelled resources at all; the
+these budgets count anything. That is a deploy-config change and needs its own approval, so until it
+lands these budgets are not a spend guard. apply.sh reads the service's `env` label and, on a real
+run, SKIPS the topic and budget for an environment whose service does not carry `env=<env>` (it says
+so); a dry run prints the plan with the same warning. Speech and Vertex API calls are not labelled resources at all; the
 existing project budget `venue-call-speech-gross` (Speech-to-Text and Text-to-Speech, 50 USD)
 covers those and is not touched here.
 
