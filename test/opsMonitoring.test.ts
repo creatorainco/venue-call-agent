@@ -12,7 +12,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync, statSync, mkdtempSync, rmSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync, mkdtempSync, rmSync, mkdirSync, writeFileSync, chmodSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
@@ -162,6 +162,66 @@ describe('ops/monitoring/apply.sh', () => {
             }
             assert.match(r.stdout, /service_name|vca_call_failed_prod/);
             assert.match(r.stdout, /--filter-labels=env=prod/);
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    /**
+     * OFFLINE skips every read, so with APPLY every object would look absent and be re-created.
+     * The pair must be refused before any gcloud call and before anything is rendered. gcloud is
+     * stubbed both ways the script can reach it (on PATH, and through CLOUDSDK_PYTHON on Git Bash):
+     * each stub appends to a log, so a refusal that came too late shows up as a log file.
+     */
+    it('OFFLINE=1 with APPLY=1 is refused: exits non-zero and calls or writes nothing', { skip: bash.status !== 0 && 'no bash', timeout: 60_000 }, () => {
+        const dir = mkdtempSync(join(tmpdir(), 'vca-mon-refuse-'));
+        try {
+            const bin = join(dir, 'bin');
+            mkdirSync(bin);
+            const log = join(dir, 'gcloud-calls.log');
+            const stub = `#!/usr/bin/env bash\necho "$*" >> '${log.replace(/\\/g, '/')}'\nexit 0\n`;
+            for (const name of ['gcloud', 'python-stub']) {
+                writeFileSync(join(bin, name), stub);
+                chmodSync(join(bin, name), 0o755);
+            }
+            const render = join(dir, 'render');
+            const sep = process.platform === 'win32' ? ';' : ':';
+            const env = {
+                ...process.env, OFFLINE: '1', APPLY: '1', RENDER_DIR: render,
+                CLOUDSDK_PYTHON: join(bin, 'python-stub'), PATH: `${bin}${sep}${process.env.PATH ?? ''}`,
+            };
+            const r = spawnSync('bash', [join(MON, 'apply.sh'), 'all'], { encoding: 'utf8', env, timeout: 50_000 });
+            assert.notEqual(r.status, 0, `the pair ran: ${r.stdout}`);
+            assert.equal(r.status, 64);
+            assert.match(r.stderr, /refused: OFFLINE=1 with APPLY=1/);
+            assert.doesNotMatch(r.stdout, /APPLY done|DRY RUN|==/);
+            assert.equal(existsSync(log), false, `gcloud was called: ${existsSync(log) ? readFileSync(log, 'utf8') : ''}`);
+            assert.equal(existsSync(render), false, 'the render directory was written');
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it('CONTROL: the gcloud stub logs when the script does reach gcloud', { skip: bash.status !== 0 && 'no bash', timeout: 60_000 }, () => {
+        // Proves the absence of a log above means "not called", not "the stub never runs".
+        const dir = mkdtempSync(join(tmpdir(), 'vca-mon-stub-'));
+        try {
+            const bin = join(dir, 'bin');
+            mkdirSync(bin);
+            const log = join(dir, 'gcloud-calls.log');
+            const stub = `#!/usr/bin/env bash\necho "$*" >> '${log.replace(/\\/g, '/')}'\nexit 1\n`;
+            for (const name of ['gcloud', 'python-stub']) {
+                writeFileSync(join(bin, name), stub);
+                chmodSync(join(bin, name), 0o755);
+            }
+            const sep = process.platform === 'win32' ? ';' : ':';
+            const env = {
+                ...process.env, OFFLINE: '', APPLY: '', RENDER_DIR: join(dir, 'render'),
+                CLOUDSDK_PYTHON: join(bin, 'python-stub'), PATH: `${bin}${sep}${process.env.PATH ?? ''}`,
+            };
+            // A dry run with reads on: the first read reaches the stub, which fails, so it warns and goes on.
+            spawnSync('bash', [join(MON, 'apply.sh'), 'dev'], { encoding: 'utf8', env, timeout: 50_000 });
+            assert.equal(existsSync(log), true, 'the stub was never reached, so the refusal test proves nothing');
         } finally {
             rmSync(dir, { recursive: true, force: true });
         }

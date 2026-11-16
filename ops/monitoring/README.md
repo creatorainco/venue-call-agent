@@ -16,6 +16,8 @@ OFFLINE=1 bash ops/monitoring/apply.sh all  # dry run with no gcloud calls at al
 - Parameters per environment: `env/dev.env`, `env/prod.env` (service name, budget amount, uptime period).
 - Templates: `templates/*.json`, rendered with the service, environment, channel and host filled in.
   `RENDER_DIR=<dir>` keeps the rendered files for review.
+- `OFFLINE=1` together with `APPLY=1` is refused (exit 64) before anything is read or written: with no
+  reads every object looks absent, so a real run would re-create what exists.
 - Idempotent: it looks everything up first. Metrics and policies that exist are updated from the file;
   a topic or channel that exists is left alone; an uptime check that exists is left alone unless it
   probes a different host than the service URL today, in which case it is deleted and re-created; an
@@ -108,12 +110,12 @@ A budget spends nothing: it emails the channel at 50%, 90%, 100% and forecast 10
 each update to the topic for anything that wants to act on it.
 
 The budget is filtered on the project and the label `env=<env>`. It counts only cost from resources
-that carry that label, and today neither Cloud Run service has one: the deploy steps in
-`cloudbuild.yaml` and `cloudbuild-prod.yaml` need `--labels=env=dev` / `--labels=env=prod` before
-these budgets count anything. That is a deploy-config change and needs its own approval, so until it
-lands these budgets are not a spend guard. apply.sh reads the service's `env` label and, on a real
-run, SKIPS the topic and budget for an environment whose service does not carry `env=<env>` (it says
-so); a dry run prints the plan with the same warning. Speech and Vertex API calls are not labelled resources at all; the
+that carry that label. The label ships with the deploy: the deploy steps in `cloudbuild.yaml` and
+`cloudbuild-prod.yaml` pass `--labels=env=dev` / `--labels=env=prod` (held by
+`test/deployConfig.test.ts`), so each service carries it from its next deploy on. apply.sh reads the
+service's `env` label and, on a real run, SKIPS the topic and budget for an environment whose service
+does not carry `env=<env>` yet (it says so), so the budget is created on the first apply after a
+deploy. A dry run prints the plan with the same warning. Speech and Vertex API calls are not labelled resources at all; the
 existing project budget `venue-call-speech-gross` (Speech-to-Text and Text-to-Speech, 50 USD)
 covers those and is not touched here.
 

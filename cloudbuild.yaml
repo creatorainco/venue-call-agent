@@ -66,4 +66,6 @@ steps:
       - --min-instances=0
       - --cpu-boost
       - --cpu-throttling
+      # The cost label the budget in ops/monitoring/ filters on (it counts only labelled spend).
+      - --labels=env=dev
       - --quiet

@@ -4,6 +4,7 @@
 #   bash ops/monitoring/apply.sh [dev|prod|all]          # DRY RUN (the default): prints every gcloud command
 #   APPLY=1 bash ops/monitoring/apply.sh dev             # the real run, one environment
 #   OFFLINE=1 bash ops/monitoring/apply.sh all           # dry run with no gcloud at all (no reads either)
+#                                                        # (OFFLINE=1 with APPLY=1 is refused: exit 64)
 #
 # What it creates, per environment (parameters in ops/monitoring/env/<env>.env):
 #   - three log-based counter metrics (templates/metric-*.json),
@@ -40,6 +41,13 @@ UPTIME_REGIONS="${UPTIME_REGIONS:-usa-iowa,usa-oregon,usa-virginia}"
 APPLY="${APPLY:-0}"
 if [ "$APPLY" = "1" ]; then DRY_RUN="${DRY_RUN:-0}"; else DRY_RUN=1; fi
 OFFLINE="${OFFLINE:-0}"
+# OFFLINE skips every read, so a real run would see every object as absent and create duplicates.
+# Refused before anything is read, rendered or written.
+if [ "$OFFLINE" = "1" ] && [ "$APPLY" = "1" ]; then
+  echo "refused: OFFLINE=1 with APPLY=1. OFFLINE skips every read, so a real run would re-create objects that exist." >&2
+  echo "Run the offline dry run without APPLY, or the real run without OFFLINE." >&2
+  exit 64
+fi
 if [ "$DRY_RUN" = "1" ]; then MODE="DRY RUN"; else MODE="APPLY"; fi
 
 TARGET="${1:-all}"
@@ -79,16 +87,23 @@ run() {
 # when the object does not exist. Only a not-found error means absent: any other failure (a 429, no
 # permission) stops a real run, where reading it as absent would skip a step or re-create an object
 # that exists and stop half-way on ALREADY_EXISTS; a dry run warns and goes on. Empty in OFFLINE mode.
+# READ_FAILED is 1 after a read that failed for a reason other than not-found (a dry run goes on),
+# so the caller does not report the object as absent.
+READ_FAILED=0
 read_one() {
   local __var="$1"; shift
   printf -v "$__var" '%s' ""
+  READ_FAILED=0
   if [ "$OFFLINE" = "1" ]; then return 0; fi
   local out err="$TMP/.read-err"
   if out="$(gc "$@" 2>"$err")"; then
     printf -v "$__var" '%s' "$out"
     return 0
   fi
-  if grep -qiE 'NOT_FOUND|not found|cannot find|does not exist' "$err"; then return 0; fi
+  # A permission error says "... denied on resource (or it may not exist)": a failure, not an absence.
+  if ! grep -qiE 'PERMISSION_DENIED|permission .*denied' "$err" \
+    && grep -qiE 'NOT_FOUND|not found|cannot find|does not exist' "$err"; then return 0; fi
+  READ_FAILED=1
   echo "!! read failed: gcloud $*" >&2
   tail -n 3 "$err" >&2
   if [ "$DRY_RUN" != "1" ]; then exit 1; fi
@@ -203,7 +218,10 @@ for ENV_NAME in $ENVS; do
     HOST="$SERVICE-HASH-uc.a.run.app"
     echo "-- OFFLINE: service URL not read; using placeholder host $HOST"
   fi
-  if [ -z "$HOST" ]; then
+  svc_read_failed="$READ_FAILED"
+  if [ -z "$HOST" ] && [ "$svc_read_failed" = "1" ]; then
+    echo "-- uptime: service $SERVICE could not be read (see the read failure above); uptime check and its policy SKIPPED in this plan"
+  elif [ -z "$HOST" ]; then
     echo "-- uptime: service $SERVICE not found in $REGION; uptime check and its policy SKIPPED (rerun after the service exists)"
   else
     uptime_name="vca-$ENV_NAME /health"
@@ -252,10 +270,15 @@ for ENV_NAME in $ENVS; do
 
   # --- budget: Pub/Sub topic, then the budget ---
   # The budget counts only cost carrying label env=<env>. Without it on the service it counts 0 USD
-  # and can never alert, so a real run skips it; the deploy configs add the label (separate change).
-  if [ "$OFFLINE" != "1" ] && [ "$svc_env" != "$ENV_NAME" ]; then
+  # and can never alert, so a real run skips it. The deploy step (cloudbuild*.yaml) sets the label,
+  # so a service deployed from this repository carries it after its first deploy.
+  if [ "$OFFLINE" != "1" ] && [ "$svc_read_failed" = "1" ]; then
+    echo "!! budget: service $SERVICE could not be read, so its env label is unknown (see the read failure above)."
+  elif [ "$OFFLINE" != "1" ] && [ "$svc_env" != "$ENV_NAME" ]; then
     echo "!! budget: service $SERVICE carries no label env=$ENV_NAME (has '${svc_env}'); a budget filtered on it would count 0 USD."
-    echo "!! Add --labels=env=$ENV_NAME to the service's deploy step first (cloudbuild*.yaml, needs approval)."
+    echo "!! The deploy step sets --labels=env=$ENV_NAME: deploy the service once, then run this again."
+  fi
+  if [ "$OFFLINE" != "1" ] && [ "$svc_env" != "$ENV_NAME" ]; then
     if [ "$DRY_RUN" != "1" ]; then
       echo "-- budget for $ENV_NAME: SKIPPED (topic and budget)"
       continue
