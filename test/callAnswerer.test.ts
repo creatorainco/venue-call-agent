@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs';
 
 import { answererVerdictFor, startMockSeam } from '../src/mock/server.ts';
 import { createSeamClient } from '../src/seam/client.ts';
+import { AnswererUnsupported } from '../src/carrier/beepGate.ts';
 import { createCascadeAgent } from '../src/agent/cascadeAgent.ts';
 import { createScriptedStub } from '../src/agent/scriptedStub.ts';
 import { createKeywordClassifier } from '../src/agent/intent.ts';
@@ -113,6 +114,27 @@ describe('the mock call-answerer route', () => {
         } finally {
             await mock.close();
         }
+    });
+});
+
+describe('a backend without the call-answerer route', () => {
+    for (const body of ['<html>Cannot POST</html>', '{"error":"not found"}']) {
+        test(`a 404 is AnswererUnsupported, not a slow verdict (${body.slice(0, 6)})`, async () => {
+            const seam = createSeamClient({
+                baseUrl: 'http://pb.invalid',
+                token: 'mock:happy',
+                fetchImpl: async () => new Response(body, { status: 404 }),
+            });
+            await assert.rejects(seam.callAnswerer!(), AnswererUnsupported);
+        });
+    }
+    test('CONTROL: a 500 stays an ordinary error the gate waits through', async () => {
+        const seam = createSeamClient({
+            baseUrl: 'http://pb.invalid',
+            token: 'mock:happy',
+            fetchImpl: async () => new Response('{}', { status: 500 }),
+        });
+        await assert.rejects(seam.callAnswerer!(), (e: unknown) => !(e instanceof AnswererUnsupported) && (e as Error).name === 'SeamUnavailable');
     });
 });
 

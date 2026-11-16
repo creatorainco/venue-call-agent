@@ -12,11 +12,15 @@
  *   fax          a fax tone: nobody will hear a message, hang up without speaking;
  *   timeout      no verdict inside the bound (30 s by default): speak anyway. A late message beats
  *                none, and the call cap still ends the call;
+ *   unsupported  the backend has no call-answerer route (an HTTP 404, AnswererUnsupported): there
+ *                is no answerer to wait for, so speak now, as a call without one does;
  *   aborted      the call ended or is draining.
  *
  * 🔴 A POLL THAT FAILS IS NOT A VERDICT. A seam error, a refusal or a null keeps waiting until the
  * bound. Treating an error as "speak now" would put the message over the greeting again, which is
- * the defect this file exists to remove; treating it as "human" would leave a voicemail silent.
+ * the defect this file exists to remove; treating it as "human" would leave a voicemail silent. The
+ * one exception is `AnswererUnsupported`: a route that does not exist will not start answering
+ * inside 30 s, and waiting it out puts the message late into a recording already running.
  *
  * Pure and injectable: no seam client, no timers of its own beyond the `sleep` it is given, so the
  * tests drive it on a fake clock.
@@ -27,7 +31,18 @@ export interface AnswererVerdict {
     message_end: boolean;
 }
 
-export type BeepGateOutcome = 'message_end' | 'human' | 'undetermined' | 'fax' | 'timeout' | 'aborted';
+export type BeepGateOutcome = 'message_end' | 'human' | 'undetermined' | 'fax' | 'timeout' | 'unsupported' | 'aborted';
+
+/** The backend has no answering-machine verdict to give (its call-answerer route is missing). */
+export class AnswererUnsupported extends Error {
+    readonly route: string;
+
+    constructor(route: string) {
+        super(`no answerer at ${route}`);
+        this.name = 'AnswererUnsupported';
+        this.route = route;
+    }
+}
 
 export interface BeepGateOptions {
     /** One read of the verdict (pb `call-answerer`). May throw; a throw keeps waiting. */
@@ -81,7 +96,8 @@ export async function awaitVoicemailBeep(
             if (v.answered_by === 'human') return done('human');
             if (v.answered_by === 'unknown') return done('undetermined');
             if (v.answered_by === 'fax') return done('fax');
-        } catch {
+        } catch (error) {
+            if (error instanceof AnswererUnsupported) return done('unsupported');
             pollErrors++;
         }
         const left = timeoutMs - (now() - start);

@@ -572,6 +572,8 @@ export interface LiveCallOptions {
  *                 `voicemail` for `notice` and the same words are heard again
  *                 with `person: true`, so the agent answers the person         -> returned_to_conversation
  *   fax           nobody will hear a message: hang up without a word            -> hung_up_silent
+ *   unsupported   the backend has no call-answerer route (pb not promoted yet):
+ *                 nothing to wait for, spoken now, as with no answerer          -> spoke_message
  *   aborted       the call ended or is draining while it waited                -> call_ended
  */
 export type VoicemailHoldAction = 'spoke_message' | 'returned_to_conversation' | 'hung_up_silent' | 'call_ended';
@@ -582,6 +584,14 @@ export interface VoicemailHoldRecord {
     waitedMs: number;
     polls: number;
     pollErrors: number;
+    /**
+     * Caller turns that finished while the message was held. On timeout or undetermined the message
+     * is spoken anyway; a person the agent took for a machine shows up here first, so the soak can
+     * count how often that happens (review 2026-11-15; the leftover risk is on TASK-3750).
+     */
+    callerTurnsDuringHold: number;
+    /** The state the call was in before `voicemail`: `disclosing`, or `menu` after a phone menu. */
+    enteredFrom: CallState;
 }
 
 /** The action each verdict of the beep gate takes. Exported so the table above is tested, not trusted. */
@@ -591,6 +601,7 @@ export const VOICEMAIL_HOLD_ACTION: Readonly<Record<BeepGateOutcome, VoicemailHo
     timeout: 'spoke_message',
     human: 'returned_to_conversation',
     fax: 'hung_up_silent',
+    unsupported: 'spoke_message',
     aborted: 'call_ended',
 });
 
@@ -731,6 +742,7 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
             if (turn === null) return;
             throwIfFailed();
             if (leg.ended || signal.aborted) return;
+            const stateBefore = gate.state;
             if (gate.state !== 'connected') {
                 const next = nextState(gate.state, turn);
                 if (next !== gate.state) gate.enter(next);
@@ -739,11 +751,23 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
             // the recording starts at the beep. Hold it until the carrier says the greeting ended,
             // a person answered, or the bound runs out. What each verdict does: VOICEMAIL_HOLD_ACTION.
             if (gate.state === 'voicemail' && turn.endCall && turn.say.length > 0 && options.answerer) {
+                const enteredFrom: CallState = stateBefore === 'voicemail' ? 'disclosing' : stateBefore;
+                const queuedBefore = heard.length;
                 const hold = await awaitVoicemailBeep({ ...options.answerer, signal });
+                const callerTurnsDuringHold = Math.max(0, heard.length - queuedBefore);
                 const ended = leg.ended || signal.aborted;
-                const action = ended ? 'call_ended' : VOICEMAIL_HOLD_ACTION[hold.outcome];
-                voicemailHold = { outcome: hold.outcome, action, waitedMs: hold.waitedMs, polls: hold.polls, pollErrors: hold.pollErrors };
-                log(`voicemail_hold outcome=${hold.outcome} action=${action} waited_ms=${hold.waitedMs} polls=${hold.polls} poll_errors=${hold.pollErrors}`);
+                let action: VoicemailHoldAction = ended ? 'call_ended' : VOICEMAIL_HOLD_ACTION[hold.outcome];
+                // A person who came off a phone menu was never told who we are on this leg of the
+                // call: the notice may not be their first words. The cut-in edge (voicemail ->
+                // notice) is only taken from a call that went straight from the disclosure to the
+                // voicemail; from a menu the call hangs up without a word. Neither agent reaches
+                // this today (a menu report stops a later voicemail report).
+                if (action === 'returned_to_conversation' && enteredFrom !== 'disclosing') action = 'hung_up_silent';
+                voicemailHold = {
+                    outcome: hold.outcome, action, waitedMs: hold.waitedMs, polls: hold.polls,
+                    pollErrors: hold.pollErrors, callerTurnsDuringHold, enteredFrom,
+                };
+                log(`voicemail_hold outcome=${hold.outcome} action=${action} waited_ms=${hold.waitedMs} polls=${hold.polls} poll_errors=${hold.pollErrors} caller_turns=${callerTurnsDuringHold} from=${enteredFrom}`);
                 throwIfFailed();
                 if (action === 'call_ended') return;
                 if (action === 'hung_up_silent') {

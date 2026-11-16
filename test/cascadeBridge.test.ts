@@ -39,7 +39,9 @@ import type { MockSeam } from '../src/mock/server.ts';
 import { createSeamClient } from '../src/seam/client.ts';
 import type { SeamClient } from '../src/seam/client.ts';
 import type { CallContext } from '../src/seam/types.ts';
+import { AnswererUnsupported } from '../src/carrier/beepGate.ts';
 import type { AnswererVerdict } from '../src/carrier/beepGate.ts';
+import { SeamRefusal } from '../src/seam/client.ts';
 import type { RecognizeStream, SpeechStreamFactory } from '../src/speech/stt.ts';
 import { CARRIER_AUDIO, MULAW_SILENCE } from '../src/audio/format.ts';
 import { VAD } from '../src/tuning/liveDefaults.ts';
@@ -248,7 +250,13 @@ describe('🔴 a live session on a fake leg', () => {
  */
 async function runVoicemail(
     answerer?: { poll: () => Promise<AnswererVerdict>; intervalMs?: number; timeoutMs?: number },
-    opts: { token?: string; agent?: 'cascade' | 'stub'; seam?: SeamClient } = {},
+    opts: {
+        token?: string;
+        agent?: 'cascade' | 'stub';
+        seam?: SeamClient;
+        makeAgent?: (seam: SeamClient, context: CallContext) => CallAgent;
+        callerTurns?: string[];
+    } = {},
 ) {
     // The hold runs on a clock that moves with the fake leg (one frame per wait), so the far end's
     // simulated silence does not run out while the test's real clock waits.
@@ -257,13 +265,13 @@ async function runVoicemail(
     const seam = opts.seam ?? createSeamClient({ baseUrl: mock.baseUrl, token: opts.token ?? 'mock:happy' });
     const context = await seam.callContext();
     const leg = new RecordingLeg({
-        turns: [{ text: VOICEMAIL_GREETING, segmentsMs: [900] }],
+        turns: (opts.callerTurns ?? [VOICEMAIL_GREETING]).map((text) => ({ text, segmentsMs: [900] })),
         trailingSilenceMs: 4_000,
         patienceMs: 60_000,
     });
     const speech = fakeSpeech();
     const tts = fakeTts();
-    const agent = opts.agent === 'stub'
+    const agent = opts.makeAgent ? opts.makeAgent(seam, context) : opts.agent === 'stub'
         ? createScriptedStub({ seam })
         : createCascadeAgent({ seam, intents: createKeywordClassifier(), context });
     const log: string[] = [];
@@ -431,8 +439,91 @@ describe('it-05: the person cut-in (a person never hears the voicemail script)',
             timeout: 'spoke_message',
             human: 'returned_to_conversation',
             fax: 'hung_up_silent',
+            unsupported: 'spoke_message',
             aborted: 'call_ended',
         });
+    });
+
+    it('a seam refusal on every poll is not a verdict: it waits out the bound, then speaks', async () => {
+        const { context, result, said } = await runVoicemail({
+            poll: async () => { throw new SeamRefusal('reservation_not_found', '/reservations/call-answerer'); },
+            intervalMs: 250,
+            timeoutMs: 1_000,
+        });
+        assert.equal(result.voicemailHold?.outcome, 'timeout');
+        assert.ok((result.voicemailHold?.pollErrors ?? 0) >= 1);
+        assert.ok(said.includes(context.voicemail_script));
+        assert.equal(result.failed, false);
+    });
+
+    it('a backend without the call-answerer route (404) speaks at once, not after the bound', async () => {
+        let polls = 0;
+        const { context, result, said } = await runVoicemail({
+            poll: async () => { polls += 1; throw new AnswererUnsupported('/reservations/call-answerer'); },
+            intervalMs: 250,
+            timeoutMs: 30_000,
+        });
+        assert.equal(polls, 1, 'one read, no waiting');
+        assert.deepEqual(
+            { outcome: result.voicemailHold?.outcome, action: result.voicemailHold?.action },
+            { outcome: 'unsupported', action: 'spoke_message' },
+        );
+        assert.equal(result.voicemailHold?.waitedMs, 0);
+        assert.ok(said.includes(context.voicemail_script));
+        assert.equal(result.failed, false);
+    });
+
+    it('the hold records where the call came from and how many caller turns it heard', async () => {
+        const { result } = await runVoicemail({ poll: async () => ({ answered_by: null, message_end: false }), intervalMs: 250, timeoutMs: 1_000 });
+        assert.equal(result.voicemailHold?.enteredFrom, 'disclosing');
+        assert.equal(typeof result.voicemailHold?.callerTurnsDuringHold, 'number');
+    });
+
+    it('a failed human re-report ends the call: the person still never hears the voicemail script', async () => {
+        const real = createSeamClient({ baseUrl: mock.baseUrl, token: 'mock:happy' });
+        const seam: SeamClient = {
+            ...real,
+            callEvent: async (input) => {
+                if (input.kind === 'answerer_reported' && (input as { answerer?: string }).answerer === 'human') {
+                    throw new Error('seam down');
+                }
+                return real.callEvent(input);
+            },
+        };
+        const { leg, tts, context, result, said } = await runVoicemail({
+            poll: async () => ({ answered_by: 'human', message_end: false }),
+            intervalMs: 250,
+        }, { seam });
+        assert.ok(!result.synthesised.includes(context.voicemail_script));
+        assert.ok(!said.includes(context.voicemail_script));
+        assert.ok(!wroteAudioOf(leg, tts, context.voicemail_script));
+        assert.ok(!said.includes(context.opening_script[0]!), 'the call ended before the notice');
+    });
+
+    it('a cut-in after a phone menu hangs up silent: neither the script nor an undisclosed notice', async () => {
+        // No agent reaches menu -> voicemail -> human today; a hand-written one drives the path.
+        const makeAgent = (_seam: SeamClient, context: CallContext): CallAgent => {
+            let heard = 0;
+            return {
+                open: async () => ({ say: [context.disclosure_sentence], toolCalls: [], endCall: false }),
+                hear: async (_text, info) => {
+                    heard += 1;
+                    if (info?.person) return { say: [...context.opening_script], toolCalls: [], endCall: false };
+                    if (heard === 1) return { say: [], toolCalls: [{ name: 'report_answerer', args: { answerer: 'phone_menu' } }], endCall: false };
+                    return { say: [context.voicemail_script], toolCalls: [{ name: 'report_answerer', args: { answerer: 'voicemail' } }], endCall: true };
+                },
+            };
+        };
+        const { leg, tts, context, result, said, log } = await runVoicemail({
+            poll: async () => ({ answered_by: 'human', message_end: false }),
+            intervalMs: 250,
+        }, { makeAgent, callerTurns: ['press one for reservations', VOICEMAIL_GREETING] });
+        assert.ok(log.some((l) => l.startsWith('voicemail_hold outcome=human action=hung_up_silent') && l.includes('from=menu')), log.join('\n'));
+        assert.equal(result.voicemailHold?.enteredFrom, 'menu');
+        assert.ok(!result.synthesised.includes(context.voicemail_script));
+        assert.ok(!wroteAudioOf(leg, tts, context.voicemail_script));
+        assert.ok(!said.includes(context.opening_script[0]!), 'no notice to a person who came off a menu undisclosed');
+        assert.equal(result.hungUpWith, 'agent_ended');
     });
 
     it('end to end through the mock call-answerer route: the voicemail scenario holds, then speaks at the beep', async () => {

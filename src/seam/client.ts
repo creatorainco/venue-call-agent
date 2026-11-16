@@ -16,7 +16,7 @@
  * from `SeamRefusal` so a `catch` cannot flatten the two.
  */
 
-import type { AnswererVerdict } from '../carrier/beepGate.ts';
+import { AnswererUnsupported, type AnswererVerdict } from '../carrier/beepGate.ts';
 import type {
     CallContext,
     CallEventInput,
@@ -58,12 +58,15 @@ export class SeamRefusal extends Error {
 export class SeamUnavailable extends Error {
     readonly route: string;
     readonly detail: string;
+    /** The HTTP status when the backend answered at all; null when it never did. */
+    readonly status: number | null;
 
-    constructor(route: string, detail: string) {
+    constructor(route: string, detail: string, status: number | null = null) {
         super(`seam unavailable at ${route}: ${detail}`);
         this.name = 'SeamUnavailable';
         this.route = route;
         this.detail = detail;
+        this.status = status;
     }
 }
 
@@ -157,7 +160,7 @@ export function createSeamClient(options: SeamClientOptions): SeamClient {
         } catch {
             throw new SeamUnavailable(route, controller.signal.aborted
                 ? `HTTP ${response.status} and no whole body in ${timeoutMs}ms`
-                : `HTTP ${response.status} with an unreadable body`);
+                : `HTTP ${response.status} with an unreadable body`, response.status);
         }
 
         if (response.status === 409) {
@@ -171,7 +174,7 @@ export function createSeamClient(options: SeamClientOptions): SeamClient {
             throw new SeamUnavailable(route, `409 with an unknown reason: ${String(reason)}`);
         }
 
-        if (!response.ok) throw new SeamUnavailable(route, `HTTP ${response.status}`);
+        if (!response.ok) throw new SeamUnavailable(route, `HTTP ${response.status}`, response.status);
         return payload;
     }
 
@@ -210,7 +213,19 @@ export function createSeamClient(options: SeamClientOptions): SeamClient {
         },
 
         async callAnswerer(): Promise<AnswererVerdict> {
-            const payload = await post('/reservations/call-answerer', {}) as Partial<AnswererVerdict> | null;
+            let payload: Partial<AnswererVerdict> | null;
+            try {
+                payload = await post('/reservations/call-answerer', {}) as Partial<AnswererVerdict> | null;
+            } catch (error) {
+                // A backend without the route (pb before its call-answerer promote) answers 404 on
+                // every poll. That is not a slow verdict, it is no answerer: the beep gate speaks at
+                // once, as a call without one does, instead of waiting out its bound into a
+                // recording that is already running.
+                if (error instanceof SeamUnavailable && error.status === 404) {
+                    throw new AnswererUnsupported('/reservations/call-answerer');
+                }
+                throw error;
+            }
             // A malformed verdict is an error, and the beep gate reads an error as "keep waiting",
             // never as a verdict.
             if (typeof payload?.message_end !== 'boolean'
