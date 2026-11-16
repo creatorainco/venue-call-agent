@@ -5,9 +5,9 @@
  *
  *   message_end  the carrier's answering-machine detection (Twilio AsyncAmd, DetectMessageEnd) says
  *                the greeting ended (`machine_end_*`), read through pb's POST /reservations/call-answerer;
- *   human        the same detection says a person answered: nothing to wait for, the caller speaks
- *                at once (v1). Returning to the conversation instead needs the agent to leave its
- *                voicemail state and the ledger's answerer to be re-reported: a later it-05 step;
+ *   human        the same detection says a person answered: the held message is NOT spoken. The
+ *                call leaves `voicemail` for `notice` and the agent answers the person (the cut-in,
+ *                src/carrier/call.ts VOICEMAIL_HOLD_ACTION), re-reporting the answerer as human;
  *   undetermined Twilio's own bound ran out (`unknown`): it will say nothing more, speak now;
  *   fax          a fax tone: nobody will hear a message, hang up without speaking;
  *   timeout      no verdict inside the bound (30 s by default): speak anyway. A late message beats

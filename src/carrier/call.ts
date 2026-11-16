@@ -49,7 +49,7 @@ import { OutputGate } from './outputGate.ts';
 import { CallSupervisor } from './supervisor.ts';
 import type { DisclosureRecord } from './outputGate.ts';
 import { canTransition } from '../state.ts';
-import { awaitVoicemailBeep, type BeepGateOptions } from './beepGate.ts';
+import { awaitVoicemailBeep, type BeepGateOptions, type BeepGateOutcome } from './beepGate.ts';
 import type { CallState } from '../state.ts';
 import { CascadeBridge } from './cascadeBridge.ts';
 import type { CallerTurn } from './bridge.ts';
@@ -559,9 +559,46 @@ export interface LiveCallOptions {
     answerer?: Pick<BeepGateOptions, 'poll' | 'intervalMs' | 'timeoutMs' | 'sleep' | 'now'>;
 }
 
+/**
+ * What a voicemail hold (it-05) did, verdict by verdict. One per call at most: a held message is the
+ * call's last turn, or the hold is left for the conversation and the agent never takes the line for
+ * a machine again.
+ *
+ *   message_end   the greeting ended: the voicemail script is spoken            -> spoke_message
+ *   undetermined  Twilio said `unknown` and will say nothing more: spoken now   -> spoke_message
+ *   timeout       no verdict inside the bound: spoken anyway (a late message
+ *                 beats none, and the call cap still ends the call)             -> spoke_message
+ *   human         a person answered: the script is NOT spoken; the call leaves
+ *                 `voicemail` for `notice` and the same words are heard again
+ *                 with `person: true`, so the agent answers the person         -> returned_to_conversation
+ *   fax           nobody will hear a message: hang up without a word            -> hung_up_silent
+ *   aborted       the call ended or is draining while it waited                -> call_ended
+ */
+export type VoicemailHoldAction = 'spoke_message' | 'returned_to_conversation' | 'hung_up_silent' | 'call_ended';
+
+export interface VoicemailHoldRecord {
+    outcome: BeepGateOutcome;
+    action: VoicemailHoldAction;
+    waitedMs: number;
+    polls: number;
+    pollErrors: number;
+}
+
+/** The action each verdict of the beep gate takes. Exported so the table above is tested, not trusted. */
+export const VOICEMAIL_HOLD_ACTION: Readonly<Record<BeepGateOutcome, VoicemailHoldAction>> = Object.freeze({
+    message_end: 'spoke_message',
+    undetermined: 'spoke_message',
+    timeout: 'spoke_message',
+    human: 'returned_to_conversation',
+    fax: 'hung_up_silent',
+    aborted: 'call_ended',
+});
+
 export interface LiveCallResult {
     /** Every sentence handed to synthesis, in order. */
     synthesised: string[];
+    /** The voicemail hold, when one ran (it-05); null when the call never held a message. */
+    voicemailHold: VoicemailHoldRecord | null;
     /** What the `call_ended` report carried. */
     turns: Turn[];
     disclosure: DisclosureRecord;
@@ -606,6 +643,7 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
     });
     const heard: Array<CallerTurn & { finalAtMs: number }> = [];
     let failure: Error | null = null;
+    let voicemailHold: VoicemailHoldRecord | null = null;
     let wake: (() => void) | null = null;
     const poke = (): void => { const w = wake; wake = null; w?.(); };
     bridge.on('callerTurn', (turn) => { heard.push({ ...turn, finalAtMs: now() }); poke(); });
@@ -689,7 +727,7 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
             // as the opening's "any questions?", invites a question, and "hang on, who's paying?"
             // must not end at "hang on" (soak 2026-11-15).
             bridge.expectShortTurn(false);
-            const turn = await guard(() => agent.hear(caller.text, caller.early ? { early: true } : undefined));
+            let turn = await guard(() => agent.hear(caller.text, caller.early ? { early: true } : undefined));
             if (turn === null) return;
             throwIfFailed();
             if (leg.ended || signal.aborted) return;
@@ -699,15 +737,35 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
             }
             // it-05 (I3P-11): a voicemail message spoken over the greeting is never heard, because
             // the recording starts at the beep. Hold it until the carrier says the greeting ended,
-            // a person answered, or the bound runs out. A fax hears nothing: hang up silent.
+            // a person answered, or the bound runs out. What each verdict does: VOICEMAIL_HOLD_ACTION.
             if (gate.state === 'voicemail' && turn.endCall && turn.say.length > 0 && options.answerer) {
                 const hold = await awaitVoicemailBeep({ ...options.answerer, signal });
-                log(`voicemail_hold outcome=${hold.outcome} waited_ms=${hold.waitedMs} polls=${hold.polls} poll_errors=${hold.pollErrors}`);
+                const ended = leg.ended || signal.aborted;
+                const action = ended ? 'call_ended' : VOICEMAIL_HOLD_ACTION[hold.outcome];
+                voicemailHold = { outcome: hold.outcome, action, waitedMs: hold.waitedMs, polls: hold.polls, pollErrors: hold.pollErrors };
+                log(`voicemail_hold outcome=${hold.outcome} action=${action} waited_ms=${hold.waitedMs} polls=${hold.polls} poll_errors=${hold.pollErrors}`);
                 throwIfFailed();
-                if (leg.ended || signal.aborted || hold.outcome === 'aborted') return;
-                if (hold.outcome === 'fax') {
+                if (action === 'call_ended') return;
+                if (action === 'hung_up_silent') {
                     await supervisor.hangup('agent_ended');
                     return;
+                }
+                if (action === 'returned_to_conversation') {
+                    // 🔴 THE PERSON CUT-IN. A person must never hear the voicemail script. The
+                    // held turn is dropped unspoken, the call leaves `voicemail` by the machine's
+                    // own edge (voicemail -> notice, src/state.ts), and the same words are heard
+                    // again as a person's, so the agent answers them in the conversation.
+                    gate.enter('notice');
+                    const again = await guard(() => agent.hear(caller.text, { ...(caller.early ? { early: true } : {}), person: true }));
+                    if (again === null) return;
+                    throwIfFailed();
+                    if (leg.ended || signal.aborted) return;
+                    // Belt and braces: whatever the agent returns, the message is not said to a person.
+                    const kept = again.say.filter((text) => text !== context.voicemail_script);
+                    if (kept.length !== again.say.length) log(`live-call ${leg.id} voicemail_script_withheld_from_person`);
+                    turn = { ...again, say: kept };
+                    const next = nextState(gate.state, turn);
+                    if (next !== gate.state) gate.enter(next);
                 }
             }
             if (turn.say.length > 0) {
@@ -736,6 +794,7 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
 
     return {
         synthesised: [...bridge.synthesised],
+        voicemailHold,
         turns,
         disclosure: gate.disclosure(),
         hungUpWith: supervisor.hungUpWith,

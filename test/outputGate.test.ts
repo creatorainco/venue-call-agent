@@ -119,7 +119,10 @@ describe('nothing before the disclosure', () => {
         gate.beginDisclosure();
         gate.endDisclosure();
         gate.enter('voicemail');
-        assert.throws(() => gate.enter('notice'), /voicemail -> notice is not a legal move/);
+        assert.throws(() => gate.enter('qa'), /voicemail -> qa is not a legal move/);
+        // it-05: voicemail -> notice is now legal (the person cut-in), and nothing after it re-opens voicemail.
+        gate.enter('notice');
+        assert.throws(() => gate.enter('voicemail'), /notice -> voicemail is not a legal move/);
     });
 
     it('a hangup ends the call from ANY state, including one that never spoke', () => {

@@ -227,8 +227,9 @@
       "answerer": "phone_menu"
     },
     "voicemail": {
-      "summary": "A machine answers. One pass of the voicemail script, no questions, nothing asked back.",
-      "answerer": "voicemail"
+      "summary": "A machine answers. One pass of the voicemail script, no questions, nothing asked back. The carrier's detection says the greeting ended on the second read.",
+      "answerer": "voicemail",
+      "amd": [null, "machine_end_beep"]
     },
     "wrong-number": {
       "summary": "Someone who is not the restaurant answers. Nothing about the booking may be said to them at all.",

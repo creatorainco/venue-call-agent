@@ -142,6 +142,19 @@
           "asked_to_stop_calling"
         ]
       }
+    },
+    {
+      "method": "POST",
+      "path": "/reservations/call-answerer",
+      "when": "only while a voicemail message is held for the beep (it-05): polled every 1.5 s until message_end, a person, a fax, unknown, or the runtime's 30 s bound",
+      "request_body": {},
+      "response_fields": [
+        "answered_by",
+        "machine",
+        "message_end",
+        "reported_at"
+      ],
+      "note": "Added from pb origin/dev 9344820a7 (venue-call it-05, pb #3646; interface VenueCallAnswerer). A READ, never a write; the attempt is taken FROM THE TOKEN. answered_by is Twilio AsyncAmd's raw value (human, machine_start, machine_end_beep, machine_end_silence, machine_end_other, fax, unknown) or null while the carrier has not decided or AMD is off. machine is true for every machine_* value; message_end is true once the greeting ended (machine_end_*). reported_at is an ISO time or null. The runtime reads answered_by and message_end only; a payload without a boolean message_end is an error, and the beep gate reads an error as keep waiting. Refuses reservation_not_found when the token's attempt has no live row."
     }
   ],
   "refusal": {
