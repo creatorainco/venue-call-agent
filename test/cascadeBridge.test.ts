@@ -526,6 +526,36 @@ describe('it-05: the person cut-in (a person never hears the voicemail script)',
         assert.equal(result.hungUpWith, 'agent_ended');
     });
 
+    it('menu -> voicemail on one turn, endCall on a later one: a person verdict still hangs up silent', async () => {
+        // The entry state is recorded at the transition into voicemail, not inferred from the turn
+        // that ends the call (that turn starts in `voicemail` and knows nothing of the menu).
+        const makeAgent = (_seam: SeamClient, context: CallContext): CallAgent => {
+            let heard = 0;
+            return {
+                open: async () => ({ say: [context.disclosure_sentence], toolCalls: [], endCall: false }),
+                hear: async (_text, info) => {
+                    heard += 1;
+                    if (info?.person) return { say: [...context.opening_script], toolCalls: [], endCall: false };
+                    if (heard === 1) return { say: [], toolCalls: [{ name: 'report_answerer', args: { answerer: 'phone_menu' } }], endCall: false };
+                    if (heard === 2) return { say: [], toolCalls: [{ name: 'report_answerer', args: { answerer: 'voicemail' } }], endCall: false };
+                    return { say: [context.voicemail_script], toolCalls: [], endCall: true };
+                },
+            };
+        };
+        const { leg, tts, context, result, said, log } = await runVoicemail({
+            poll: async () => ({ answered_by: 'human', message_end: false }),
+            intervalMs: 250,
+        }, { makeAgent, callerTurns: ['press one for reservations', VOICEMAIL_GREETING, 'please leave a message'] });
+        assert.ok(log.some((l) => l.startsWith('voicemail_hold outcome=human action=hung_up_silent') && l.includes('from=menu')), log.join('\n'));
+        assert.equal(result.voicemailHold?.enteredFrom, 'menu');
+        assert.equal(result.voicemailHold?.action, 'hung_up_silent');
+        assert.deepEqual(said, [context.disclosure_sentence], 'nothing spoken after the disclosure');
+        assert.ok(!result.synthesised.includes(context.voicemail_script));
+        assert.ok(!result.synthesised.includes(context.opening_script[0]!));
+        assert.ok(!wroteAudioOf(leg, tts, context.voicemail_script));
+        assert.equal(result.hungUpWith, 'agent_ended');
+    });
+
     it('end to end through the mock call-answerer route: the voicemail scenario holds, then speaks at the beep', async () => {
         const seam = createSeamClient({ baseUrl: mock.baseUrl, token: 'mock:voicemail:cutin-e2e-beep' });
         const before = mock.journal.length;

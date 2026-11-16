@@ -655,6 +655,10 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
     const heard: Array<CallerTurn & { finalAtMs: number }> = [];
     let failure: Error | null = null;
     let voicemailHold: VoicemailHoldRecord | null = null;
+    // The state the call was in at the moment it entered `voicemail`, recorded at that transition.
+    // A voicemail can be reported on one turn and the call ended on a later one, so the state just
+    // before the ending turn is `voicemail` itself and says nothing about where the call came from.
+    let voicemailEnteredFrom: CallState | null = null;
     let wake: (() => void) | null = null;
     const poke = (): void => { const w = wake; wake = null; w?.(); };
     bridge.on('callerTurn', (turn) => { heard.push({ ...turn, finalAtMs: now() }); poke(); });
@@ -742,16 +746,20 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
             if (turn === null) return;
             throwIfFailed();
             if (leg.ended || signal.aborted) return;
-            const stateBefore = gate.state;
             if (gate.state !== 'connected') {
                 const next = nextState(gate.state, turn);
-                if (next !== gate.state) gate.enter(next);
+                if (next !== gate.state) {
+                    if (next === 'voicemail') voicemailEnteredFrom = gate.state;
+                    gate.enter(next);
+                }
             }
             // it-05 (I3P-11): a voicemail message spoken over the greeting is never heard, because
             // the recording starts at the beep. Hold it until the carrier says the greeting ended,
             // a person answered, or the bound runs out. What each verdict does: VOICEMAIL_HOLD_ACTION.
             if (gate.state === 'voicemail' && turn.endCall && turn.say.length > 0 && options.answerer) {
-                const enteredFrom: CallState = stateBefore === 'voicemail' ? 'disclosing' : stateBefore;
+                // Fail closed: the recorded entry state, never an inferred one. Unknown is recorded as
+                // `voicemail`, which is not `disclosing`, so a person verdict hangs up silent.
+                const enteredFrom: CallState = voicemailEnteredFrom ?? 'voicemail';
                 const queuedBefore = heard.length;
                 const hold = await awaitVoicemailBeep({ ...options.answerer, signal });
                 const callerTurnsDuringHold = Math.max(0, heard.length - queuedBefore);
@@ -760,8 +768,9 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
                 // A person who came off a phone menu was never told who we are on this leg of the
                 // call: the notice may not be their first words. The cut-in edge (voicemail ->
                 // notice) is only taken from a call that went straight from the disclosure to the
-                // voicemail; from a menu the call hangs up without a word. Neither agent reaches
-                // this today (a menu report stops a later voicemail report).
+                // voicemail; from a menu (or from an entry state that was never recorded) the call
+                // hangs up without a word. Neither agent reaches this today (a menu report stops a
+                // later voicemail report).
                 if (action === 'returned_to_conversation' && enteredFrom !== 'disclosing') action = 'hung_up_silent';
                 voicemailHold = {
                     outcome: hold.outcome, action, waitedMs: hold.waitedMs, polls: hold.polls,
