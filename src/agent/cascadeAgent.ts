@@ -49,6 +49,9 @@ export function createCascadeAgent(deps: CascadeAgentDeps): CallAgent {
     let answererReported = false;
     let questionsAnswered = 0;
     let staffAttempts = 0;
+    /** it-05: the carrier detected a person; never a machine again on this call. */
+    let personConfirmed = false;
+    let humanReported = false;
 
     const turn = (over: Partial<AgentTurn> = {}): AgentTurn =>
         ({ say: [], toolCalls: [], endCall: false, ...over });
@@ -73,6 +76,8 @@ export function createCascadeAgent(deps: CascadeAgentDeps): CallAgent {
 
         async hear(utterance: string, heard?: HeardInfo): Promise<AgentTurn> {
             if (!context) throw new Error('hear() before open() — there is no context to speak from');
+            // it-05: the carrier detected a person. Re-report the answerer before anything is said.
+            const reported = heard?.person ? await confirmPerson() : [];
             const started = clock();
             const classified = await intents.classify(utterance);
             const decided = clock();
@@ -90,10 +95,20 @@ export function createCascadeAgent(deps: CascadeAgentDeps): CallAgent {
             // The stage timings (I3P-03): the classifier, then the backend calls that followed it.
             return {
                 ...reply,
+                toolCalls: [...reported, ...reply.toolCalls],
                 timing: { intent_ms: Math.round(decided - started), intent_source: source, seam_ms: Math.round(clock() - decided) },
             };
         },
     };
+
+    /** The person cut-in (it-05): a person from now on, and the ledger told so once. */
+    async function confirmPerson(): Promise<ToolCall[]> {
+        personConfirmed = true;
+        if (humanReported) return [];
+        humanReported = true;
+        await seam.callEvent({ kind: 'answerer_reported', answerer: 'human' });
+        return [{ name: 'report_answerer', args: { answerer: 'human' } }];
+    }
 
     async function decide(
         context: CallContext,
@@ -108,7 +123,8 @@ export function createCascadeAgent(deps: CascadeAgentDeps): CallAgent {
             return turn({ toolCalls: [call], say: [result.say], endCall: true });
         }
 
-        const machine = intent === 'voicemail' || intent === 'menu';
+        // it-05: once the carrier has detected a person, no reading of the words makes them a machine.
+        const machine = !personConfirmed && (intent === 'voicemail' || intent === 'menu');
 
         // ── 2. A machine. The notice is never read to one. ──────────────────────────────
         if (!answererReported && machine) {

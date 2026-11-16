@@ -26,7 +26,11 @@ export type CallState =
     | 'notice'
     | 'qa'
     | 'closing'
-    /** A machine answered. One pass of the backend's message for a machine, then the end. */
+    /**
+     * A machine answered. One pass of the backend's message for a machine, then the end; or, when
+     * the carrier's detection says a PERSON answered while the message was held for the beep
+     * (it-05), back to `notice`: the agent misread a person, and a person never hears the message.
+     */
     | 'voicemail'
     /** A phone menu answered. We ask for a person; a person who picks up is disclosed to again. */
     | 'menu'
@@ -39,7 +43,9 @@ const LEGAL: Readonly<Record<CallState, readonly CallState[]>> = Object.freeze({
     disclosing: ['notice', 'voicemail', 'menu', 'ended'],
     // `disclosing` again is the replay: whoever comes off a menu has not been told who we are.
     menu: ['disclosing', 'notice', 'voicemail', 'ended'],
-    voicemail: ['ended'],
+    // `notice` is the person cut-in (it-05): the carrier says a human answered while the message
+    // waited for the beep. Not `disclosing`: the disclosure was the first thing said on answer.
+    voicemail: ['notice', 'ended'],
     notice: ['qa', 'closing', 'ended'],
     qa: ['qa', 'closing', 'ended'],
     closing: ['ended'],

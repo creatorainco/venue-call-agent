@@ -22,7 +22,7 @@
  * `--agent=live`, and the day the live one wins on every fixture is the day this stops mattering.
  */
 
-import type { AgentTurn, CallAgent, ToolCall } from './contract.ts';
+import type { AgentTurn, CallAgent, HeardInfo, ToolCall } from './contract.ts';
 import type { SeamClient } from '../seam/client.ts';
 import type { CallContext } from '../seam/types.ts';
 import { CHANGE_CUES, DONE_CUES, MACHINE_CUES, STOP_CUES, TOPIC_CUES, VOICEMAIL_CUES, WRONG_NUMBER_CUES } from './cues.ts';
@@ -37,9 +37,14 @@ export function createScriptedStub(deps: { seam: SeamClient }): CallAgent {
     let answererReported = false;
     let questionsAnswered = 0;
     let staffAttempts = 0;
+    /** it-05: the carrier detected a person; never a machine again on this call. */
+    let personConfirmed = false;
+    let humanReported = false;
 
     const turn = (over: Partial<AgentTurn> = {}): AgentTurn =>
         ({ say: [], toolCalls: [], endCall: false, ...over });
+    const machineCue = (utterance: string): boolean =>
+        !personConfirmed && MACHINE_CUES.some((re) => re.test(utterance));
 
     return {
         async open(): Promise<AgentTurn> {
@@ -49,8 +54,25 @@ export function createScriptedStub(deps: { seam: SeamClient }): CallAgent {
             return turn({ say: [context.disclosure_sentence], note: 'disclosure only; listening before the notice' });
         },
 
-        async hear(utterance: string): Promise<AgentTurn> {
+        async hear(utterance: string, heard?: HeardInfo): Promise<AgentTurn> {
             if (!context) throw new Error('hear() before open() — there is no context to speak from');
+            // it-05, the person cut-in: re-report the answerer once, before anything is said.
+            const reported: ToolCall[] = [];
+            if (heard?.person) {
+                personConfirmed = true;
+                if (!humanReported) {
+                    humanReported = true;
+                    await seam.callEvent({ kind: 'answerer_reported', answerer: 'human' });
+                    reported.push({ name: 'report_answerer', args: { answerer: 'human' } });
+                }
+            }
+            const reply = await decide(context, utterance);
+            return reported.length ? { ...reply, toolCalls: [...reported, ...reply.toolCalls] } : reply;
+        },
+    };
+
+    async function decide(context: CallContext, utterance: string): Promise<AgentTurn> {
+        {
 
             // ── 1. STOP. Before anything else, including finishing a sentence. ────────────
             if (STOP_CUES.some((re) => re.test(utterance))) {
@@ -60,7 +82,7 @@ export function createScriptedStub(deps: { seam: SeamClient }): CallAgent {
             }
 
             // ── 2. Is this a person? The notice is never read to a machine. ───────────────
-            if (!answererReported && MACHINE_CUES.some((re) => re.test(utterance))) {
+            if (!answererReported && machineCue(utterance)) {
                 answererReported = true;
                 const isVoicemail = VOICEMAIL_CUES.some((re) => re.test(utterance));
                 const answerer = isVoicemail ? 'voicemail' as const : 'phone_menu' as const;
@@ -86,7 +108,7 @@ export function createScriptedStub(deps: { seam: SeamClient }): CallAgent {
                 });
             }
 
-            if (answererReported && !noticeDelivered && MACHINE_CUES.some((re) => re.test(utterance))) {
+            if (answererReported && !noticeDelivered && machineCue(utterance)) {
                 staffAttempts++;
                 if (staffAttempts >= 2) {
                     return turn({ say: [context.voicemail_script], endCall: true, note: 'two attempts, no person' });
@@ -137,6 +159,6 @@ export function createScriptedStub(deps: { seam: SeamClient }): CallAgent {
                 toolCalls: [{ name: 'log_unanswered_question', args: { question_verbatim: utterance } }],
                 say: [result.say],
             });
-        },
-    };
+        }
+    }
 }

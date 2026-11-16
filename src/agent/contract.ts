@@ -73,6 +73,14 @@ export interface HeardInfo {
      * longer sentence. The call must not end on a model's reading of it.
      */
     early?: boolean;
+    /**
+     * it-05, the person cut-in: the carrier's answering-machine detection says a PERSON answered,
+     * after this agent took them for a voicemail. The same words are heard again with this set.
+     * From here the agent treats the line as a person: it never takes it for a machine again,
+     * reports `report_answerer: human` once, and answers them in the conversation. It must never
+     * return the voicemail script on this call again; the call loop also strips it if one does.
+     */
+    person?: boolean;
 }
 
 export interface CallAgent {

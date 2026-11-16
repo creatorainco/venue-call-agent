@@ -57,6 +57,12 @@ interface Scenario {
     refuse?: Record<string, string | undefined>;
     facts?: Record<string, FactShape>;
     context?: Record<string, unknown>;
+    /**
+     * it-05: what pb's call-answerer serves, poll by poll (Twilio AsyncAmd's raw `answered_by`).
+     * The n-th read returns the n-th value and the last one repeats. Absent: always null, which is
+     * what pb serves while the carrier has not decided or AMD is off.
+     */
+    amd?: Array<string | null>;
 }
 
 interface MockFixtures {
@@ -89,6 +95,8 @@ export interface MockSeamOptions {
     latencyMs?: number;
     /** When set, every route refuses this reason regardless of scenario — the whole-seam switch. */
     forceRefusal?: string;
+    /** Overrides every scenario's `amd` sequence, so a test can drive one verdict path. */
+    amd?: Array<string | null>;
 }
 
 export interface MockSeam {
@@ -103,7 +111,21 @@ const CONTRACT_ROUTES = new Set([
     '/reservations/call-context',
     '/reservations/call-fact',
     '/reservations/call-event',
+    '/reservations/call-answerer',
 ]);
+
+/** A fixed, synthetic time for a verdict on record. Never a real call's. */
+const MOCK_AMD_REPORTED_AT = '2026-01-01T00:00:00.000Z';
+
+/** pb's VenueCallAnswerer, built from one raw value exactly as venueCallAnswerer() builds it. */
+export function answererVerdictFor(answeredBy: string | null): Record<string, unknown> {
+    return {
+        answered_by: answeredBy,
+        machine: !!answeredBy && answeredBy.startsWith('machine_'),
+        message_end: !!answeredBy && answeredBy.startsWith('machine_end_'),
+        reported_at: answeredBy ? MOCK_AMD_REPORTED_AT : null,
+    };
+}
 
 const FACT_TOPICS = new Set(Object.keys(FIXTURES.default_facts));
 
@@ -173,6 +195,8 @@ export async function startMockSeam(options: MockSeamOptions = {}): Promise<Mock
     const journal: JournalEntry[] = [];
     /** call_ended: the highest `seq` on record per booking, for the replay rule. */
     const lastSeq = new Map<string, number>();
+    /** call-answerer: how many reads each booking has made, to walk its `amd` sequence. */
+    const amdReads = new Map<string, number>();
     const latency = Math.max(0, options.latencyMs ?? 0);
 
     const server = createServer((req, res) => {
@@ -192,6 +216,7 @@ export async function startMockSeam(options: MockSeamOptions = {}): Promise<Mock
         }
         if (route === '/__mock/reset' && req.method === 'POST') {
             journal.length = 0;
+            amdReads.clear();
             return send(res, 200, { reset: true });
         }
         if (route === '/__mock/scenarios' && req.method === 'GET') {
@@ -233,6 +258,16 @@ export async function startMockSeam(options: MockSeamOptions = {}): Promise<Mock
             const fact = factFor(scenario, topic);
             if (!fact) return refuse(res, route, name, body, 'unknown_topic');
             return ok(res, route, name, body, { ...fact, topic });
+        }
+
+        if (route === '/reservations/call-answerer') {
+            // A read, never a write, like pb's. The sequence is per booking (or per scenario).
+            const sequence = options.amd ?? scenario.amd ?? [null];
+            const key = parsed.reservationId ?? name;
+            const n = amdReads.get(key) ?? 0;
+            amdReads.set(key, n + 1);
+            const value = sequence.length ? sequence[Math.min(n, sequence.length - 1)] ?? null : null;
+            return ok(res, route, name, body, answererVerdictFor(value));
         }
 
         // call-event

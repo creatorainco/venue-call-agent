@@ -44,9 +44,13 @@ describe('the disclosure gate', () => {
     });
 
     test('a machine is never read the notice, and a menu can hand us back to the disclosure', () => {
-        assert.deepEqual(CALL_STATES.filter((s) => canTransition('voicemail', s)), ['ended'],
-            'voicemail is one pass and the end: no notice, no questions');
-        assert.equal(canTransition('voicemail', 'notice'), false);
+        // it-05: the one way out of voicemail other than the end is the person cut-in, taken only
+        // when the carrier's detection says a human answered (test/cascadeBridge.test.ts, the person cut-in). The
+        // agent's own turns never take it: nextState() keeps a voicemail a voicemail (test/callAnswerer.test.ts).
+        assert.deepEqual(CALL_STATES.filter((s) => canTransition('voicemail', s)), ['notice', 'ended'],
+            'voicemail is one pass and the end, or the notice for a person the carrier detected');
+        assert.equal(canTransition('voicemail', 'qa'), false, 'a detected person hears the notice before any answer');
+        assert.equal(canTransition('voicemail', 'disclosing'), false, 'the disclosure was already the first thing said');
         assert.equal(canTransition('disclosing', 'voicemail'), true);
         assert.equal(canTransition('disclosing', 'menu'), true);
         assert.equal(canTransition('menu', 'disclosing'), true,
