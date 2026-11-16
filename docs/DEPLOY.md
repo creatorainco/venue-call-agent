@@ -68,7 +68,8 @@ gcloud run deploy venue-call-agent-dev \
   --max-instances 5 \
   --min-instances 0 \
   --cpu-boost \
-  --cpu-throttling
+  --cpu-throttling \
+  --labels env=dev
 ```
 
 | flag | why, and what it costs to get wrong |
@@ -81,6 +82,7 @@ gcloud run deploy venue-call-agent-dev \
 | `--min-instances 0` | Accept cold starts and pay nothing between calls. A warm instance is a monthly cost (§3), so it waits for the owner's yes; the soak measures the cold start that decides it. |
 | `--cpu-boost` | Extra CPU while an instance starts, which is when the disclosure has to be ready. Cuts the cold start without paying for a warm instance. |
 | `--cpu-throttling` | Request-based billing — the default, stated explicitly so nobody "fixes" it. See §3. |
+| `--labels env=dev` | The cost label (`env=prod` on the production service). The monthly budget in `ops/monitoring/` counts only spend that carries `env=<env>`, so without it the budget reads 0 USD and never alerts. |
 
 ### Why a public service is still not an open one
 

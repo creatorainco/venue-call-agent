@@ -135,6 +135,8 @@ export function deployFindings(cloudbuild: string, env: DeployEnv): string[] {
         '--cpu-boost': true,
         '--cpu-throttling': true,
         '--set-env-vars': `CREATORAIN_API_BASE_URL=${env.apiBaseUrl}`,
+        // The cost label the ops/monitoring budget filters on; without it the budget counts 0 USD.
+        '--labels': `env=${env.name}`,
     };
     for (const [flag, value] of Object.entries(want)) {
         if (flags.get(flag) !== value) wrong.push(`${flag} is ${String(flags.get(flag) ?? 'absent')}, want ${String(value)}`);
@@ -277,6 +279,7 @@ describe('the dev and production deploy files', () => {
             const steps = text.slice(text.indexOf('\nserviceAccount:'));
             let out = steps.replace(/^\s*#.*\n/gm, '');
             for (const k of ['image', 'runtimeSa', 'buildSa', 'apiBaseUrl'] as const) out = out.split(env[k]).join(`<${k}>`);
+            out = out.split(`--labels=env=${env.name}\n`).join('--labels=env=<env>\n');
             return out.replace(`run\n      - deploy\n      - ${env.service}\n`, 'run\n      - deploy\n      - <service>\n');
         };
         assert.equal(strip(read(PROD.cloudbuild), PROD), strip(read(DEV.cloudbuild), DEV));
@@ -305,6 +308,7 @@ describe('the dev and production deploy files', () => {
                 ['--min-instances=0', '--min-instances=1', /--min-instances/],
                 ['--timeout=600', '--timeout=3600', /--timeout/],
                 [base, `${base},VENUE_CALL_X=1`, /more than one variable/],
+                [`--labels=env=${env.name}`, '--labels=env=other', /--labels is env=other/],
                 ['      - --quiet', '      - --quiet\n      - --allow-unauthenticated', /--allow-unauthenticated is not part/],
                 ['      - --quiet', '      - --quiet\n      - --set-secrets=K=k:latest', /--set-secrets is not part/],
                 [`serviceAccount: projects/${PROJECT}`, '# serviceAccount: none', /does not name/],

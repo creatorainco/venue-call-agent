@@ -1,0 +1,33 @@
+{
+  "displayName": "vca-@ENV@ /health uptime failing",
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "The uptime check on https://@HOST@/health failed from 2 or more of its 3 regions. What to do: ops/monitoring/README.md section uptime."
+  },
+  "userLabels": { "service": "venue-call-agent", "env": "@ENV@" },
+  "severity": "CRITICAL",
+  "combiner": "OR",
+  "enabled": true,
+  "notificationChannels": ["@CHANNEL@"],
+  "alertStrategy": { "autoClose": "3600s" },
+  "conditions": [
+    {
+      "displayName": "regions failing /health > 1",
+      "conditionThreshold": {
+        "filter": "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND resource.type=\"uptime_url\" AND resource.label.host=\"@HOST@\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "1200s",
+            "perSeriesAligner": "ALIGN_NEXT_OLDER",
+            "crossSeriesReducer": "REDUCE_COUNT_FALSE",
+            "groupByFields": ["resource.label.host"]
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 1,
+        "duration": "0s",
+        "trigger": { "count": 1 }
+      }
+    }
+  ]
+}

@@ -95,6 +95,8 @@ acceptance) become alert policies under `ops/monitoring/` in slice 1b. Until the
 service's error rate on the Cloud Run page and search its log for `call_failed`,
 `handler_failed` and `internal_error`.
 
+The policy files, their apply script and what to do when each one fires: [ops/monitoring/README.md](../ops/monitoring/README.md) (it-08; written, applied only by `APPLY=1 bash ops/monitoring/apply.sh`).
+
 ## 4. What must never appear in a log
 
 No log line, in this service or in pb, carries a word anybody said on a call: not the venue's,

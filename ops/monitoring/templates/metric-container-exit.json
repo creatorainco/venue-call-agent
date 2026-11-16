@@ -1,0 +1,10 @@
+{
+  "name": "vca_container_exit_@ENV@",
+  "description": "venue-call-agent (@SERVICE@): Cloud Run's own system log reports an error for an instance (a non-zero exit, a failed startup probe). Repeats in a short window are a crash loop.",
+  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"@SERVICE@\" AND log_id(\"run.googleapis.com/varlog/system\") AND (severity>=ERROR OR textPayload=~\"Container called exit\\([1-9][0-9]*\\)\")",
+  "metricDescriptor": {
+    "metricKind": "DELTA",
+    "valueType": "INT64",
+    "unit": "1"
+  }
+}

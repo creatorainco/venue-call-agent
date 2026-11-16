@@ -1,0 +1,20 @@
+{
+  "name": "vca_call_failed_@ENV@",
+  "description": "venue-call-agent (@SERVICE@): a call ended badly or could not start. One count per log line; the token label says which line. Source lines: ops/monitoring/README.md.",
+  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"@SERVICE@\" AND log_id(\"run.googleapis.com/stderr\") AND (textPayload=~\"^(stream|call-supervisor|live-call) \\S+ (call_failed|handler_failed|internal_error|seam_unavailable|session_left_line_up|exited_without_reason|cascade_unavailable|call_ended_record_failed|call_ended_unrecorded)( |$)\" OR textPayload:\"ALERT_STOP_CALLING_UNRECORDED\")",
+  "metricDescriptor": {
+    "metricKind": "DELTA",
+    "valueType": "INT64",
+    "unit": "1",
+    "labels": [
+      {
+        "key": "token",
+        "valueType": "STRING",
+        "description": "The event word from the log line, e.g. call_failed or internal_error."
+      }
+    ]
+  },
+  "labelExtractors": {
+    "token": "REGEXP_EXTRACT(textPayload, \"(call_failed|handler_failed|internal_error|seam_unavailable|session_left_line_up|exited_without_reason|cascade_unavailable|call_ended_record_failed|call_ended_unrecorded|ALERT_STOP_CALLING_UNRECORDED)\")"
+  }
+}
