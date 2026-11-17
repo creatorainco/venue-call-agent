@@ -6,7 +6,9 @@
  *
  *   - `GET /health` (and `/healthz`) answers 200 with no body. Every other plain request is a 404.
  *     Cloud Run's front end reserves `/healthz` on run.app URLs and never forwards it, so the deployed
- *     probe is `/health`; `/healthz` stays for local runs and existing callers.
+ *     probe is `/health`; `/healthz` stays for local runs and existing callers. With `onHealth` set
+ *     (main.ts: the warmer) the 200 waits for it, at most `healthWaitMs`, so a cold process warms
+ *     while the probe's request holds the CPU.
  *   - A WebSocket upgrade is accepted only on exactly `/stream`: no other path, no query string.
  *     Carrier and proxy logs keep URLs, so a token in one would already be a leak.
  *   - At most `MAX_PREAUTH_SOCKETS` sockets per instance may be waiting for the backend's yes,
@@ -40,6 +42,9 @@ import { SEAM_TIMEOUT_MS } from '../tuning/liveDefaults.ts';
 
 /** Cloud Run's front end swallows `/healthz` on run.app URLs (a Google 404), so `/health` is the deployed probe. */
 const HEALTH_PATHS: ReadonlySet<string> = new Set(['/health', '/healthz']);
+
+/** The default bound on `onHealth`; main.ts passes its own `HEALTH_WARM_WAIT_MS`. */
+export const HEALTH_WAIT_MS = 2500;
 
 /** From the upgrade to the backend's yes. Twilio sends `start` within milliseconds of connecting. */
 export const PREAUTH_DEADLINE_MS = 3000;
@@ -103,6 +108,15 @@ export interface StreamServerOptions {
      * per call.
      */
     onUpgrade?: () => void;
+    /**
+     * Awaited by GET/HEAD /health, at most `healthWaitMs`, before the 200 (soak 2026-11-16): the
+     * probe platform-backend sends before it dials keeps the CPU allocated while a cold process
+     * warms. A slow or failed warm-up still answers 200: health never fails on the warm-up. Once
+     * warm it resolves at once. A draining server answers 503 without waiting.
+     */
+    onHealth?: () => Promise<void>;
+    /** The bound on `onHealth`. Defaults to `HEALTH_WAIT_MS`. */
+    healthWaitMs?: number;
     seamTimeoutMs?: number;
     /** Injectable for tests. Defaults to the global fetch. */
     fetchImpl?: typeof fetch;
@@ -190,7 +204,14 @@ export function createStreamServer(options: StreamServerOptions): StreamServer {
 
     const server = createServer((req: IncomingMessage, res: ServerResponse) => {
         if ((req.method === 'GET' || req.method === 'HEAD') && HEALTH_PATHS.has(req.url ?? '')) {
-            res.writeHead(draining ? 503 : 200, { 'Content-Length': '0' }).end();
+            if (draining || !options.onHealth) {
+                res.writeHead(draining ? 503 : 200, { 'Content-Length': '0' }).end();
+                return;
+            }
+            void waitBounded(options.onHealth, options.healthWaitMs ?? HEALTH_WAIT_MS).then(() => {
+                if (res.writableEnded || res.destroyed) return;
+                res.writeHead(draining ? 503 : 200, { 'Content-Length': '0' }).end();
+            });
             return;
         }
         res.writeHead(404, { 'Content-Length': '0' }).end();
@@ -493,4 +514,21 @@ function rawToString(data: Buffer | ArrayBuffer | Buffer[]): string {
 function errorClass(error: unknown): string {
     if (error instanceof Error) return /^[A-Za-z_$][\w$]*$/.test(error.name) ? error.name : 'Error';
     return typeof error;
+}
+
+/** Run `task`, but resolve after `ms` at the latest. Never rejects: a thrown or rejected task is a no-op. */
+async function waitBounded(task: () => Promise<void>, ms: number): Promise<void> {
+    let timer: NodeJS.Timeout | undefined;
+    const late = new Promise<void>((resolve) => { timer = setTimeout(resolve, ms); });
+    let run: Promise<void>;
+    try {
+        run = task().catch(() => {});
+    } catch {
+        run = Promise.resolve();
+    }
+    try {
+        await Promise.race([run, late]);
+    } finally {
+        clearTimeout(timer);
+    }
 }

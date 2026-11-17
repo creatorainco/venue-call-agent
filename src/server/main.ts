@@ -26,6 +26,13 @@
  * in the dev log, 2026-11-14). Every stream upgrade and every call start asks the warmer again;
  * while the process is not warm that runs the warm-up, one at a time, inside the request that has
  * the CPU, before and during the disclosure. Once warm it is a no-op.
+ *
+ * 🔴 /health HOLDS THE CPU FOR THE WARM-UP (soak 2026-11-16, TASK-3749). platform-backend pings
+ * `GET /health` on the stream host before it dials. A /health that answered at once let Cloud Run
+ * throttle the CPU again, and the warm-up then took 6-10 s instead of ~2.2 s. So /health asks the
+ * warmer and waits for it, at most `HEALTH_WARM_WAIT_MS`, before its 200; once warm it answers at
+ * once. The warm-up also renders the backend's disclosure (src/agent/warmSentences.ts), the first
+ * sentence every call says.
  */
 
 import { loadConfig } from '../config.ts';
@@ -36,6 +43,7 @@ import type { AuthorizedCall, StreamServer } from './streamServer.ts';
 import { startCascade } from '../agent/cascade.ts';
 import type { CascadeRuntime } from '../agent/cascade.ts';
 import { FIXED_PHRASES } from '../agent/phrases.ts';
+import { BACKEND_FIRST_SENTENCES } from '../agent/warmSentences.ts';
 import { liveCall } from '../carrier/call.ts';
 
 /**
@@ -94,6 +102,8 @@ export interface Session {
     startCall: StartCall;
     /** Called on every stream upgrade the server takes, inside the request: warms a cold process. */
     onUpgrade?: () => void;
+    /** Awaited (bounded) by GET/HEAD /health before its 200, so the probe holds the CPU for the warm-up. */
+    onHealth?: () => Promise<void>;
 }
 
 export interface ServerDeps {
@@ -128,6 +138,7 @@ export function selectSession(env: NodeJS.ProcessEnv, deps: ServerDeps = {}): Se
     return {
         startCall: cascadeSession(runtime, CASCADE_READY_MS, warmer),
         onUpgrade: () => { void warmer.ensure(); },
+        onHealth: () => warmer.ensure(),
     };
 }
 
@@ -137,6 +148,17 @@ export interface Warmer {
     ensure(): Promise<void>;
     readonly warm: boolean;
 }
+
+/**
+ * The longest /health waits on the warm-up before it answers 200 anyway. Under platform-backend's
+ * warm-ping timeout (`VENUE_CALL_WARM_PING_TIMEOUT_MS`, 3000) so the ping sees its answer, and far
+ * under the uptime check's 30 s. Bounded because the service runs at concurrency 1: a /health in
+ * flight holds the instance's one slot.
+ */
+export const HEALTH_WARM_WAIT_MS = 2500;
+
+/** Everything the warm-up renders: the backend's first sentence and the four fixed phrases. */
+export const WARM_PHRASES: readonly string[] = [...BACKEND_FIRST_SENTENCES, ...FIXED_PHRASES];
 
 /** How many times one ask tries the warm-up before it waits for the next ask. */
 export const WARM_ATTEMPTS = 2;
@@ -154,8 +176,8 @@ export function createWarmer(runtime: Promise<CascadeRuntime>, log: (line: strin
         for (let n = 1; n <= attempts && !warm; n += 1) {
             const startedAt = Date.now();
             try {
-                // TLS to the hosts a call uses, in parallel with the token and the fixed phrases.
-                await Promise.all([rt.preconnect?.(), rt.tts.prerender(FIXED_PHRASES)]);
+                // TLS to the hosts a call uses, in parallel with the token, the disclosure and the fixed phrases.
+                await Promise.all([rt.preconnect?.(), rt.tts.prerender(WARM_PHRASES)]);
                 warm = true;
                 log(`cascade_warm ms=${Date.now() - startedAt} attempt=${n}`);
             } catch (error) {
@@ -227,6 +249,7 @@ export async function startServer(
         apiBaseUrl: config.apiBaseUrl,
         startCall: session.startCall,
         ...(session.onUpgrade ? { onUpgrade: session.onUpgrade } : {}),
+        ...(session.onHealth ? { onHealth: session.onHealth, healthWaitMs: HEALTH_WARM_WAIT_MS } : {}),
     });
     const port = await stream.listen(config.port, '0.0.0.0');
     return { stream, port };
