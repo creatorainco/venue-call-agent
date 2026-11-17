@@ -47,6 +47,9 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+// The warm-up's copy of the disclosure (a synthesis cache key, never spoken): checked here so a
+// changed backend sentence shows up as drift, not as a silently colder first call.
+import { DISCLOSURE_CACHE_KEY } from '../src/agent/warmSentences.ts';
 
 const CONTRACT_PATH = fileURLToPath(new URL('../contract/seam4.json', import.meta.url));
 const FIXTURES_PATH = fileURLToPath(new URL('../src/mock/fixtures/scenarios.json', import.meta.url));
@@ -467,6 +470,7 @@ const observed = {
     'campaign rule: case-insensitive': rule && [String(rule.caseInsensitive)],
     'campaign rule: every status the backend knows': rule && rule.known,
     'sentence: disclosure (VENUE_CALL_DISCLOSURE)': wrap(constSentence(scriptSrc, 'VENUE_CALL_DISCLOSURE')),
+    'sentence: disclosure, pre-rendered at warm-up (src/agent/warmSentences.ts)': wrap(constSentence(scriptSrc, 'VENUE_CALL_DISCLOSURE')),
     'sentence: who_we_are (VENUE_OPERATIONS_FACTS)': wrap(facts?.['who-we-are']),
     'sentence: what_the_creator_will_do (VENUE_OPERATIONS_FACTS)': wrap(facts?.['what-the-creator-will-do']),
     'sentences: call-event replies, branch by branch (eventSentence)': eventReturns,
@@ -493,6 +497,7 @@ const expected = {
     'campaign rule: case-insensitive': [String(contract.campaign_rule.case_insensitive)],
     'campaign rule: every status the backend knows': [...contract.campaign_rule.known_statuses].sort(),
     'sentence: disclosure (VENUE_CALL_DISCLOSURE)': [ctx.disclosure_sentence],
+    'sentence: disclosure, pre-rendered at warm-up (src/agent/warmSentences.ts)': [DISCLOSURE_CACHE_KEY],
     'sentence: who_we_are (VENUE_OPERATIONS_FACTS)': [fixtures.default_facts.who_we_are.say],
     'sentence: what_the_creator_will_do (VENUE_OPERATIONS_FACTS)': [fixtures.default_facts.what_the_creator_will_do.say],
     'sentences: call-event replies, branch by branch (eventSentence)': EVENT_SENTENCE_KEYS.map((k) => fixtures.event_sentences[k] ?? `(no mock key ${k})`),
