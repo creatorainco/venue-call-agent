@@ -668,16 +668,22 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
     bridge.start();
 
     // Warm synthesis for everything this call may say. Only the disclosure is waited for.
-    const later = [...context.opening_script, context.closing_sentence, context.voicemail_script, ...FIXED_PHRASES]
-        .filter((text): text is string => typeof text === 'string' && text.trim() !== '');
-    // it-21 (I3P-06): the carried fact sentences render next, while the disclosure and the opening
-    // play, so a question about the time or the comp finds its audio cached. After the opening, so
-    // the beats a person hears first never queue behind them.
-    const facts = (context.static_facts ?? []).map((fact) => fact.say)
-        .filter((text) => typeof text === 'string' && text.trim() !== '');
-    tts.prerender(later).then(() => tts.prerender(facts)).catch((error: unknown) => {
+    const spoken = (texts: readonly unknown[]): string[] =>
+        texts.filter((text): text is string => typeof text === 'string' && text.trim() !== '');
+    const opening = spoken(context.opening_script);
+    const rest = spoken([context.closing_sentence, context.voicemail_script, ...FIXED_PHRASES]);
+    // it-21 (I3P-06): the carried fact sentences render while the disclosure and the opening play,
+    // so a question about the time or the comp finds its audio cached. They wait for the opening
+    // beats only, so the beats a person hears first never queue behind them. They do not wait for
+    // the closing, the voicemail and the fixed phrases: one slow render there held every fact back
+    // past the first question in the 2026-11-19 soak.
+    const prerenderFailed = (error: unknown) => {
         log(`live-call ${leg.id} prerender_failed ${error instanceof Error ? error.name : typeof error}`);
-    });
+    };
+    const openingRendered = tts.prerender(opening);
+    tts.prerender(rest).catch(prerenderFailed);
+    openingRendered.then(() => tts.prerender(spoken((context.static_facts ?? []).map((fact) => fact.say))))
+        .catch(prerenderFailed);
 
     const speeches: Array<Promise<SpokenResult>> = [];
     let sentenceSeq = 0;
