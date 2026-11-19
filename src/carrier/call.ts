@@ -670,7 +670,12 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
     // Warm synthesis for everything this call may say. Only the disclosure is waited for.
     const later = [...context.opening_script, context.voicemail_script, ...FIXED_PHRASES]
         .filter((text) => typeof text === 'string' && text.trim() !== '');
-    tts.prerender(later).catch((error: unknown) => {
+    // it-21 (I3P-06): the carried fact sentences render next, while the disclosure and the opening
+    // play, so a question about the time or the comp finds its audio cached. After the opening, so
+    // the beats a person hears first never queue behind them.
+    const facts = (context.static_facts ?? []).map((fact) => fact.say)
+        .filter((text) => typeof text === 'string' && text.trim() !== '');
+    tts.prerender(later).then(() => tts.prerender(facts)).catch((error: unknown) => {
         log(`live-call ${leg.id} prerender_failed ${error instanceof Error ? error.name : typeof error}`);
     });
 
@@ -952,6 +957,12 @@ export function percentiles(values: readonly number[]): Record<string, number> {
     return out;
 }
 
+/** The finished sentences a context carried (it-21), for the allowed set. */
+function carriedSays(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    return value.map((f) => (f as { say?: unknown })?.say).filter((s): s is string => typeof s === 'string' && s.trim() !== '');
+}
+
 /** Frames of audio per second of call time. One place, so nothing re-derives 50. */
 export const FRAMES_PER_SECOND = 1000 / CARRIER_AUDIO.frameMs;
 
@@ -971,6 +982,7 @@ function allowedFrom(journal: Awaited<ReturnType<typeof startMockSeam>>['journal
         if (entry.route === '/reservations/call-context') {
             if (typeof body.disclosure_sentence === 'string') allowed.push(body.disclosure_sentence);
             if (Array.isArray(body.opening_script)) allowed.push(...(body.opening_script as string[]));
+            allowed.push(...carriedSays(body.static_facts));
             if (typeof body.voicemail_script === 'string') {
                 allowed.push(body.voicemail_script);
                 allowed.push(...body.voicemail_script.split(/(?<=[.?!])\s+/).filter(Boolean));

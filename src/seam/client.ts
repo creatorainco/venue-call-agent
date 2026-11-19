@@ -25,7 +25,7 @@ import type {
     FactTopic,
     SeamRefusalReason,
 } from './types.ts';
-import { FACT_TOPICS, SEAM_REFUSAL_REASONS } from './types.ts';
+import { FACT_TOPICS, SEAM_REFUSAL_REASONS, STATIC_FACT_TOPICS } from './types.ts';
 import { SEAM_TIMEOUT_MS } from '../tuning/liveDefaults.ts';
 
 /**
@@ -116,6 +116,22 @@ export interface SeamClient {
 
 const isSentence = (value: unknown): boolean => typeof value === 'string' && value.trim() !== '';
 
+/**
+ * The carried answers worth keeping: a known static topic, a boolean `known`, a finished `say`, and
+ * the first answer per topic. `still_active` is dropped even when sent, because it must stay live.
+ */
+export function carriedFacts(value: unknown): FactAnswer[] {
+    if (!Array.isArray(value)) return [];
+    const kept = new Map<FactTopic, FactAnswer>();
+    for (const item of value as Array<Partial<FactAnswer> | null>) {
+        const topic = item?.topic;
+        if (!topic || !(STATIC_FACT_TOPICS as readonly string[]).includes(topic) || kept.has(topic)) continue;
+        if (typeof item.known !== 'boolean' || !isSentence(item.say)) continue;
+        kept.set(topic, item as FactAnswer);
+    }
+    return [...kept.values()];
+}
+
 export function createSeamClient(options: SeamClientOptions): SeamClient {
     const base = options.baseUrl.replace(/\/+$/, '');
     // CORE-A7: one timeout, declared once, in src/tuning/liveDefaults.ts.
@@ -193,6 +209,10 @@ export function createSeamClient(options: SeamClientOptions): SeamClient {
             if (payload.opening_script.length === 0 || !spoken.every(isSentence)) {
                 throw new SeamUnavailable('/reservations/call-context', 'context with a blank sentence');
             }
+            // it-21: a carried fact is kept only when it is one the contract lets the context carry
+            // and its sentence is finished. Anything else is dropped, so that topic is asked live:
+            // a bad carried answer costs a round trip, never a wrong or blank sentence.
+            if ('static_facts' in payload) payload.static_facts = carriedFacts(payload.static_facts);
             return payload;
         },
 

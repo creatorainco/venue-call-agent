@@ -524,14 +524,14 @@
         },
         {
           "file": "credential-expires-2.ulaw",
-          "text": "What time are they arriving?",
+          "text": "Is the booking still on?",
           "speech_start_ms": 200,
           "speech_end_ms": 1620,
           "duration_ms": 1920,
           "digits_or_money": false,
           "stt": {
             "model": "telephony",
-            "heard": "what time are they arriving",
+            "heard": "is the booking still on",
             "word_recall": 1
           }
         }

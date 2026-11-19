@@ -43,7 +43,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { END_REASONS, EVENT_KINDS, MAX_TURN_CHARS, MAX_TURNS, TURN_WIRE_FIELDS } from '../seam/types.ts';
+import { END_REASONS, EVENT_KINDS, MAX_TURN_CHARS, MAX_TURNS, STATIC_FACT_TOPICS, TURN_WIRE_FIELDS } from '../seam/types.ts';
 
 const FIXTURES = JSON.parse(
     readFileSync(fileURLToPath(new URL('./fixtures/scenarios.json', import.meta.url)), 'utf8'),
@@ -160,8 +160,18 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
 }
 
 function contextFor(scenario: Scenario, reservationId: string | undefined): Record<string, unknown> {
-    const ctx = { ...FIXTURES.default_context, ...(scenario.context ?? {}) };
+    const ctx: Record<string, unknown> = { ...FIXTURES.default_context, ...(scenario.context ?? {}) };
     if (reservationId) ctx.reservation_id = reservationId;
+    // it-21: like the backend, the context carries the call-fact answer for every topic but
+    // still_active, from the same source call-fact answers from, so the two cannot disagree.
+    // A scenario that sets `static_facts` itself (null for a backend from before it-21) wins.
+    if (!('static_facts' in (scenario.context ?? {}))) {
+        ctx.static_facts = STATIC_FACT_TOPICS
+            .map((topic) => { const fact = factFor(scenario, topic); return fact ? { ...fact, topic } : null; })
+            .filter((fact) => fact !== null);
+    } else if (ctx.static_facts === null) {
+        delete ctx.static_facts;
+    }
     return ctx;
 }
 

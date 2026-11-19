@@ -207,6 +207,12 @@ function allowedFrom(journal: MockSeam['journal']): string[] {
         if (entry.route === '/reservations/call-context') {
             if (typeof body.disclosure_sentence === 'string') allowed.push(body.disclosure_sentence);
             if (Array.isArray(body.opening_script)) allowed.push(...(body.opening_script as string[]));
+            // it-21: the fact sentences the context carried are backend sentences too.
+            if (Array.isArray(body.static_facts)) {
+                for (const fact of body.static_facts as Array<{ say?: unknown }>) {
+                    if (typeof fact?.say === 'string' && fact.say.trim()) allowed.push(fact.say);
+                }
+            }
             if (typeof body.voicemail_script === 'string') allowed.push(body.voicemail_script);
             // The voicemail is one long paragraph in the contract but is spoken as sentences, so
             // its parts are permitted individually too. Splitting the yardstick, never the check.

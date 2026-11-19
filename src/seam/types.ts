@@ -225,7 +225,20 @@ export interface CallContext {
     system_instruction: string;
     answerable_topics: string[];
     script_version: string;
+    /**
+     * it-21 (I3P-06): the `call-fact` answer for every topic that cannot change during the call,
+     * read at the same moment as the rest of the context. The runtime renders them while the
+     * disclosure plays and answers those questions without a second round trip.
+     *
+     * 🔴 `still_active` is never one of them: a booking cancelled mid-call must change that answer,
+     * so it is always asked live. Optional, because a backend from before it-21 does not send it;
+     * every topic it does not carry is asked live as before (slower, not broken).
+     */
+    static_facts?: FactAnswer[];
 }
+
+/** The topics `static_facts` may carry: every topic but `still_active`, in contract order. */
+export const STATIC_FACT_TOPICS: readonly FactTopic[] = FACT_TOPICS.filter((t) => t !== 'still_active');
 
 /**
  * `POST /reservations/call-fact`.

@@ -17,7 +17,7 @@
 
 import type { AgentTurn, CallAgent, HeardInfo, ToolCall } from './contract.ts';
 import type { SeamClient } from '../seam/client.ts';
-import type { CallContext } from '../seam/types.ts';
+import type { CallContext, FactAnswer, FactTopic } from '../seam/types.ts';
 import type { IntentClassifier } from './intent.ts';
 import { topicOf } from './intent.ts';
 import { ASK_FOR_STAFF, CLOSE_AFTER_ANSWERS, CLOSE_THANKS, SORRY_WRONG_NUMBER } from './phrases.ts';
@@ -34,6 +34,12 @@ export interface CascadeAgentDeps {
     context?: CallContext;
     /** Milliseconds, monotonic. Injected so the stage timings are testable. */
     clock?: () => number;
+}
+
+/** The context's carried answer for a topic, or undefined to ask the backend. Never `still_active`. */
+export function carriedFact(context: CallContext, topic: FactTopic): FactAnswer | undefined {
+    if (topic === 'still_active') return undefined;
+    return context.static_facts?.find((fact) => fact.topic === topic);
 }
 
 /** Intents whose reply ends the call: on an early turn, only a keyword may decide one. */
@@ -175,7 +181,9 @@ export function createCascadeAgent(deps: CascadeAgentDeps): CallAgent {
         //       from the backend, on top of the disclosure they already heard. ─────────────
         const topic = intent === 'is_this_ai' ? 'who_we_are' as const : topicOf(intent);
         if (topic) {
-            const answer = await seam.callFact(topic);
+            // it-21 (I3P-06): a topic the context carried is answered from it, with no round trip.
+            // `still_active` is never carried, so a cancel mid-call is still heard.
+            const answer = carriedFact(context, topic) ?? await seam.callFact(topic);
             questionsAnswered++;
             const closing = questionsAnswered >= 2;
             return turn({
