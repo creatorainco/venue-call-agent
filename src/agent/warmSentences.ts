@@ -17,7 +17,7 @@
  * backend.
  */
 
-export const DISCLOSURE_CACHE_KEY = 'Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators.';
+export const DISCLOSURE_CACHE_KEY = 'Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. This call is transcribed for our records.';
 
 /** What the warm-up renders besides the four fixed phrases. */
 export const BACKEND_FIRST_SENTENCES: readonly string[] = [DISCLOSURE_CACHE_KEY];

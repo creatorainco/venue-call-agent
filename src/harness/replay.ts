@@ -207,6 +207,7 @@ function allowedFrom(journal: MockSeam['journal']): string[] {
         if (entry.route === '/reservations/call-context') {
             if (typeof body.disclosure_sentence === 'string') allowed.push(body.disclosure_sentence);
             if (Array.isArray(body.opening_script)) allowed.push(...(body.opening_script as string[]));
+            if (typeof body.closing_sentence === 'string') allowed.push(body.closing_sentence);
             // it-21: the fact sentences the context carried are backend sentences too.
             if (Array.isArray(body.static_facts)) {
                 for (const fact of body.static_facts as Array<{ say?: unknown }>) {

@@ -26,7 +26,7 @@ import type { AgentTurn, CallAgent, HeardInfo, ToolCall } from './contract.ts';
 import type { SeamClient } from '../seam/client.ts';
 import type { CallContext } from '../seam/types.ts';
 import { CHANGE_CUES, DONE_CUES, MACHINE_CUES, STOP_CUES, TOPIC_CUES, VOICEMAIL_CUES, WRONG_NUMBER_CUES } from './cues.ts';
-import { ASK_FOR_STAFF, CLOSE_AFTER_ANSWERS, CLOSE_THANKS, SORRY_WRONG_NUMBER } from './phrases.ts';
+import { ASK_FOR_STAFF, CLOSE_AFTER_ANSWERS, CLOSE_THANKS, SORRY_WRONG_NUMBER, closeFor } from './phrases.ts';
 
 
 export function createScriptedStub(deps: { seam: SeamClient }): CallAgent {
@@ -143,14 +143,14 @@ export function createScriptedStub(deps: { seam: SeamClient }): CallAgent {
                 const closing = questionsAnswered >= 2;
                 return turn({
                     toolCalls: [call],
-                    say: closing ? [answer.say, CLOSE_AFTER_ANSWERS] : [answer.say],
+                    say: closing ? [answer.say, closeFor(context, CLOSE_AFTER_ANSWERS)] : [answer.say],
                     endCall: closing,
                 });
             }
 
             // ── 6. They are done. ────────────────────────────────────────────────────────
             if (DONE_CUES.some((re) => re.test(utterance))) {
-                return turn({ say: [CLOSE_THANKS], endCall: true });
+                return turn({ say: [closeFor(context, CLOSE_THANKS)], endCall: true });
             }
 
             // ── 7. A question nothing answers. Log it, THEN promise the follow-up. ───────

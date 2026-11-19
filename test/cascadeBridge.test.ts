@@ -110,6 +110,7 @@ after(async () => { await mock.close(); });
 /** Every sentence the backend supplied on the call, read off the mock's journal. */
 function backendStrings(context: CallContext): Set<string> {
     const allowed = new Set<string>([context.disclosure_sentence, ...context.opening_script, context.voicemail_script, ...FIXED_PHRASES]);
+    if (context.closing_sentence) allowed.add(context.closing_sentence);
     // it-21: the fact sentences the context carried are the backend's words too.
     for (const fact of context.static_facts ?? []) allowed.add(fact.say);
     for (const entry of mock.journal) {

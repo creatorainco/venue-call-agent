@@ -668,8 +668,8 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
     bridge.start();
 
     // Warm synthesis for everything this call may say. Only the disclosure is waited for.
-    const later = [...context.opening_script, context.voicemail_script, ...FIXED_PHRASES]
-        .filter((text) => typeof text === 'string' && text.trim() !== '');
+    const later = [...context.opening_script, context.closing_sentence, context.voicemail_script, ...FIXED_PHRASES]
+        .filter((text): text is string => typeof text === 'string' && text.trim() !== '');
     // it-21 (I3P-06): the carried fact sentences render next, while the disclosure and the opening
     // play, so a question about the time or the comp finds its audio cached. After the opening, so
     // the beats a person hears first never queue behind them.
@@ -982,6 +982,7 @@ function allowedFrom(journal: Awaited<ReturnType<typeof startMockSeam>>['journal
         if (entry.route === '/reservations/call-context') {
             if (typeof body.disclosure_sentence === 'string') allowed.push(body.disclosure_sentence);
             if (Array.isArray(body.opening_script)) allowed.push(...(body.opening_script as string[]));
+            if (typeof body.closing_sentence === 'string') allowed.push(body.closing_sentence);
             allowed.push(...carriedSays(body.static_facts));
             if (typeof body.voicemail_script === 'string') {
                 allowed.push(body.voicemail_script);

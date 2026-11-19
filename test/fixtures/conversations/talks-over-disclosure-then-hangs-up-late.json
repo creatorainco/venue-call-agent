@@ -10,8 +10,8 @@
   "audio": {
     "interruptTurns": [0],
     "gapMs": 200,
-    "hangUpAtMs": 10000,
-    "about": "Turn 0 starts 200ms into the disclosure; the far end hangs up at 10 seconds, about three seconds after the disclosure finishes. Only `npm run call` reads this block; the text harness ignores it."
+    "hangUpAtMs": 13000,
+    "about": "Turn 0 starts 200ms into the disclosure; the far end hangs up at 13 seconds, about three seconds after the disclosure finishes. Only `npm run call` reads this block; the text harness ignores it."
   },
   "expect": {
     "must_say_contains": [

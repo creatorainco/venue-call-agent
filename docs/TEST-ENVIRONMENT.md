@@ -70,7 +70,7 @@ budget; the budget is the requirement. Expected output, so nobody mistakes it fo
 
 ```
   phone-menu   2/2   1720ms / 8680ms   0f   HARD: dead_air_within_hard_budget
-  1 hard failure(s) · 6 soft failure(s)
+  1 hard failure(s) · 5 soft failure(s)
 ```
 
 
