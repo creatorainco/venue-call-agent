@@ -543,6 +543,7 @@ if (noExec) {
             compTerms: bi.comp_terms,
             contactEmail: bi.contact_email,
             stillActive: ctx.still_active,
+            callbackNumber: bi.callback_number ?? null,
         };
         const sentence = (topic, over = {}) => {
             const f = K.venueFactSentence(topic, { ...inputs, ...over });
@@ -554,6 +555,8 @@ if (noExec) {
         expected['builder: disclosure'] = [ctx.disclosure_sentence];
         observed['builder: opening beats (in order)'] = Array.isArray(script.beats) ? script.beats.map((b, i) => `${i + 1}. ${b}`) : null;
         expected['builder: opening beats (in order)'] = ctx.opening_script.map((b, i) => `${i + 1}. ${b}`);
+        observed['builder: closing sentence'] = wrap(script.close);
+        expected['builder: closing sentence'] = [ctx.closing_sentence ?? '(the mock has no closing sentence)'];
         observed['builder: voicemail'] = wrap(script.voicemail);
         expected['builder: voicemail'] = [ctx.voicemail_script];
         observed['builder: system instruction'] = wrap(S.buildVenueCallInstruction(script, K.VENUE_FACT_TOPICS));

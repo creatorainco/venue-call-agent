@@ -15,9 +15,9 @@
   ],
   "derived_from": {
     "repo": "creatorainco/platform-backend",
-    "ref": "origin/dev",
-    "commit": "9db9c705f",
-    "read_on": "2026-11-14",
+    "ref": "feat/venue-call-script-v6-identification (platform-backend PR, it-10)",
+    "commit": "4ddcf03b9",
+    "read_on": "2026-11-18",
     "files": [
       "src/infrastructure/routes/reservations.routes.ts",
       "src/infrastructure/controllers/reservations.controller.ts",
@@ -64,6 +64,7 @@
         "when",
         "disclosure_sentence",
         "opening_script",
+        "closing_sentence",
         "voicemail_script",
         "system_instruction",
         "answerable_topics",
@@ -287,7 +288,7 @@
     "request_human_callback",
     "report_answerer"
   ],
-  "script_version": "venue-precall/v5",
+  "script_version": "venue-precall/v7",
   "known_divergences": [
     {
       "id": "comp-clause",

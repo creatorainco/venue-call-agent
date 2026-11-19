@@ -7,8 +7,8 @@
     "Hello?"
   ],
   "audio": {
-    "hangUpAtMs": 9000,
-    "about": "The far end leaves 9 s into the call: past the disclosure, inside the notice."
+    "hangUpAtMs": 12000,
+    "about": "The far end leaves 12 s into the call: past the disclosure, inside the notice."
   },
   "expect": {
     "must_say_contains": [

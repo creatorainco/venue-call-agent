@@ -221,6 +221,12 @@ export interface CallContext {
     when: { spoken_time: string; local_date: string | null };
     disclosure_sentence: string;
     opening_script: string[];
+    /**
+     * Script v7 (backend it-10): the last sentence of a live call. It names the business and the
+     * number of the line that called (47 CFR 64.1200(b)). Absent from an older backend; the agent
+     * then closes with its fixed phrases, as before.
+     */
+    closing_sentence?: string;
     voicemail_script: string;
     system_instruction: string;
     answerable_topics: string[];

@@ -20,7 +20,7 @@ import type { SeamClient } from '../seam/client.ts';
 import type { CallContext } from '../seam/types.ts';
 import type { IntentClassifier } from './intent.ts';
 import { topicOf } from './intent.ts';
-import { ASK_FOR_STAFF, CLOSE_AFTER_ANSWERS, CLOSE_THANKS, SORRY_WRONG_NUMBER } from './phrases.ts';
+import { ASK_FOR_STAFF, CLOSE_AFTER_ANSWERS, CLOSE_THANKS, SORRY_WRONG_NUMBER, closeFor } from './phrases.ts';
 
 export interface CascadeAgentDeps {
     seam: SeamClient;
@@ -180,14 +180,14 @@ export function createCascadeAgent(deps: CascadeAgentDeps): CallAgent {
             const closing = questionsAnswered >= 2;
             return turn({
                 toolCalls: [{ name: 'lookup_booking_fact', args: { topic } }],
-                say: closing ? [answer.say, CLOSE_AFTER_ANSWERS] : [answer.say],
+                say: closing ? [answer.say, closeFor(context, CLOSE_AFTER_ANSWERS)] : [answer.say],
                 endCall: closing,
             });
         }
 
         // ── 6. They are done, or asked us to wait. ─────────────────────────────────────
         if (intent === 'confirm' || intent === 'decline') {
-            return turn({ say: [CLOSE_THANKS], endCall: true });
+            return turn({ say: [closeFor(context, CLOSE_THANKS)], endCall: true });
         }
         if (intent === 'hold') return turn({ note: 'asked to hold; listening' });
 

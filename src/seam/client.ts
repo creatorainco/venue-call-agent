@@ -190,6 +190,7 @@ export function createSeamClient(options: SeamClientOptions): SeamClient {
             // A blank disclosure, a blank beat in the opening or a blank voicemail script would be
             // spoken as silence where the restaurant expects words.
             const spoken = [payload.disclosure_sentence, ...payload.opening_script, payload.voicemail_script];
+            if (payload.closing_sentence !== undefined) spoken.push(payload.closing_sentence);
             if (payload.opening_script.length === 0 || !spoken.every(isSentence)) {
                 throw new SeamUnavailable('/reservations/call-context', 'context with a blank sentence');
             }

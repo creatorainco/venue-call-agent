@@ -125,7 +125,7 @@ export interface TurnTruth {
     interrupting: boolean;
 }
 
-const DEFAULT_TRAILING_SILENCE_MS = 5_000;
+const DEFAULT_TRAILING_SILENCE_MS = 8_000;
 const DEFAULT_GAP_MS = 400;
 const DEFAULT_INTERRUPT_AFTER_MS = 400;
 const DEFAULT_AMPLITUDE = 8_000;
