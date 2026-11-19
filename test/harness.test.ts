@@ -140,7 +140,47 @@ describe('🔴 sabotage — a bad agent must FAIL, or none of the above means an
         async hear() { return turn({ endCall: true }); },
     });
 
+    /**
+     * it-21: reports the wrong number, then answers a CARRIED fact. A carried fact never reaches
+     * `/call-fact`, so only the tool call shows the booking was talked about.
+     */
+    const carriedFactAfterWrongNumber = (deps: { seam: SeamClient }): CallAgent => {
+        let context: Awaited<ReturnType<SeamClient['callContext']>> | null = null;
+        return {
+            async open() { context = await deps.seam.callContext(); return turn({ say: [context.disclosure_sentence] }); },
+            async hear() {
+                await deps.seam.callEvent({ kind: 'answerer_reported', answerer: 'wrong_number' });
+                const fact = context?.static_facts?.find((f) => f.topic === 'arrival_time');
+                return turn({
+                    toolCalls: [
+                        { name: 'report_answerer', args: { answerer: 'wrong_number' } },
+                        { name: 'lookup_booking_fact', args: { topic: 'arrival_time' } },
+                    ],
+                    say: fact ? [fact.say] : [],
+                    endCall: true,
+                });
+            },
+        };
+    };
+
+    /** it-21: speaks the carried party size with no lookup at all, so nothing shows it was asked. */
+    const carriedFactWithNoLookup = (deps: { seam: SeamClient }): CallAgent => {
+        let context: Awaited<ReturnType<SeamClient['callContext']>> | null = null;
+        let n = 0;
+        return {
+            async open() { context = await deps.seam.callContext(); return turn({ say: [context.disclosure_sentence] }); },
+            async hear() {
+                n++;
+                if (n === 1) return turn({ say: [...(context?.opening_script ?? [])] });
+                const fact = context?.static_facts?.find((f) => f.topic === 'party_size');
+                return turn({ say: fact ? [fact.say] : [], endCall: n >= 3 });
+            },
+        };
+    };
+
     const cases: Array<[string, string, (d: { seam: SeamClient }) => CallAgent, string]> = [
+        ['wrong-number', 'wrong_number_stops', carriedFactAfterWrongNumber, 'answered a carried fact after the wrong number (it-21)'],
+        ['two-questions-then-close', 'calls /call-fact {"topic":"party_size"}', carriedFactWithNoLookup, 'spoke a carried fact with no lookup (it-21)'],
         ['plain', 'disclosure_first', speaksFirst, 'spoke before the disclosure'],
         ['who-pays', 'no_fabrication', inventsMoney, 'invented a comp clause'],
         ['who-pays', 'quoted_only /\\bcomplimentary\\b/', improvisesComp, 'said the comp word in its own words after quoting the backend'],

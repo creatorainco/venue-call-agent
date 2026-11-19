@@ -55,6 +55,31 @@ function journalHas(
     });
 }
 
+/** The topics the call's context carried an answer for (it-21 `static_facts`), read off the journal. */
+function carriedTopics(journal: ReplayResult['journal']): Set<string> {
+    const out = new Set<string>();
+    for (const entry of journal) {
+        if (!entry.route.endsWith('/call-context') || entry.status !== 200) continue;
+        const facts = (entry.response as { static_facts?: unknown } | undefined)?.static_facts;
+        if (!Array.isArray(facts)) continue;
+        for (const fact of facts as Array<{ topic?: unknown }>) if (typeof fact?.topic === 'string') out.add(fact.topic);
+    }
+    return out;
+}
+
+/**
+ * A fact lookup the call made, whichever way it was answered. it-21: a topic the context carried is
+ * answered from it, so its lookup is the agent's `lookup_booking_fact` tool call and never reaches
+ * `/call-fact`. It counts only for a topic the backend really carried on this call; any other topic
+ * must still be seen in the journal.
+ */
+function factLookups(result: ReplayResult): Array<{ topic: string; carried: boolean }> {
+    const carried = carriedTopics(result.journal);
+    return result.transcript.toolCalls
+        .filter((call) => call.name === 'lookup_booking_fact' && typeof call.args.topic === 'string')
+        .map((call) => ({ topic: call.args.topic as string, carried: carried.has(call.args.topic as string) }));
+}
+
 /** The voicemail the backend handed this call, or null if call-context never succeeded. */
 function voicemailFrom(journal: ReplayResult['journal']): string | null {
     for (const entry of journal) {
@@ -164,9 +189,16 @@ export function score(result: ReplayResult): FixtureScore {
         const reported = journalHas(journal, { route: '/call-event', body_contains: { answerer: 'wrong_number' } });
         const lastReport = journal.findIndex((e) =>
             e.route.endsWith('/call-event') && (e.body as { answerer?: string })?.answerer === 'wrong_number');
-        const factsAfter = lastReport >= 0
-            ? journal.slice(lastReport + 1).filter((e) => e.route.endsWith('/call-fact')).length
+        // it-21: a carried fact never reaches the journal, so a lookup after the report is counted
+        // from the tool calls as well.
+        const toolReport = transcript.toolCalls.findIndex((c) =>
+            c.name === 'report_answerer' && c.args.answerer === 'wrong_number');
+        const lookupsAfter = toolReport >= 0
+            ? transcript.toolCalls.slice(toolReport + 1).filter((c) => c.name === 'lookup_booking_fact').length
             : 0;
+        const factsAfter = (lastReport >= 0
+            ? journal.slice(lastReport + 1).filter((e) => e.route.endsWith('/call-fact')).length
+            : 0) + lookupsAfter;
         checks.push(reported && transcript.ended && factsAfter === 0
             ? pass('wrong_number_stops', 'hard', 'reported, said nothing further about the booking, ended')
             : fail('wrong_number_stops', 'hard',
@@ -188,9 +220,14 @@ export function score(result: ReplayResult): FixtureScore {
 
     for (const want of fixture.expect.must_call ?? []) {
         const label = `calls ${want.route}${want.body_contains ? ' ' + JSON.stringify(want.body_contains) : ''}`;
+        const topic = want.route === '/call-fact' ? want.body_contains?.topic : undefined;
+        const fromContext = typeof topic === 'string'
+            && factLookups(result).some((l) => l.carried && l.topic === topic);
         checks.push(journalHas(journal, want)
             ? pass(label, 'hard', 'seen in the journal')
-            : fail(label, 'hard', 'never arrived at the backend'));
+            : fromContext
+                ? pass(label, 'hard', 'answered from the fact the call context carried')
+                : fail(label, 'hard', 'never arrived at the backend'));
     }
     for (const want of fixture.expect.must_not_call ?? []) {
         const label = `never calls ${want.route}${want.body_contains ? ' ' + JSON.stringify(want.body_contains) : ''}`;

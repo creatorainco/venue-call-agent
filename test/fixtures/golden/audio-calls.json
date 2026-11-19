@@ -328,7 +328,7 @@
      },
      {
       "who": "venue",
-      "text": "What time are they arriving?"
+      "text": "Is the booking still on?"
      },
      {
       "who": "system",
@@ -347,8 +347,8 @@
     "endedBecause": "seam_refusal",
     "refusalReason": "token_expired"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:4f7aa012c71f77dfe8818f03c82ddd32224efcc0b80f13df16e61998a2d5bfb7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:2a917fe36f7d84ebdf76bf42457505d31453b8b3c24330c9796e980ee3b85c78"
   },
   "audio": {
    "deadAirMs": [
@@ -371,8 +371,8 @@
    "clearedFrames": 0,
    "writtenAfterHangup": 0,
    "hangupsSent": 1,
-   "framesIn": 1978,
-   "framesOut": 1978,
+   "framesIn": 1964,
+   "framesOut": 1964,
    "audibleOutFrames": 1691,
    "detectedTurns": 2,
    "scriptedTurns": 2,
@@ -381,7 +381,7 @@
    "unansweredTurns": 1,
    "cutShortSentences": 0,
    "unheardSentences": 0,
-   "callMs": 39560,
+   "callMs": 39280,
    "endedBecause": "seam_stopped",
    "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
    "modelLatencyMs": 0
@@ -390,6 +390,154 @@
  "credential-expires@latency-900": {
   "replay": {
    "fixture": "credential-expires",
+   "transcript": {
+    "lines": [
+     {
+      "who": "agent",
+      "text": "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. This call is transcribed for our records."
+     },
+     {
+      "who": "system",
+      "text": "note: disclosure only; listening before the notice"
+     },
+     {
+      "who": "venue",
+      "text": "Hi there."
+     },
+     {
+      "who": "agent",
+      "text": "I'm calling about a reservation you have tonight at 7:30, under Dana."
+     },
+     {
+      "who": "agent",
+      "text": "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there."
+     },
+     {
+      "who": "agent",
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+     },
+     {
+      "who": "agent",
+      "text": "Anything you'd like us to pass along, or any questions?"
+     },
+     {
+      "who": "venue",
+      "text": "Is the booking still on?"
+     },
+     {
+      "who": "system",
+      "text": "seam refused: token_expired"
+     }
+    ],
+    "toolCalls": [],
+    "spoken": [
+     "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. This call is transcribed for our records.",
+     "I'm calling about a reservation you have tonight at 7:30, under Dana.",
+     "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "Anything you'd like us to pass along, or any questions?"
+    ],
+    "ended": true,
+    "endedBecause": "seam_refusal",
+    "refusalReason": "token_expired"
+   },
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:2a917fe36f7d84ebdf76bf42457505d31453b8b3c24330c9796e980ee3b85c78"
+  },
+  "audio": {
+   "deadAirMs": [
+    1720,
+    820
+   ],
+   "percentiles": {
+    "p50": 820,
+    "p90": 1720,
+    "p99": 1720
+   },
+   "maxDeadAirMs": 1720,
+   "openingDelayMs": 900,
+   "talkOverFrames": 0,
+   "disclosureTalkOverFrames": 0,
+   "disclosureStarted": true,
+   "disclosureHeard": true,
+   "disclosureReplays": 0,
+   "disclosureCutByHangup": false,
+   "clearedFrames": 0,
+   "writtenAfterHangup": 0,
+   "hangupsSent": 1,
+   "framesIn": 2054,
+   "framesOut": 2054,
+   "audibleOutFrames": 1691,
+   "detectedTurns": 2,
+   "scriptedTurns": 2,
+   "overSegmented": 0,
+   "missedTurns": 0,
+   "unansweredTurns": 1,
+   "cutShortSentences": 0,
+   "unheardSentences": 0,
+   "callMs": 41080,
+   "endedBecause": "seam_stopped",
+   "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
+   "modelLatencyMs": 900
+  }
+ },
+ "credential-expires@hangup-7000": {
+  "replay": {
+   "fixture": "credential-expires",
+   "transcript": {
+    "lines": [
+     {
+      "who": "agent",
+      "text": "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. This call is transcribed for our records."
+     },
+     {
+      "who": "system",
+      "text": "note: disclosure only; listening before the notice"
+     }
+    ],
+    "toolCalls": [],
+    "spoken": [
+     "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. This call is transcribed for our records."
+    ],
+    "ended": false,
+    "endedBecause": "transcript_exhausted"
+   },
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:c93e4f7c781ac634bb3b2ede97e4e03e535e2f24003c557be7c55255a68197d3"
+  },
+  "audio": {
+   "deadAirMs": [],
+   "percentiles": {},
+   "maxDeadAirMs": 0,
+   "openingDelayMs": 0,
+   "talkOverFrames": 0,
+   "disclosureTalkOverFrames": 0,
+   "disclosureStarted": true,
+   "disclosureHeard": false,
+   "disclosureReplays": 0,
+   "disclosureCutByHangup": true,
+   "clearedFrames": 0,
+   "writtenAfterHangup": 0,
+   "hangupsSent": 1,
+   "framesIn": 350,
+   "framesOut": 350,
+   "audibleOutFrames": 350,
+   "detectedTurns": 0,
+   "scriptedTurns": 2,
+   "overSegmented": 0,
+   "missedTurns": 0,
+   "unansweredTurns": 0,
+   "cutShortSentences": 1,
+   "unheardSentences": 0,
+   "callMs": 7000,
+   "endedBecause": "far_end_hung_up",
+   "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
+   "modelLatencyMs": 0
+  }
+ },
+ "credential-expires-static@pinned": {
+  "replay": {
+   "fixture": "credential-expires-static",
    "transcript": {
     "lines": [
      {
@@ -441,8 +589,102 @@
     "endedBecause": "seam_refusal",
     "refusalReason": "token_expired"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:4f7aa012c71f77dfe8818f03c82ddd32224efcc0b80f13df16e61998a2d5bfb7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:08b0c2a1f9fbfb48be145f27d59f4e0547e14b3cc41523e43635fa3322ca9326"
+  },
+  "audio": {
+   "deadAirMs": [
+    820,
+    820
+   ],
+   "percentiles": {
+    "p50": 820,
+    "p90": 820,
+    "p99": 820
+   },
+   "maxDeadAirMs": 820,
+   "openingDelayMs": 0,
+   "talkOverFrames": 0,
+   "disclosureTalkOverFrames": 0,
+   "disclosureStarted": true,
+   "disclosureHeard": true,
+   "disclosureReplays": 0,
+   "disclosureCutByHangup": false,
+   "clearedFrames": 0,
+   "writtenAfterHangup": 0,
+   "hangupsSent": 1,
+   "framesIn": 1978,
+   "framesOut": 1978,
+   "audibleOutFrames": 1691,
+   "detectedTurns": 2,
+   "scriptedTurns": 3,
+   "overSegmented": 0,
+   "missedTurns": 0,
+   "unansweredTurns": 1,
+   "cutShortSentences": 0,
+   "unheardSentences": 0,
+   "callMs": 39560,
+   "endedBecause": "seam_stopped",
+   "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
+   "modelLatencyMs": 0
+  }
+ },
+ "credential-expires-static@latency-900": {
+  "replay": {
+   "fixture": "credential-expires-static",
+   "transcript": {
+    "lines": [
+     {
+      "who": "agent",
+      "text": "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. This call is transcribed for our records."
+     },
+     {
+      "who": "system",
+      "text": "note: disclosure only; listening before the notice"
+     },
+     {
+      "who": "venue",
+      "text": "Hi there."
+     },
+     {
+      "who": "agent",
+      "text": "I'm calling about a reservation you have tonight at 7:30, under Dana."
+     },
+     {
+      "who": "agent",
+      "text": "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there."
+     },
+     {
+      "who": "agent",
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+     },
+     {
+      "who": "agent",
+      "text": "Anything you'd like us to pass along, or any questions?"
+     },
+     {
+      "who": "venue",
+      "text": "What time are they arriving?"
+     },
+     {
+      "who": "system",
+      "text": "seam refused: token_expired"
+     }
+    ],
+    "toolCalls": [],
+    "spoken": [
+     "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. This call is transcribed for our records.",
+     "I'm calling about a reservation you have tonight at 7:30, under Dana.",
+     "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "Anything you'd like us to pass along, or any questions?"
+    ],
+    "ended": true,
+    "endedBecause": "seam_refusal",
+    "refusalReason": "token_expired"
+   },
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:08b0c2a1f9fbfb48be145f27d59f4e0547e14b3cc41523e43635fa3322ca9326"
   },
   "audio": {
    "deadAirMs": [
@@ -469,7 +711,7 @@
    "framesOut": 2068,
    "audibleOutFrames": 1691,
    "detectedTurns": 2,
-   "scriptedTurns": 2,
+   "scriptedTurns": 3,
    "overSegmented": 0,
    "missedTurns": 0,
    "unansweredTurns": 1,
@@ -481,9 +723,9 @@
    "modelLatencyMs": 900
   }
  },
- "credential-expires@hangup-7000": {
+ "credential-expires-static@hangup-7000": {
   "replay": {
-   "fixture": "credential-expires",
+   "fixture": "credential-expires-static",
    "transcript": {
     "lines": [
      {
@@ -502,8 +744,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:b4d941e1bac70c1729cc8842b6d5a74ef9a13674e54dee963db873d64b738686"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:c93e4f7c781ac634bb3b2ede97e4e03e535e2f24003c557be7c55255a68197d3"
   },
   "audio": {
    "deadAirMs": [],
@@ -523,7 +765,7 @@
    "framesOut": 350,
    "audibleOutFrames": 350,
    "detectedTurns": 0,
-   "scriptedTurns": 2,
+   "scriptedTurns": 3,
    "overSegmented": 0,
    "missedTurns": 0,
    "unansweredTurns": 0,
@@ -556,8 +798,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [],
@@ -610,8 +852,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [],
@@ -664,8 +906,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [],
@@ -751,8 +993,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:28ecf331b7bf40c27b35199a4b3c15651ce861c8034cd73509adefb0654b94c2"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:f2b0199d0f19eef230fbae8ef1a6393e268ca90f40a0a75a765a7ca1d377d9b3"
   },
   "audio": {
    "deadAirMs": [
@@ -845,8 +1087,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:28ecf331b7bf40c27b35199a4b3c15651ce861c8034cd73509adefb0654b94c2"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:f2b0199d0f19eef230fbae8ef1a6393e268ca90f40a0a75a765a7ca1d377d9b3"
   },
   "audio": {
    "deadAirMs": [
@@ -906,8 +1148,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:37653174b43465f83ac3a09b439bb7b6f5ea2f8f966d6c2f526a4b6027ac19e5"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:30bda9b244c800c0282f99920b37ce106f5b64ef19a0fdc68c465e2a9d521d25"
   },
   "audio": {
    "deadAirMs": [],
@@ -993,8 +1235,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [
@@ -1087,8 +1329,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [
@@ -1148,8 +1390,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [],
@@ -1246,8 +1488,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:a6eed76b3a30750298a9b12dc1a2401838c213df2015b1c6d7899205734376be",
-   "journal": "sha256:cfabed01cb00c9b5c460faab8dffadc5a79ff01e75dcfecd083b84d7729412ab"
+   "allowedSentences": "sha256:66bf2d266f3e7d737e4849266f1d3061ebc8809658db54df72b1217ba2d19ce5",
+   "journal": "sha256:f89f90a46db4dd1291873f79257b8adf3aa767465e452f424f9eba3a59d2ae8b"
   },
   "audio": {
    "deadAirMs": [
@@ -1351,8 +1593,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:a6eed76b3a30750298a9b12dc1a2401838c213df2015b1c6d7899205734376be",
-   "journal": "sha256:cfabed01cb00c9b5c460faab8dffadc5a79ff01e75dcfecd083b84d7729412ab"
+   "allowedSentences": "sha256:66bf2d266f3e7d737e4849266f1d3061ebc8809658db54df72b1217ba2d19ce5",
+   "journal": "sha256:f89f90a46db4dd1291873f79257b8adf3aa767465e452f424f9eba3a59d2ae8b"
   },
   "audio": {
    "deadAirMs": [
@@ -1412,8 +1654,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:6813277bfdfcda102c060ad0e1083477e8a047b68e992c3e2fd1c3ee648e4db1"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:af1d50d4d9d5d6f172c7d29568cb08183c393e3905d028f12241d615ccb00646"
   },
   "audio": {
    "deadAirMs": [],
@@ -1499,8 +1741,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [
@@ -1593,8 +1835,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [
@@ -1678,8 +1920,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [
@@ -1762,8 +2004,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [
@@ -1846,8 +2088,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [
@@ -1930,8 +2172,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [
@@ -2027,8 +2269,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [
@@ -2125,8 +2367,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [
@@ -2186,8 +2428,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [],
@@ -2264,8 +2506,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [
@@ -2324,8 +2566,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [],
@@ -2378,8 +2620,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [],
@@ -2485,8 +2727,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:f48695207add232942620f6cb25c72b2e72ea647950b56725e8ad289fa583a12",
-   "journal": "sha256:b725818f6969ea828757d3939613233e9327a0907cb3fbdaebda6c454be3eeb1"
+   "allowedSentences": "sha256:bf1530fd02a227c83fcd38bbe45554fd780433df26fcbeb61776c04fefbd8010",
+   "journal": "sha256:f15a0bc96a826e484f3cfddbfdbc525f37200048979874928ccb95987574a928"
   },
   "audio": {
    "deadAirMs": [
@@ -2600,8 +2842,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:f48695207add232942620f6cb25c72b2e72ea647950b56725e8ad289fa583a12",
-   "journal": "sha256:b725818f6969ea828757d3939613233e9327a0907cb3fbdaebda6c454be3eeb1"
+   "allowedSentences": "sha256:bf1530fd02a227c83fcd38bbe45554fd780433df26fcbeb61776c04fefbd8010",
+   "journal": "sha256:f15a0bc96a826e484f3cfddbfdbc525f37200048979874928ccb95987574a928"
   },
   "audio": {
    "deadAirMs": [
@@ -2662,8 +2904,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [],
@@ -2784,8 +3026,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:50fdd8f83343f53fd9ae5410211ce04a2b26d8757f62462b4aaa0ff5732254c7",
-   "journal": "sha256:e85087cfdb5e0b7ff9ed24a9955e727baeeeb5772601fcbdf647c323ae9cde2b"
+   "allowedSentences": "sha256:c695ab35152ff29a12669eef8cf2b9cd98b11ee2ee907aaa60640782e46796e5",
+   "journal": "sha256:0cc33032b36544eb13fbc91d250a68ec47d2c274d30ec833c98811911c13bea7"
   },
   "audio": {
    "deadAirMs": [
@@ -2914,8 +3156,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:50fdd8f83343f53fd9ae5410211ce04a2b26d8757f62462b4aaa0ff5732254c7",
-   "journal": "sha256:e85087cfdb5e0b7ff9ed24a9955e727baeeeb5772601fcbdf647c323ae9cde2b"
+   "allowedSentences": "sha256:c695ab35152ff29a12669eef8cf2b9cd98b11ee2ee907aaa60640782e46796e5",
+   "journal": "sha256:0cc33032b36544eb13fbc91d250a68ec47d2c274d30ec833c98811911c13bea7"
   },
   "audio": {
    "deadAirMs": [
@@ -2976,8 +3218,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [],
@@ -3074,8 +3316,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:f48695207add232942620f6cb25c72b2e72ea647950b56725e8ad289fa583a12",
-   "journal": "sha256:99e1e7c0d83fd1a9628b35906da1e399d93711c265e8b9f979b59808f3385a9e"
+   "allowedSentences": "sha256:bf1530fd02a227c83fcd38bbe45554fd780433df26fcbeb61776c04fefbd8010",
+   "journal": "sha256:d5ad19cfeaea523ebf39f9a101fcfb4168f502aafaa7ba462ee6433b6332a271"
   },
   "audio": {
    "deadAirMs": [
@@ -3179,8 +3421,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:f48695207add232942620f6cb25c72b2e72ea647950b56725e8ad289fa583a12",
-   "journal": "sha256:99e1e7c0d83fd1a9628b35906da1e399d93711c265e8b9f979b59808f3385a9e"
+   "allowedSentences": "sha256:bf1530fd02a227c83fcd38bbe45554fd780433df26fcbeb61776c04fefbd8010",
+   "journal": "sha256:d5ad19cfeaea523ebf39f9a101fcfb4168f502aafaa7ba462ee6433b6332a271"
   },
   "audio": {
    "deadAirMs": [
@@ -3240,8 +3482,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [],
@@ -3314,8 +3556,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:2fc276ba9f177fa032720925570c0fc4ff826ec8c40b40f1958270ca5fbe196d"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:97e43b43ae17bd28102e0228fa9aaf71c85c3c056d5b1f896749afcc375c24c0"
   },
   "audio": {
    "deadAirMs": [
@@ -3394,8 +3636,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:2fc276ba9f177fa032720925570c0fc4ff826ec8c40b40f1958270ca5fbe196d"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:97e43b43ae17bd28102e0228fa9aaf71c85c3c056d5b1f896749afcc375c24c0"
   },
   "audio": {
    "deadAirMs": [
@@ -3454,8 +3696,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:5eff1323492fe62b21b048af453e3a9ff9a916686a596da8d19d015ef74f4a0a"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:a66c422c521e372809fbd568065b938b71d368f3149f40410c09d88a3eef91f0"
   },
   "audio": {
    "deadAirMs": [],
@@ -3552,8 +3794,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:4e12bf5d9582e983df494788a1c025e0f906edccc585f729f848322fe44e42ef",
-   "journal": "sha256:ada1cc2d00e4db6c7f4cad5171148010ab5ec02a31baa703b223483a14ad3812"
+   "allowedSentences": "sha256:cf833dcf3b45fb1617e3d17b4d6431ce5cd3e9d893e5e6eabbbd30383d809424",
+   "journal": "sha256:677b86c5c095911bb45c6b334ae74e313e121a45da7fff278e372bee8b0215ca"
   },
   "audio": {
    "deadAirMs": [
@@ -3657,8 +3899,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:4e12bf5d9582e983df494788a1c025e0f906edccc585f729f848322fe44e42ef",
-   "journal": "sha256:ada1cc2d00e4db6c7f4cad5171148010ab5ec02a31baa703b223483a14ad3812"
+   "allowedSentences": "sha256:cf833dcf3b45fb1617e3d17b4d6431ce5cd3e9d893e5e6eabbbd30383d809424",
+   "journal": "sha256:677b86c5c095911bb45c6b334ae74e313e121a45da7fff278e372bee8b0215ca"
   },
   "audio": {
    "deadAirMs": [
@@ -3718,8 +3960,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [],
@@ -3825,8 +4067,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:bcac1f88f972c04ac02914323444df332179b967d9c1dfc48602abb6166fd119",
-   "journal": "sha256:59fe2045038d5ffc84ebfbaf8052d0b3511c79335dc15b0a59e518e314fcac71"
+   "allowedSentences": "sha256:9027fd642b9b5de6b6080a9a5be663d7c4e3de397b6d89a3fcf7ba206a3c208f",
+   "journal": "sha256:99404d1bbb2da5983e428d4df2783889cb56821acd4a1a15874ec9df75e4cd8f"
   },
   "audio": {
    "deadAirMs": [
@@ -3940,8 +4182,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:bcac1f88f972c04ac02914323444df332179b967d9c1dfc48602abb6166fd119",
-   "journal": "sha256:59fe2045038d5ffc84ebfbaf8052d0b3511c79335dc15b0a59e518e314fcac71"
+   "allowedSentences": "sha256:9027fd642b9b5de6b6080a9a5be663d7c4e3de397b6d89a3fcf7ba206a3c208f",
+   "journal": "sha256:99404d1bbb2da5983e428d4df2783889cb56821acd4a1a15874ec9df75e4cd8f"
   },
   "audio": {
    "deadAirMs": [
@@ -4002,8 +4244,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:a828c5b29a71364a58fd93009431e9c681dc3ce8ed2eb4c51d28b2b3d5442ab7"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:437cbbab367a04c9dc11c333ec2b6c8039ab67834c0b7c2baae233d88ea12d6d"
   },
   "audio": {
    "deadAirMs": [],
@@ -4109,8 +4351,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:7b7465b586fb187ee44499172c1a8802ef2b7acef5646fcf902ef06c76b81576",
-   "journal": "sha256:0932def7a9b534c8d26f14eafe9f454a810e66ab0bc7a48818fc7a4b5bbec9a2"
+   "allowedSentences": "sha256:a4eeb8579d2c3d997a3c7e539ebec884a5127dffef30b65469c552a17b599608",
+   "journal": "sha256:7584dfefd05165a0e13dff80bde25f28e3d0352f3add88742eecadfae38c4d04"
   },
   "audio": {
    "deadAirMs": [
@@ -4224,8 +4466,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:7b7465b586fb187ee44499172c1a8802ef2b7acef5646fcf902ef06c76b81576",
-   "journal": "sha256:0932def7a9b534c8d26f14eafe9f454a810e66ab0bc7a48818fc7a4b5bbec9a2"
+   "allowedSentences": "sha256:a4eeb8579d2c3d997a3c7e539ebec884a5127dffef30b65469c552a17b599608",
+   "journal": "sha256:7584dfefd05165a0e13dff80bde25f28e3d0352f3add88742eecadfae38c4d04"
   },
   "audio": {
    "deadAirMs": [
@@ -4286,8 +4528,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:b34976aba4588e0997149385d8f8d5a1aefb47a7855a80522bd2875da8762881"
+   "allowedSentences": "sha256:43c4980ea5295d7db8aa5a981d2906f30d98f3591ff644f2875defde515cb498",
+   "journal": "sha256:71d1507c65f1ea0f416385ae63dc020dac89f1ae5c5af7133d85703facac3b54"
   },
   "audio": {
    "deadAirMs": [],
@@ -4384,8 +4626,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:50ef58ac443bf0d971eff6cd483d8bddeea4642da5c3b7e82eaef0351ee98d4a"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:60a2cf48f9fe5174186614ad6371920b26e546002e38561e9d4e02d44ad9979e"
   },
   "audio": {
    "deadAirMs": [
@@ -4489,8 +4731,8 @@
     "ended": true,
     "endedBecause": "agent_ended"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:50ef58ac443bf0d971eff6cd483d8bddeea4642da5c3b7e82eaef0351ee98d4a"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:60a2cf48f9fe5174186614ad6371920b26e546002e38561e9d4e02d44ad9979e"
   },
   "audio": {
    "deadAirMs": [
@@ -4550,8 +4792,8 @@
     "ended": false,
     "endedBecause": "transcript_exhausted"
    },
-   "allowedSentences": "sha256:962f9e6238916088107aca3a843dd807fc3bc7ce4e52ce86f0e4f4fed0d11bd8",
-   "journal": "sha256:c4a22191b47ac105359b9e34a519a8a81d92a72b07cc0225e036ced61a17109e"
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:25d4ecc382313455f2c9710d78f64243c1d61b698b805f366da5493ec5e84648"
   },
   "audio": {
    "deadAirMs": [],

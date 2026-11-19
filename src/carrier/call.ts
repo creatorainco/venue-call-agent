@@ -668,11 +668,22 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
     bridge.start();
 
     // Warm synthesis for everything this call may say. Only the disclosure is waited for.
-    const later = [...context.opening_script, context.closing_sentence, context.voicemail_script, ...FIXED_PHRASES]
-        .filter((text): text is string => typeof text === 'string' && text.trim() !== '');
-    tts.prerender(later).catch((error: unknown) => {
+    const spoken = (texts: readonly unknown[]): string[] =>
+        texts.filter((text): text is string => typeof text === 'string' && text.trim() !== '');
+    const opening = spoken(context.opening_script);
+    const rest = spoken([context.closing_sentence, context.voicemail_script, ...FIXED_PHRASES]);
+    // it-21 (I3P-06): the carried fact sentences render while the disclosure and the opening play,
+    // so a question about the time or the comp finds its audio cached. They wait for the opening
+    // beats only, so the beats a person hears first never queue behind them. They do not wait for
+    // the closing, the voicemail and the fixed phrases: one slow render there held every fact back
+    // past the first question in the 2026-11-19 soak.
+    const prerenderFailed = (error: unknown) => {
         log(`live-call ${leg.id} prerender_failed ${error instanceof Error ? error.name : typeof error}`);
-    });
+    };
+    const openingRendered = tts.prerender(opening);
+    tts.prerender(rest).catch(prerenderFailed);
+    openingRendered.then(() => tts.prerender(spoken((context.static_facts ?? []).map((fact) => fact.say))))
+        .catch(prerenderFailed);
 
     const speeches: Array<Promise<SpokenResult>> = [];
     let sentenceSeq = 0;
@@ -952,6 +963,12 @@ export function percentiles(values: readonly number[]): Record<string, number> {
     return out;
 }
 
+/** The finished sentences a context carried (it-21), for the allowed set. */
+function carriedSays(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    return value.map((f) => (f as { say?: unknown })?.say).filter((s): s is string => typeof s === 'string' && s.trim() !== '');
+}
+
 /** Frames of audio per second of call time. One place, so nothing re-derives 50. */
 export const FRAMES_PER_SECOND = 1000 / CARRIER_AUDIO.frameMs;
 
@@ -972,6 +989,7 @@ function allowedFrom(journal: Awaited<ReturnType<typeof startMockSeam>>['journal
             if (typeof body.disclosure_sentence === 'string') allowed.push(body.disclosure_sentence);
             if (Array.isArray(body.opening_script)) allowed.push(...(body.opening_script as string[]));
             if (typeof body.closing_sentence === 'string') allowed.push(body.closing_sentence);
+            allowed.push(...carriedSays(body.static_facts));
             if (typeof body.voicemail_script === 'string') {
                 allowed.push(body.voicemail_script);
                 allowed.push(...body.voicemail_script.split(/(?<=[.?!])\s+/).filter(Boolean));

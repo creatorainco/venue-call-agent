@@ -111,6 +111,8 @@ after(async () => { await mock.close(); });
 function backendStrings(context: CallContext): Set<string> {
     const allowed = new Set<string>([context.disclosure_sentence, ...context.opening_script, context.voicemail_script, ...FIXED_PHRASES]);
     if (context.closing_sentence) allowed.add(context.closing_sentence);
+    // it-21: the fact sentences the context carried are the backend's words too.
+    for (const fact of context.static_facts ?? []) allowed.add(fact.say);
     for (const entry of mock.journal) {
         const body = entry.response as { say?: unknown } | undefined;
         if (typeof body?.say === 'string') allowed.add(body.say);
@@ -184,6 +186,16 @@ describe('🔴 a live session on a fake leg', () => {
         for (const text of [...result.synthesised, ...tts.asked]) assert.ok(allowed.has(text), `composed: ${JSON.stringify(text)}`);
         // CONTROL: the same check catches a planted sentence.
         assert.equal(allowed.has(`${context.disclosure_sentence} Have a nice day.`), false);
+    });
+
+    it('it-21: every fact sentence the context carried is rendered, after the opening', async () => {
+        const { tts, context } = await runLive();
+        const facts = (context.static_facts ?? []).map((f) => f.say);
+        assert.ok(facts.length > 0, 'the mock context carried no facts');
+        for (const say of facts) assert.ok(tts.asked.includes(say), `not rendered: ${JSON.stringify(say)}`);
+        const lastBeat = Math.max(...context.opening_script.map((b) => tts.asked.indexOf(b)));
+        const firstFact = Math.min(...facts.map((f) => tts.asked.indexOf(f)));
+        assert.ok(lastBeat < firstFact, 'a fact sentence was rendered before the opening beats');
     });
 
     it('answers each turn, ends the call itself, and hangs up exactly once', async () => {

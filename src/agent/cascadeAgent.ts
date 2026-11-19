@@ -17,7 +17,7 @@
 
 import type { AgentTurn, CallAgent, HeardInfo, ToolCall } from './contract.ts';
 import type { SeamClient } from '../seam/client.ts';
-import type { CallContext } from '../seam/types.ts';
+import type { CallContext, FactAnswer, FactTopic } from '../seam/types.ts';
 import type { IntentClassifier } from './intent.ts';
 import { topicOf } from './intent.ts';
 import { ASK_FOR_STAFF, CLOSE_AFTER_ANSWERS, CLOSE_THANKS, SORRY_WRONG_NUMBER, closeFor } from './phrases.ts';
@@ -36,6 +36,12 @@ export interface CascadeAgentDeps {
     clock?: () => number;
 }
 
+/** The context's carried answer for a topic, or undefined to ask the backend. Never `still_active`. */
+export function carriedFact(context: CallContext, topic: FactTopic): FactAnswer | undefined {
+    if (topic === 'still_active') return undefined;
+    return context.static_facts?.find((fact) => fact.topic === topic);
+}
+
 /** Intents whose reply ends the call: on an early turn, only a keyword may decide one. */
 const ENDS_THE_CALL: ReadonlySet<string> = new Set(['stop_calling', 'wrong_number', 'confirm', 'decline', 'voicemail']);
 
@@ -52,6 +58,34 @@ export function createCascadeAgent(deps: CascadeAgentDeps): CallAgent {
     /** it-05: the carrier detected a person; never a machine again on this call. */
     let personConfirmed = false;
     let humanReported = false;
+    /**
+     * it-21 review: a carried-fact turn still touches `/call-fact`, off the critical path. That
+     * route re-runs the backend's kill and expiry check, so a seam switched off or a token that aged
+     * out mid-call is still noticed. The touch is not awaited on its own turn; the NEXT turn waits
+     * for it and ends the call on its refusal, exactly as a live lookup would have ended it.
+     */
+    let pendingCheck: Promise<void> | null = null;
+    let checkFailure: { error: unknown } | null = null;
+
+    function checkInBackground(topic: FactTopic): void {
+        pendingCheck = seam.callFact(topic).then(
+            () => undefined,
+            (error: unknown) => { checkFailure = { error }; },
+        );
+    }
+
+    async function settleCheck(): Promise<void> {
+        if (pendingCheck) {
+            await pendingCheck;
+            pendingCheck = null;
+        }
+        if (checkFailure) {
+            const { error } = checkFailure;
+            checkFailure = null;
+            log('carried-fact check refused; ending the call');
+            throw error;
+        }
+    }
 
     const turn = (over: Partial<AgentTurn> = {}): AgentTurn =>
         ({ say: [], toolCalls: [], endCall: false, ...over });
@@ -76,6 +110,8 @@ export function createCascadeAgent(deps: CascadeAgentDeps): CallAgent {
 
         async hear(utterance: string, heard?: HeardInfo): Promise<AgentTurn> {
             if (!context) throw new Error('hear() before open() — there is no context to speak from');
+            // it-21 review: the last carried answer's kill and expiry check, before anything else.
+            await settleCheck();
             // it-05: the carrier detected a person. Re-report the answerer before anything is said.
             const reported = heard?.person ? await confirmPerson() : [];
             const started = clock();
@@ -175,9 +211,17 @@ export function createCascadeAgent(deps: CascadeAgentDeps): CallAgent {
         //       from the backend, on top of the disclosure they already heard. ─────────────
         const topic = intent === 'is_this_ai' ? 'who_we_are' as const : topicOf(intent);
         if (topic) {
-            const answer = await seam.callFact(topic);
+            // it-21 (I3P-06): a topic the context carried is answered from it, with no round trip.
+            // `still_active` is never carried, so a cancel mid-call is still heard. A carried answer
+            // still sends its `/call-fact` touch, unawaited, so the kill and expiry check stays.
+            const carried = carriedFact(context, topic);
+            if (carried) checkInBackground(topic);
+            const answer = carried ?? await seam.callFact(topic);
             questionsAnswered++;
             const closing = questionsAnswered >= 2;
+            // A closing turn has no next turn to notice a refusal, so it waits for the check here.
+            // The kill still ends the call before the answer is spoken (test/killPath.test.ts).
+            if (closing) await settleCheck();
             return turn({
                 toolCalls: [{ name: 'lookup_booking_fact', args: { topic } }],
                 say: closing ? [answer.say, closeFor(context, CLOSE_AFTER_ANSWERS)] : [answer.say],

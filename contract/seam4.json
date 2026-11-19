@@ -68,8 +68,19 @@
         "voicemail_script",
         "system_instruction",
         "answerable_topics",
-        "script_version"
+        "script_version",
+        "static_facts"
       ],
+      "static_facts": {
+        "item_fields": [
+          "known",
+          "say",
+          "reason",
+          "topic"
+        ],
+        "topics": "every fact_topics entry except still_active, in contract order",
+        "note": "Added from pb perf/call-context-facts (it-21, I3P-06; interface VenueCallContext, VENUE_CALL_STATIC_FACT_TOPICS). Each item is the call-fact answer for that topic, built by the same function from the same row at the same moment. still_active is never carried: a booking cancelled mid-call must change that answer, so the runtime always asks call-fact for it. The runtime keeps only items with a static topic, a boolean known and a finished say; any topic it does not keep is asked live on call-fact. The items are a snapshot taken when call-context is served, so an edit to the booking during the call is not heard until the next call. For a carried topic the runtime still sends call-fact without waiting on it, so the token and seam checks run on every fact turn; a refusal ends the call on the next turn, or before the answer on a closing turn."
+      },
       "nested_fields": {
         "venue": [
           "name",
