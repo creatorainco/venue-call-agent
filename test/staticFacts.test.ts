@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 
 import { carriedFact, createCascadeAgent } from '../src/agent/cascadeAgent.ts';
 import { createKeywordClassifier } from '../src/agent/intent.ts';
-import { carriedFacts, createSeamClient, type SeamClient } from '../src/seam/client.ts';
+import { carriedFacts, createSeamClient, SeamRefusal, type SeamClient } from '../src/seam/client.ts';
 import { startMockSeam, type MockSeam } from '../src/mock/server.ts';
 import { STATIC_FACT_TOPICS, FACT_TOPICS, type CallContext, type FactAnswer } from '../src/seam/types.ts';
 
@@ -61,18 +61,40 @@ describe('it-21: the cascade answers a carried topic from the context', () => {
     const agentFor = (seam: SeamClient, context?: CallContext) =>
         createCascadeAgent({ seam, intents: createKeywordClassifier(), ...(context ? { context } : {}) });
 
-    test('a party-size question makes no call-fact round trip and says the backend sentence', async () => {
-        const seam = createSeamClient({ baseUrl: mock.baseUrl, token: 'mock:happy' });
-        const context = await seam.callContext();
+    test('a party-size question does not wait on /call-fact and says the backend sentence', async () => {
+        const real = createSeamClient({ baseUrl: mock.baseUrl, token: 'mock:happy' });
+        const context = await real.callContext();
         assert.ok(context.static_facts?.length, 'the mock context carried no facts');
+        // A seam whose call-fact never answers until released: the turn must return without it.
+        let release: () => void = () => {};
+        const gate = new Promise<void>((resolve) => { release = resolve; });
+        const asked: string[] = [];
+        const seam: SeamClient = {
+            ...real,
+            callFact: async (topic) => { asked.push(topic); await gate; return real.callFact(topic); },
+        };
         const agent = agentFor(seam, context);
         await agent.open();
         await agent.hear('hello, who is this?');
-        const before = factRoutes().length;
         const answer = await agent.hear('how many people are coming?');
-        assert.equal(factRoutes().length, before, 'a carried topic still went to /call-fact');
         assert.deepEqual(answer.toolCalls, [{ name: 'lookup_booking_fact', args: { topic: 'party_size' } }]);
-        assert.equal(answer.say[0], (await seam.callFact('party_size')).say);
+        assert.equal(answer.say[0], (await real.callFact('party_size')).say);
+        assert.deepEqual(asked, ['party_size'], 'the carried turn sent no kill and expiry check');
+        release();
+    });
+
+    test('🔴 a refused check on a carried turn ends the call on the next turn', async () => {
+        const live = createSeamClient({ baseUrl: mock.baseUrl, token: 'mock:happy' });
+        const context = await live.callContext();
+        // The token ages out after the context was fetched: every later route refuses.
+        const expired = createSeamClient({ baseUrl: mock.baseUrl, token: 'mock:expired-token' });
+        const agent = agentFor(expired, context);
+        await agent.open();
+        await agent.hear('hello, who is this?');
+        const answer = await agent.hear('how many people are coming?');
+        assert.equal(answer.say[0], (await live.callFact('party_size')).say, 'the carried answer was not spoken');
+        await assert.rejects(agent.hear('okay, thanks'), (error: unknown) =>
+            error instanceof SeamRefusal && error.reason === 'token_expired');
     });
 
     test('🔴 still_active is asked live, even with a planted carried answer', async () => {

@@ -535,6 +535,248 @@
    "modelLatencyMs": 0
   }
  },
+ "credential-expires-static@pinned": {
+  "replay": {
+   "fixture": "credential-expires-static",
+   "transcript": {
+    "lines": [
+     {
+      "who": "agent",
+      "text": "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. This call is transcribed for our records."
+     },
+     {
+      "who": "system",
+      "text": "note: disclosure only; listening before the notice"
+     },
+     {
+      "who": "venue",
+      "text": "Hi there."
+     },
+     {
+      "who": "agent",
+      "text": "I'm calling about a reservation you have tonight at 7:30, under Dana."
+     },
+     {
+      "who": "agent",
+      "text": "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there."
+     },
+     {
+      "who": "agent",
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+     },
+     {
+      "who": "agent",
+      "text": "Anything you'd like us to pass along, or any questions?"
+     },
+     {
+      "who": "venue",
+      "text": "What time are they arriving?"
+     },
+     {
+      "who": "system",
+      "text": "seam refused: token_expired"
+     }
+    ],
+    "toolCalls": [],
+    "spoken": [
+     "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. This call is transcribed for our records.",
+     "I'm calling about a reservation you have tonight at 7:30, under Dana.",
+     "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "Anything you'd like us to pass along, or any questions?"
+    ],
+    "ended": true,
+    "endedBecause": "seam_refusal",
+    "refusalReason": "token_expired"
+   },
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:08b0c2a1f9fbfb48be145f27d59f4e0547e14b3cc41523e43635fa3322ca9326"
+  },
+  "audio": {
+   "deadAirMs": [
+    820,
+    820
+   ],
+   "percentiles": {
+    "p50": 820,
+    "p90": 820,
+    "p99": 820
+   },
+   "maxDeadAirMs": 820,
+   "openingDelayMs": 0,
+   "talkOverFrames": 0,
+   "disclosureTalkOverFrames": 0,
+   "disclosureStarted": true,
+   "disclosureHeard": true,
+   "disclosureReplays": 0,
+   "disclosureCutByHangup": false,
+   "clearedFrames": 0,
+   "writtenAfterHangup": 0,
+   "hangupsSent": 1,
+   "framesIn": 1978,
+   "framesOut": 1978,
+   "audibleOutFrames": 1691,
+   "detectedTurns": 2,
+   "scriptedTurns": 3,
+   "overSegmented": 0,
+   "missedTurns": 0,
+   "unansweredTurns": 1,
+   "cutShortSentences": 0,
+   "unheardSentences": 0,
+   "callMs": 39560,
+   "endedBecause": "seam_stopped",
+   "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
+   "modelLatencyMs": 0
+  }
+ },
+ "credential-expires-static@latency-900": {
+  "replay": {
+   "fixture": "credential-expires-static",
+   "transcript": {
+    "lines": [
+     {
+      "who": "agent",
+      "text": "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. This call is transcribed for our records."
+     },
+     {
+      "who": "system",
+      "text": "note: disclosure only; listening before the notice"
+     },
+     {
+      "who": "venue",
+      "text": "Hi there."
+     },
+     {
+      "who": "agent",
+      "text": "I'm calling about a reservation you have tonight at 7:30, under Dana."
+     },
+     {
+      "who": "agent",
+      "text": "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there."
+     },
+     {
+      "who": "agent",
+      "text": "We wanted your team to know ahead of time rather than have it come as a surprise on the night."
+     },
+     {
+      "who": "agent",
+      "text": "Anything you'd like us to pass along, or any questions?"
+     },
+     {
+      "who": "venue",
+      "text": "What time are they arriving?"
+     },
+     {
+      "who": "system",
+      "text": "seam refused: token_expired"
+     }
+    ],
+    "toolCalls": [],
+    "spoken": [
+     "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. This call is transcribed for our records.",
+     "I'm calling about a reservation you have tonight at 7:30, under Dana.",
+     "They're a creator working with Northside Restaurant Group, and they'll be filming some content while they're there.",
+     "We wanted your team to know ahead of time rather than have it come as a surprise on the night.",
+     "Anything you'd like us to pass along, or any questions?"
+    ],
+    "ended": true,
+    "endedBecause": "seam_refusal",
+    "refusalReason": "token_expired"
+   },
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:08b0c2a1f9fbfb48be145f27d59f4e0547e14b3cc41523e43635fa3322ca9326"
+  },
+  "audio": {
+   "deadAirMs": [
+    1720,
+    820
+   ],
+   "percentiles": {
+    "p50": 820,
+    "p90": 1720,
+    "p99": 1720
+   },
+   "maxDeadAirMs": 1720,
+   "openingDelayMs": 900,
+   "talkOverFrames": 0,
+   "disclosureTalkOverFrames": 0,
+   "disclosureStarted": true,
+   "disclosureHeard": true,
+   "disclosureReplays": 0,
+   "disclosureCutByHangup": false,
+   "clearedFrames": 0,
+   "writtenAfterHangup": 0,
+   "hangupsSent": 1,
+   "framesIn": 2068,
+   "framesOut": 2068,
+   "audibleOutFrames": 1691,
+   "detectedTurns": 2,
+   "scriptedTurns": 3,
+   "overSegmented": 0,
+   "missedTurns": 0,
+   "unansweredTurns": 1,
+   "cutShortSentences": 0,
+   "unheardSentences": 0,
+   "callMs": 41360,
+   "endedBecause": "seam_stopped",
+   "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
+   "modelLatencyMs": 900
+  }
+ },
+ "credential-expires-static@hangup-7000": {
+  "replay": {
+   "fixture": "credential-expires-static",
+   "transcript": {
+    "lines": [
+     {
+      "who": "agent",
+      "text": "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. This call is transcribed for our records."
+     },
+     {
+      "who": "system",
+      "text": "note: disclosure only; listening before the notice"
+     }
+    ],
+    "toolCalls": [],
+    "spoken": [
+     "Hi — this is an automated call from CreatoRain. We arrange restaurant visits for content creators. This call is transcribed for our records."
+    ],
+    "ended": false,
+    "endedBecause": "transcript_exhausted"
+   },
+   "allowedSentences": "sha256:67b867597d8daeabb38fa4de54cde49eb844db7939ba97509e67b97ac21edd03",
+   "journal": "sha256:c93e4f7c781ac634bb3b2ede97e4e03e535e2f24003c557be7c55255a68197d3"
+  },
+  "audio": {
+   "deadAirMs": [],
+   "percentiles": {},
+   "maxDeadAirMs": 0,
+   "openingDelayMs": 0,
+   "talkOverFrames": 0,
+   "disclosureTalkOverFrames": 0,
+   "disclosureStarted": true,
+   "disclosureHeard": false,
+   "disclosureReplays": 0,
+   "disclosureCutByHangup": true,
+   "clearedFrames": 0,
+   "writtenAfterHangup": 0,
+   "hangupsSent": 1,
+   "framesIn": 350,
+   "framesOut": 350,
+   "audibleOutFrames": 350,
+   "detectedTurns": 0,
+   "scriptedTurns": 3,
+   "overSegmented": 0,
+   "missedTurns": 0,
+   "unansweredTurns": 0,
+   "cutShortSentences": 1,
+   "unheardSentences": 0,
+   "callMs": 7000,
+   "endedBecause": "far_end_hung_up",
+   "vad": "silence=800ms start=START_SENSITIVITY_LOW end=END_SENSITIVITY_LOW prefix=300ms",
+   "modelLatencyMs": 0
+  }
+ },
  "hangs-up-mid-disclosure@pinned": {
   "replay": {
    "fixture": "hangs-up-mid-disclosure",
