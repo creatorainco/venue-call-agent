@@ -15,8 +15,8 @@
   ],
   "derived_from": {
     "repo": "creatorainco/platform-backend",
-    "ref": "feat/venue-call-script-v6-identification (platform-backend PR, it-10)",
-    "commit": "4ddcf03b9",
+    "ref": "origin/dev",
+    "commit": "1be4eb9eb",
     "read_on": "2026-11-18",
     "files": [
       "src/infrastructure/routes/reservations.routes.ts",
