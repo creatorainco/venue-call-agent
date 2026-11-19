@@ -668,8 +668,8 @@ export async function liveCall(options: LiveCallOptions): Promise<LiveCallResult
     bridge.start();
 
     // Warm synthesis for everything this call may say. Only the disclosure is waited for.
-    const later = [...context.opening_script, context.voicemail_script, ...FIXED_PHRASES]
-        .filter((text) => typeof text === 'string' && text.trim() !== '');
+    const later = [...context.opening_script, context.closing_sentence, context.voicemail_script, ...FIXED_PHRASES]
+        .filter((text): text is string => typeof text === 'string' && text.trim() !== '');
     tts.prerender(later).catch((error: unknown) => {
         log(`live-call ${leg.id} prerender_failed ${error instanceof Error ? error.name : typeof error}`);
     });
@@ -971,6 +971,7 @@ function allowedFrom(journal: Awaited<ReturnType<typeof startMockSeam>>['journal
         if (entry.route === '/reservations/call-context') {
             if (typeof body.disclosure_sentence === 'string') allowed.push(body.disclosure_sentence);
             if (Array.isArray(body.opening_script)) allowed.push(...(body.opening_script as string[]));
+            if (typeof body.closing_sentence === 'string') allowed.push(body.closing_sentence);
             if (typeof body.voicemail_script === 'string') {
                 allowed.push(body.voicemail_script);
                 allowed.push(...body.voicemail_script.split(/(?<=[.?!])\s+/).filter(Boolean));
