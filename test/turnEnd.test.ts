@@ -253,6 +253,35 @@ describe('the whole turn supersedes the reply to its early half (it-22, docs/soa
         assert.deepEqual(result.sentences.map((s) => s.heardMs > 0), [true, false, false, false]);
     });
 
+    it('🔴 a new-turn final while the protected disclosure plays still plays the disclosure whole', async () => {
+        const r = rig(true, 1, audible);
+        let disclosure: Awaited<ReturnType<CascadeBridge['speakDisclosure']>> | null = null;
+        void r.bridge.speakDisclosure({ id: 'd', text: 'Disclosure sentence.' }).then((result) => { disclosure = result; });
+        await tick();
+        assert.ok(r.bridge.speaking(), 'the disclosure is on the leg');
+        // "Hello?" ends early over the disclosure, and the reply to it queues behind the disclosure.
+        r.stream.interim('hello');
+        r.advance(TURN_END.shortSettleMs);
+        assert.deepEqual(r.turns.map((t) => t.text), ['hello']);
+        const reply = r.bridge.speak([{ id: 'h1', text: 'Reply to the early hello.' }]);
+        // The whole turn arrives while the disclosure is still playing.
+        r.stream.final("hello who's paying for the meal");
+        assert.ok(r.lines.includes('final_new_turn'));
+        assert.ok(r.lines.includes('superseded_early_reply'));
+        assert.equal(disclosure, null, 'the final did not settle the disclosure');
+        for (let i = 0; i < 60 && disclosure === null; i++) {
+            r.leg.advance();
+            await tick();
+        }
+        assert.ok(disclosure, 'the disclosure played to its end');
+        const [said] = (disclosure as unknown as { sentences: Array<{ heardMs: number; fullMs: number }> }).sentences;
+        assert.ok(said!.fullMs > 0);
+        assert.equal(said!.heardMs, said!.fullMs, 'heard whole, not cut');
+        const dropped = await reply;
+        assert.deepEqual(dropped.sentences.map((s) => s.heardMs), [0], 'the superseded reply is dropped');
+        assert.deepEqual(r.bridge.synthesised, ['Disclosure sentence.'], 'the superseded reply is never rendered');
+    });
+
     it('control: a same-turn final supersedes nothing, and the whole opening plays', async () => {
         const r = await earlyHelloThenOpening();
         r.stream.final('Hello?');

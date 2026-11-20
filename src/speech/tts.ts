@@ -89,11 +89,14 @@ export function unwrapWav(audio: Buffer): Buffer {
 }
 
 /**
- * How long one synthesis request may take: `TTS.timeoutMs` for a short sentence, more for a long
- * one (`TTS.timeoutPerCharMs`). A long script under a flat ceiling never renders at all.
+ * How long one synthesis request may take, headers and body together: `TTS.timeoutMs` for a short
+ * sentence, more for a long one (`TTS.timeoutPerCharMs`), and never more than `TTS.timeoutMaxMs`.
+ * A long script under a flat ceiling never renders at all. An uncapped ceiling leaves a long
+ * mid-call sentence silent for up to a minute before it fails.
  */
 export function synthesisCeilingMs(text: string, floorMs: number = TTS.timeoutMs): number {
-    return Math.max(floorMs, Math.round(TTS.timeoutBaseMs + TTS.timeoutPerCharMs * text.length));
+    const grown = Math.max(floorMs, Math.round(TTS.timeoutBaseMs + TTS.timeoutPerCharMs * text.length));
+    return Math.min(TTS.timeoutMaxMs, grown);
 }
 
 export function createTts(options: TtsOptions): Tts {
@@ -110,31 +113,41 @@ export function createTts(options: TtsOptions): Tts {
     async function request(text: string): Promise<Buffer> {
         const ceiling = synthesisCeilingMs(text, timeoutMs);
         const token = await options.tokens.token();
+        // One deadline covers the headers and the body. The abort also cancels a body still
+        // streaming; the race ends the wait even when the body ignores the signal.
         const controller = new AbortController();
+        const timedOut = new Promise<never>((_, reject) => {
+            controller.signal.addEventListener('abort', () => reject(new TtsUnavailable(`no response in ${ceiling}ms`)), { once: true });
+        });
+        timedOut.catch(() => {});
         const timer = setTimeout(() => controller.abort(), ceiling);
-        let response: Response;
+        let payload: { audioContent?: unknown } | null;
         try {
-            requests++;
-            response = await doFetch(TTS_ENDPOINT, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    input: { text },
-                    voice: { languageCode: TTS.languageCode, name: voice },
-                    audioConfig: { audioEncoding: 'MULAW', sampleRateHertz: TTS.sampleRateHertz },
-                }),
-                signal: controller.signal,
-            });
-        } catch (error) {
-            const detail = (error as Error)?.name === 'AbortError'
-                ? `no response in ${ceiling}ms`
-                : String((error as Error)?.message ?? error);
-            throw new TtsUnavailable(detail);
+            let response: Response;
+            try {
+                requests++;
+                response = await doFetch(TTS_ENDPOINT, {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        input: { text },
+                        voice: { languageCode: TTS.languageCode, name: voice },
+                        audioConfig: { audioEncoding: 'MULAW', sampleRateHertz: TTS.sampleRateHertz },
+                    }),
+                    signal: controller.signal,
+                });
+            } catch (error) {
+                const detail = (error as Error)?.name === 'AbortError'
+                    ? `no response in ${ceiling}ms`
+                    : String((error as Error)?.message ?? error);
+                throw new TtsUnavailable(detail);
+            }
+            if (!response.ok) throw new TtsUnavailable(`HTTP ${response.status}`);
+            const body = response.json().catch(() => null) as Promise<{ audioContent?: unknown } | null>;
+            payload = await Promise.race([body, timedOut]);
         } finally {
             clearTimeout(timer);
         }
-        if (!response.ok) throw new TtsUnavailable(`HTTP ${response.status}`);
-        const payload = await response.json().catch(() => null) as { audioContent?: unknown } | null;
         if (typeof payload?.audioContent !== 'string' || payload.audioContent === '') {
             throw new TtsUnavailable('a response with no audio');
         }

@@ -138,6 +138,12 @@ export const TTS = {
      */
     timeoutBaseMs: 1500,
     timeoutPerCharMs: 12,
+    /**
+     * The hard cap on that ceiling. Without it a 5,000-byte sentence would wait about 61 s before
+     * failing, with the venue on the line in silence. The 498-character voicemail needs 7476 ms,
+     * so it still fits. Every sentence of 709 characters or more gets 10 s.
+     */
+    timeoutMaxMs: 10000,
     /** Finished strings repeat across calls; the cache is bounded so it cannot grow unbounded. */
     cacheEntries: 256,
 } as const;
