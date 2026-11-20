@@ -33,7 +33,7 @@ export interface SileroSettings {
 
 /**
  * Barge-in: a little stricter on the start than Silero's 0.5 default, and 9 dB over the room's
- * floor (the margin `TURN_END.foregroundMarginDb` already uses), measured by scripts/compare-vad.mjs.
+ * floor (the margin `TURN_END.foregroundMarginDb` already uses), measured by the compare-vad script on spike/silero-vad.
  */
 export const SILERO_BARGE_IN: SileroSettings = { threshold: 0.6, startChunks: 2, silenceMs: 300, foregroundDb: 9 };
 
