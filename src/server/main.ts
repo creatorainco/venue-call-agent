@@ -104,12 +104,21 @@ export interface Session {
     onUpgrade?: () => void;
     /** Awaited (bounded) by GET/HEAD /health before its 200, so the probe holds the CPU for the warm-up. */
     onHealth?: () => Promise<void>;
+    /** Starts a deferred cascade (`ServerDeps.deferStart`); a no-op otherwise. */
+    start?: () => void;
 }
 
 export interface ServerDeps {
     /** Builds the per-process cascade. Defaults to `startCascade()` over ADC; tests inject a fake. */
     cascade?: () => Promise<CascadeRuntime>;
     log?: (line: string) => void;
+    /**
+     * SPIKE (it-22 cold-start lever): hold the cascade's start (the speech library's import, the
+     * ADC token, the warm-up) until `Session.start` is called or the first request arrives, so the
+     * port is bound before that work competes for the one CPU. `startServer` sets it and calls
+     * `start` right after `listen`.
+     */
+    deferStart?: boolean;
 }
 
 /** The live path is on only when a backend is named. Anything else is the silent default. */
@@ -130,15 +139,18 @@ export function selectStartCall(env: NodeJS.ProcessEnv, deps: ServerDeps = {}): 
 export function selectSession(env: NodeJS.ProcessEnv, deps: ServerDeps = {}): Session {
     if (!speechEnabled(env)) return { startCall: noAgentSession };
     const log = deps.log ?? ((line: string) => { process.stderr.write(`${line}\n`); });
-    const runtime = (deps.cascade ?? (() => startCascade({ log })))();
+    let begin: () => void = () => {};
+    const gate = deps.deferStart ? new Promise<void>((resolve) => { begin = resolve; }) : Promise.resolve();
+    const runtime = gate.then(() => (deps.cascade ?? (() => startCascade({ log })))());
     runtime.catch((error: unknown) => { log(`cascade_unavailable ${errorClass(error)}`); });
     // Best effort and never thrown: a cold first sentence is slower, not broken.
     const warmer = createWarmer(runtime, log);
     void warmer.ensure();
     return {
-        startCall: cascadeSession(runtime, CASCADE_READY_MS, warmer),
-        onUpgrade: () => { void warmer.ensure(); },
-        onHealth: () => warmer.ensure(),
+        startCall: (call) => { begin(); return cascadeSession(runtime, CASCADE_READY_MS, warmer)(call); },
+        onUpgrade: () => { begin(); void warmer.ensure(); },
+        onHealth: () => { begin(); return warmer.ensure(); },
+        start: () => { begin(); },
     };
 }
 
@@ -244,7 +256,7 @@ export async function startServer(
 ): Promise<{ stream: StreamServer; port: number }> {
     assertDeployableBaseUrl(env);
     const config = loadConfig(env);
-    const session = selectSession(env, deps);
+    const session = selectSession(env, { deferStart: true, ...deps });
     const stream = createStreamServer({
         apiBaseUrl: config.apiBaseUrl,
         startCall: session.startCall,
@@ -252,6 +264,8 @@ export async function startServer(
         ...(session.onHealth ? { onHealth: session.onHealth, healthWaitMs: HEALTH_WARM_WAIT_MS } : {}),
     });
     const port = await stream.listen(config.port, '0.0.0.0');
+    // The port is bound and the startup probe can pass: now the cascade may take the CPU.
+    setImmediate(() => session.start?.());
     return { stream, port };
 }
 

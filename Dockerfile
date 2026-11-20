@@ -12,10 +12,19 @@ WORKDIR /app
 
 # The lockfile is honoured exactly, and no package may run an install script.
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force \
+    # SPIKE (it-22 smaller image): type declarations, source maps and docs are never loaded at runtime.
+    && find node_modules \( -name '*.d.ts' -o -name '*.d.cts' -o -name '*.d.mts' -o -name '*.map' -o -name '*.md' -o -name '*.ts.map' \) -type f -delete \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg
 
 # Only the runtime tree. Tests, fixtures, scripts and docs stay out of the image (.dockerignore).
 COPY src ./src
+
+# SPIKE (it-22 compile cache): V8's code cache for every module the boot and the cascade load,
+# written at build time so a cold instance skips the compile (Node 22.1+ NODE_COMPILE_CACHE).
+ENV NODE_COMPILE_CACHE=/app/.node-compile-cache
+RUN node --input-type=module -e "await import('./src/server/main.ts'); await import('./src/agent/cascade.ts'); await import('@google-cloud/speech'); await import('google-auth-library');" \
+    && chown -R node:node /app/.node-compile-cache && ls /app/.node-compile-cache
 
 # Non-root: the base image's `node` user (uid 1000). The service writes nothing to disk.
 USER node
