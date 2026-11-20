@@ -1,0 +1,1290 @@
+{
+  "startedAt": "2026-11-20T06:30:32.215Z",
+  "spike": "gemini-live-vertex",
+  "model": "gemini-3.8-live",
+  "location": "us-central1",
+  "vad": {
+    "mode": "fast",
+    "disabled": false,
+    "startOfSpeechSensitivity": "START_SENSITIVITY_LOW",
+    "endOfSpeechSensitivity": "END_SENSITIVITY_HIGH",
+    "prefixPaddingMs": 300,
+    "silenceDurationMs": 300
+  },
+  "voice": {
+    "voiceConfig": {
+      "prebuiltVoiceConfig": {
+        "voiceName": "Puck"
+      }
+    }
+  },
+  "config": {
+    "$comment": "Every threshold of the loopback soak (TASK-3749 step 1: thresholds live in the harness config, not in code). Read by scripts/soak-corpus.mjs.",
+    "gate": {
+      "p50FirstAudioMs": 2000,
+      "p90FirstAudioMs": 4000,
+      "stretchP90FirstAudioMs": 2500,
+      "coldStartMs": 1000
+    },
+    "venue": {
+      "replyWaitMs": 8000,
+      "quietMs": 1500,
+      "endWaitMs": 6000
+    },
+    "disclosure": {
+      "minWordRecall": 0.8
+    },
+    "dev": {
+      "coldProbes": 1,
+      "warmProbes": 4
+    }
+  },
+  "summary": {
+    "calls": 20,
+    "callsThatSpoke": 20,
+    "turns": 47,
+    "unansweredTurns": 10,
+    "endedByServerTurns": 0,
+    "firstAudio": {
+      "p50": 1154,
+      "p90": 8000,
+      "p99": 8000,
+      "max": 8000
+    },
+    "startToFirstAudio": {
+      "p50": 877,
+      "p90": 1065,
+      "p99": 7006,
+      "max": 7006
+    },
+    "longestSilence": {
+      "p50": 7560,
+      "p90": 14020,
+      "p99": 14040,
+      "max": 14040
+    },
+    "turnsOver2s": 11,
+    "turnsOver4s": 10,
+    "framesAfterStop": 0,
+    "coldStartMs": 7006,
+    "gate": {
+      "pass": false,
+      "failures": [
+        "p90 first audio 8000 ms > 4000 ms",
+        "cold start to the disclosure 7006 ms > 1000 ms"
+      ]
+    }
+  },
+  "startSplit": {
+    "ctxMs": {
+      "n": 20,
+      "p50": 1,
+      "p90": 2,
+      "max": 3
+    },
+    "tokenMs": {
+      "n": 20,
+      "p50": 0,
+      "p90": 0,
+      "max": 6121
+    },
+    "connectMs": {
+      "n": 20,
+      "p50": 237,
+      "p90": 277,
+      "max": 314
+    },
+    "setupMs": {
+      "n": 20,
+      "p50": 112,
+      "p90": 134,
+      "max": 149
+    },
+    "setupToFirstModelAudioMs": {
+      "n": 20,
+      "p50": 507,
+      "p90": 574,
+      "max": 614
+    }
+  },
+  "disclosure": {
+    "checked": 20,
+    "lowest": 0.91,
+    "below": []
+  },
+  "interrupted": 8,
+  "turnClass": {
+    "answered": 33,
+    "answeredButTalkedOver": 4,
+    "spokeOverThenSilent": 0,
+    "silent": 10,
+    "endedByServer": 0
+  },
+  "calls": [
+    {
+      "id": "plain",
+      "scenario": "happy",
+      "cold": true,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 5,
+        "startToFirstAudioMs": 7006,
+        "disclosurePlayedMs": 8260,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 18470,
+            "firstAudioMs": 1100,
+            "class": "answered"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 40510,
+            "firstAudioMs": 1048,
+            "class": "answered"
+          }
+        ],
+        "turnsPlayed": 2,
+        "longestSilenceMs": 7540,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 55467,
+        "audibleFramesOut": 1377,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 2,
+        "tokenMs": 6121,
+        "connectMs": 217,
+        "setupMs": 108,
+        "setupToFirstModelAudioMs": 489,
+        "interrupted": 1,
+        "goAway": 0,
+        "liveTurns": 3,
+        "onsets": [
+          7004,
+          19569,
+          41557,
+          43371
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "who-pays",
+      "scenario": "happy",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 1,
+        "startToFirstAudioMs": 924,
+        "disclosurePlayedMs": 8580,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 11180,
+            "firstAudioMs": 1406,
+            "class": "answered"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 33390,
+            "firstAudioMs": 998,
+            "class": "answered"
+          },
+          {
+            "turn": 2,
+            "speechEndAtMs": 43330,
+            "firstAudioMs": null,
+            "class": "silent"
+          }
+        ],
+        "turnsPlayed": 3,
+        "longestSilenceMs": 14040,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 57389,
+        "audibleFramesOut": 1441,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 2,
+        "tokenMs": 0,
+        "connectMs": 238,
+        "setupMs": 123,
+        "setupToFirstModelAudioMs": 534,
+        "interrupted": 0,
+        "goAway": 0,
+        "liveTurns": 2,
+        "onsets": [
+          924,
+          12586,
+          34387
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "who-pays-after-comp-clause",
+      "scenario": "comp-known",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 2,
+        "startToFirstAudioMs": 836,
+        "disclosurePlayedMs": 8220,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 10670,
+            "firstAudioMs": null,
+            "class": "silent"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 19880,
+            "firstAudioMs": 961,
+            "class": "answered"
+          },
+          {
+            "turn": 2,
+            "speechEndAtMs": 27950,
+            "firstAudioMs": null,
+            "class": "silent"
+          }
+        ],
+        "turnsPlayed": 3,
+        "longestSilenceMs": 14020,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 41990,
+        "audibleFramesOut": 594,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 1,
+        "tokenMs": 0,
+        "connectMs": 212,
+        "setupMs": 116,
+        "setupToFirstModelAudioMs": 507,
+        "interrupted": 0,
+        "goAway": 0,
+        "liveTurns": 1,
+        "onsets": [
+          836,
+          20841
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "two-questions-then-close",
+      "scenario": "happy",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 1,
+        "startToFirstAudioMs": 958,
+        "disclosurePlayedMs": 7500,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 10530,
+            "firstAudioMs": 901,
+            "class": "answered"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 29640,
+            "firstAudioMs": 433,
+            "class": "answered"
+          },
+          {
+            "turn": 2,
+            "speechEndAtMs": 34540,
+            "firstAudioMs": 922,
+            "class": "answered"
+          }
+        ],
+        "turnsPlayed": 3,
+        "longestSilenceMs": 7620,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 45301,
+        "audibleFramesOut": 1251,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 1,
+        "tokenMs": 0,
+        "connectMs": 277,
+        "setupMs": 115,
+        "setupToFirstModelAudioMs": 532,
+        "interrupted": 0,
+        "goAway": 0,
+        "liveTurns": 3,
+        "onsets": [
+          958,
+          11430,
+          30072,
+          35462
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "unknown-question",
+      "scenario": "happy",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 1,
+        "startToFirstAudioMs": 933,
+        "disclosurePlayedMs": 7700,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 11000,
+            "firstAudioMs": 1035,
+            "class": "answered"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 30430,
+            "firstAudioMs": null,
+            "class": "silent"
+          }
+        ],
+        "turnsPlayed": 2,
+        "longestSilenceMs": 14040,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 44485,
+        "audibleFramesOut": 1025,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 1,
+        "tokenMs": 0,
+        "connectMs": 292,
+        "setupMs": 134,
+        "setupToFirstModelAudioMs": 505,
+        "interrupted": 0,
+        "goAway": 0,
+        "liveTurns": 2,
+        "onsets": [
+          933,
+          12035
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "wants-to-cancel",
+      "scenario": "happy",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 2,
+        "startToFirstAudioMs": 814,
+        "disclosurePlayedMs": 8060,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 10480,
+            "firstAudioMs": null,
+            "class": "silent"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 22270,
+            "firstAudioMs": 1035,
+            "class": "answered"
+          }
+        ],
+        "turnsPlayed": 2,
+        "longestSilenceMs": 8180,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 37571,
+        "audibleFramesOut": 651,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 1,
+        "tokenMs": 0,
+        "connectMs": 221,
+        "setupMs": 113,
+        "setupToFirstModelAudioMs": 475,
+        "interrupted": 0,
+        "goAway": 0,
+        "liveTurns": 1,
+        "onsets": [
+          813,
+          23305
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "stop-calling",
+      "scenario": "stop-calling",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 2,
+        "startToFirstAudioMs": 765,
+        "disclosurePlayedMs": 7420,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 9860,
+            "firstAudioMs": null,
+            "class": "silent"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 21310,
+            "firstAudioMs": 1979,
+            "class": "answered"
+          }
+        ],
+        "turnsPlayed": 2,
+        "longestSilenceMs": 8180,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 38916,
+        "audibleFramesOut": 695,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 1,
+        "tokenMs": 0,
+        "connectMs": 92,
+        "setupMs": 99,
+        "setupToFirstModelAudioMs": 572,
+        "interrupted": 0,
+        "goAway": 0,
+        "liveTurns": 1,
+        "onsets": [
+          765,
+          23289
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "wrong-number",
+      "scenario": "wrong-number",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 1,
+        "startToFirstAudioMs": 872,
+        "disclosurePlayedMs": 8620,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 11160,
+            "firstAudioMs": 1319,
+            "class": "answered"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 34950,
+            "firstAudioMs": 1148,
+            "class": "answered"
+          }
+        ],
+        "turnsPlayed": 2,
+        "longestSilenceMs": 7560,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 50128,
+        "audibleFramesOut": 1459,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.91,
+      "bridge": {
+        "ctxMs": 1,
+        "tokenMs": 0,
+        "connectMs": 233,
+        "setupMs": 103,
+        "setupToFirstModelAudioMs": 474,
+        "interrupted": 0,
+        "goAway": 0,
+        "liveTurns": 2,
+        "onsets": [
+          871,
+          12478,
+          36098
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "voicemail",
+      "scenario": "voicemail",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 1,
+        "startToFirstAudioMs": 767,
+        "disclosurePlayedMs": 8140,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 15270,
+            "firstAudioMs": 1326,
+            "class": "answered"
+          }
+        ],
+        "turnsPlayed": 1,
+        "longestSilenceMs": 7560,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 25969,
+        "audibleFramesOut": 474,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 1,
+        "tokenMs": 0,
+        "connectMs": 142,
+        "setupMs": 92,
+        "setupToFirstModelAudioMs": 532,
+        "interrupted": 0,
+        "goAway": 0,
+        "liveTurns": 1,
+        "onsets": [
+          767,
+          16596
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "phone-menu",
+      "scenario": "phone-menu",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 1,
+        "startToFirstAudioMs": 920,
+        "disclosurePlayedMs": 8880,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 16160,
+            "firstAudioMs": 1652,
+            "class": "answered"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 26390,
+            "firstAudioMs": 1414,
+            "class": "answered"
+          }
+        ],
+        "turnsPlayed": 2,
+        "longestSilenceMs": 7560,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 37243,
+        "audibleFramesOut": 611,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 1,
+        "tokenMs": 0,
+        "connectMs": 240,
+        "setupMs": 115,
+        "setupToFirstModelAudioMs": 562,
+        "interrupted": 0,
+        "goAway": 0,
+        "liveTurns": 2,
+        "onsets": [
+          919,
+          17812,
+          27804
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "they-interrupt",
+      "scenario": "happy",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 1,
+        "startToFirstAudioMs": 836,
+        "disclosurePlayedMs": 8700,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 11050,
+            "firstAudioMs": 1264,
+            "class": "answered"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 33870,
+            "firstAudioMs": 1395,
+            "class": "answered"
+          },
+          {
+            "turn": 2,
+            "speechEndAtMs": 43600,
+            "firstAudioMs": null,
+            "class": "silent"
+          }
+        ],
+        "turnsPlayed": 3,
+        "longestSilenceMs": 14000,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 57626,
+        "audibleFramesOut": 1383,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 1,
+        "tokenMs": 0,
+        "connectMs": 133,
+        "setupMs": 106,
+        "setupToFirstModelAudioMs": 562,
+        "interrupted": 0,
+        "goAway": 0,
+        "liveTurns": 2,
+        "onsets": [
+          835,
+          12313,
+          35265
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "talks-over-disclosure-200ms",
+      "scenario": "happy",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 1,
+        "startToFirstAudioMs": 953,
+        "disclosurePlayedMs": 8540,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 12230,
+            "firstAudioMs": 1178,
+            "class": "answered"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 34280,
+            "firstAudioMs": 1001,
+            "class": "answered"
+          }
+        ],
+        "turnsPlayed": 2,
+        "longestSilenceMs": 7560,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 49769,
+        "audibleFramesOut": 1463,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 0,
+        "tokenMs": 0,
+        "connectMs": 242,
+        "setupMs": 125,
+        "setupToFirstModelAudioMs": 549,
+        "interrupted": 0,
+        "goAway": 0,
+        "liveTurns": 2,
+        "onsets": [
+          953,
+          13408,
+          35281
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "talks-over-most-of-disclosure",
+      "scenario": "happy",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 1,
+        "startToFirstAudioMs": 874,
+        "disclosurePlayedMs": 8580,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 20190,
+            "firstAudioMs": 1147,
+            "class": "answeredButTalkedOver"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 41550,
+            "firstAudioMs": 1025,
+            "class": "answered"
+          }
+        ],
+        "turnsPlayed": 2,
+        "longestSilenceMs": 7540,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 56850,
+        "audibleFramesOut": 1499,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 1,
+        "tokenMs": 0,
+        "connectMs": 259,
+        "setupMs": 112,
+        "setupToFirstModelAudioMs": 503,
+        "interrupted": 1,
+        "goAway": 0,
+        "liveTurns": 3,
+        "onsets": [
+          874,
+          13874,
+          21337,
+          42575
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "credential-expires",
+      "scenario": "expired-token",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 1,
+        "startToFirstAudioMs": 715,
+        "disclosurePlayedMs": 7760,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 10240,
+            "firstAudioMs": null,
+            "class": "silent"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 19860,
+            "firstAudioMs": null,
+            "class": "silent"
+          }
+        ],
+        "turnsPlayed": 2,
+        "longestSilenceMs": 14000,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 33896,
+        "audibleFramesOut": 342,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 1,
+        "tokenMs": 0,
+        "connectMs": 119,
+        "setupMs": 90,
+        "setupToFirstModelAudioMs": 470,
+        "interrupted": 0,
+        "goAway": 0,
+        "liveTurns": 1,
+        "onsets": [
+          715
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "booking-hello",
+      "scenario": "happy",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 1,
+        "startToFirstAudioMs": 1206,
+        "disclosurePlayedMs": 8120,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 12330,
+            "firstAudioMs": 1154,
+            "class": "answered"
+          }
+        ],
+        "turnsPlayed": 1,
+        "longestSilenceMs": 7540,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 37593,
+        "audibleFramesOut": 1113,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 1,
+        "tokenMs": 0,
+        "connectMs": 314,
+        "setupMs": 130,
+        "setupToFirstModelAudioMs": 614,
+        "interrupted": 0,
+        "goAway": 0,
+        "liveTurns": 1,
+        "onsets": [
+          1204,
+          13484
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "digits-party-size",
+      "scenario": "happy",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 2,
+        "startToFirstAudioMs": 806,
+        "disclosurePlayedMs": 8160,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 12060,
+            "firstAudioMs": 1095,
+            "class": "answered"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 35210,
+            "firstAudioMs": 1077,
+            "class": "answeredButTalkedOver"
+          },
+          {
+            "turn": 2,
+            "speechEndAtMs": 47330,
+            "firstAudioMs": 1123,
+            "class": "answered"
+          }
+        ],
+        "turnsPlayed": 3,
+        "longestSilenceMs": 7540,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 62594,
+        "audibleFramesOut": 1746,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 3,
+        "tokenMs": 0,
+        "connectMs": 234,
+        "setupMs": 106,
+        "setupToFirstModelAudioMs": 462,
+        "interrupted": 1,
+        "goAway": 0,
+        "liveTurns": 4,
+        "onsets": [
+          805,
+          13154,
+          33300,
+          36286,
+          48453
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "digits-callback-number",
+      "scenario": "happy",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 1,
+        "startToFirstAudioMs": 1065,
+        "disclosurePlayedMs": 8560,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 11530,
+            "firstAudioMs": 1098,
+            "class": "answered"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 35520,
+            "firstAudioMs": 1064,
+            "class": "answered"
+          },
+          {
+            "turn": 2,
+            "speechEndAtMs": 49780,
+            "firstAudioMs": 976,
+            "class": "answered"
+          }
+        ],
+        "turnsPlayed": 3,
+        "longestSilenceMs": 7540,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 64948,
+        "audibleFramesOut": 1957,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 1,
+        "tokenMs": 0,
+        "connectMs": 275,
+        "setupMs": 149,
+        "setupToFirstModelAudioMs": 574,
+        "interrupted": 1,
+        "goAway": 0,
+        "liveTurns": 4,
+        "onsets": [
+          1065,
+          12628,
+          36584,
+          50756
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "digits-time",
+      "scenario": "happy",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 1,
+        "startToFirstAudioMs": 914,
+        "disclosurePlayedMs": 8640,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 12080,
+            "firstAudioMs": 1212,
+            "class": "answered"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 36060,
+            "firstAudioMs": 1358,
+            "class": "answeredButTalkedOver"
+          },
+          {
+            "turn": 2,
+            "speechEndAtMs": 44960,
+            "firstAudioMs": 928,
+            "class": "answered"
+          }
+        ],
+        "turnsPlayed": 3,
+        "longestSilenceMs": 7540,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 59736,
+        "audibleFramesOut": 1638,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 1,
+        "tokenMs": 0,
+        "connectMs": 237,
+        "setupMs": 136,
+        "setupToFirstModelAudioMs": 504,
+        "interrupted": 2,
+        "goAway": 0,
+        "liveTurns": 5,
+        "onsets": [
+          913,
+          13292,
+          33855,
+          37418,
+          39916,
+          45888
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "money-covered-amount",
+      "scenario": "comp-known",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 3,
+        "startToFirstAudioMs": 877,
+        "disclosurePlayedMs": 8140,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 10700,
+            "firstAudioMs": 2901,
+            "class": "answered"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 34590,
+            "firstAudioMs": 1016,
+            "class": "answered"
+          },
+          {
+            "turn": 2,
+            "speechEndAtMs": 42530,
+            "firstAudioMs": 994,
+            "class": "answered"
+          }
+        ],
+        "turnsPlayed": 3,
+        "longestSilenceMs": 7540,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 57266,
+        "audibleFramesOut": 1637,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 2,
+        "tokenMs": 0,
+        "connectMs": 243,
+        "setupMs": 107,
+        "setupToFirstModelAudioMs": 492,
+        "interrupted": 0,
+        "goAway": 0,
+        "liveTurns": 3,
+        "onsets": [
+          877,
+          13601,
+          35605,
+          43523
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    },
+    {
+      "id": "money-minimum-spend",
+      "scenario": "happy",
+      "cold": false,
+      "outcome": {
+        "upgraded": true,
+        "httpStatus": null,
+        "upgradeMs": 1,
+        "startToFirstAudioMs": 1009,
+        "disclosurePlayedMs": 8020,
+        "turns": [
+          {
+            "turn": 0,
+            "speechEndAtMs": 11700,
+            "firstAudioMs": 974,
+            "class": "answered"
+          },
+          {
+            "turn": 1,
+            "speechEndAtMs": 38050,
+            "firstAudioMs": 1462,
+            "class": "answeredButTalkedOver"
+          },
+          {
+            "turn": 2,
+            "speechEndAtMs": 47380,
+            "firstAudioMs": null,
+            "class": "silent"
+          }
+        ],
+        "turnsPlayed": 3,
+        "longestSilenceMs": 14000,
+        "closedBy": "client",
+        "closeCode": 1000,
+        "callMs": 61408,
+        "audibleFramesOut": 1404,
+        "framesAfterStop": 0,
+        "marksEchoed": 0,
+        "error": null,
+        "disclosureAudio": {}
+      },
+      "disclosureRecall": 0.95,
+      "bridge": {
+        "ctxMs": 1,
+        "tokenMs": 0,
+        "connectMs": 260,
+        "setupMs": 101,
+        "setupToFirstModelAudioMs": 581,
+        "interrupted": 2,
+        "goAway": 0,
+        "liveTurns": 4,
+        "onsets": [
+          1009,
+          12673,
+          34144,
+          39512
+        ],
+        "liveClose": {
+          "code": 1000,
+          "reason": ""
+        }
+      }
+    }
+  ]
+}
