@@ -47,6 +47,32 @@ import { TurnDetector } from './vad.ts';
 import type { VadSettings } from './vad.ts';
 import { continues, earlySettleMs, earlyTurn, ForegroundSpeech, sameTurn } from '../speech/turnEnd.ts';
 import type { EarlyTurn } from '../speech/turnEnd.ts';
+import { SileroStream, sileroLoaded } from '../speech/silero.ts';
+import type { SileroEvent } from '../speech/silero.ts';
+import { smartTurnLoaded } from '../speech/smartTurn.ts';
+import { decode } from '../audio/mulaw.ts';
+import { upsampleLinear } from '../audio/resample.ts';
+import { keywordIntent } from '../agent/intent.ts';
+
+/**
+ * SPIKE it-22 (I3P-10): Smart Turn v3 ends a turn on the interim. Silero (with the 9 dB foreground
+ * gate) marks a 200 ms pause in the venue's speech; Smart Turn reads the turn's audio, upsampled
+ * to 16 kHz; above `SMART_TURN.threshold` the turn ends on the interim once it has stood
+ * `SMART_TURN.interimSettleMs`, instead of waiting for Google's final. Never on a goodbye.
+ */
+const envNumber = (name: string, fallback: number): number => {
+    const v = Number(process.env[name]);
+    return Number.isFinite(v) && process.env[name] !== '' && process.env[name] !== undefined ? v : fallback;
+};
+/** Spike knobs: `VCA_SMART_TURN_PAUSE_MS` and `VCA_SMART_TURN_THRESHOLD` override for a second soak. */
+export const SMART_TURN = {
+    pauseMs: envNumber('VCA_SMART_TURN_PAUSE_MS', 200),
+    threshold: envNumber('VCA_SMART_TURN_THRESHOLD', 0.5),
+    interimSettleMs: 150,
+    prefixMs: 300,
+    maxSeconds: 8,
+} as const;
+const RING_SAMPLES = 8000 * SMART_TURN.maxSeconds;
 
 export interface CascadeBridgeOptions {
     tts: Pick<Tts, 'synthesize'>;
@@ -125,6 +151,14 @@ export class CascadeBridge implements SpeechBridge {
     private early: EarlyTurn | null = null;
     /** The person at the phone against the room: an early end needs their voice, not babble. */
     private readonly foreground = new ForegroundSpeech();
+    /** SPIKE it-22: the pause detector, the last 8 s of the venue's audio, and the turn's start. */
+    private readonly pause: SileroStream | null;
+    private readonly ring = new Int16Array(RING_SAMPLES);
+    private ringSamples = 0;
+    private turnStartSample: number | null = null;
+    private smartComplete = false;
+    private smartTimer: unknown = null;
+    private smartSeq = 0;
 
     private frame = -1;
     private lastAudible = -1;
@@ -150,6 +184,10 @@ export class CascadeBridge implements SpeechBridge {
         this.setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
         this.clearTimer = options.clearTimer ?? ((handle) => clearTimeout(handle as NodeJS.Timeout));
         this.detector = new TurnDetector(options.vad);
+        const silero = sileroLoaded();
+        this.pause = silero === null || smartTurnLoaded() === null || !(options.earlyTurnEnd ?? true)
+            ? null
+            : new SileroStream(silero, { threshold: 0.6, startChunks: 2, silenceMs: SMART_TURN.pauseMs, foregroundDb: 9 }, (e) => this.onPause(e));
         this.stt = new StreamingStt({
             factory: options.speech,
             onFinal: (text) => this.onFinal(text),
@@ -188,9 +226,73 @@ export class CascadeBridge implements SpeechBridge {
         this.frame += 1;
         this.stt.push(frame);
         if (this.earlyEnabled) this.foreground.push(frame);
+        if (this.pause !== null) {
+            for (const sample of decode(Buffer.from(frame))) {
+                this.ring[this.ringSamples % RING_SAMPLES] = sample;
+                this.ringSamples += 1;
+            }
+            this.pause.push(frame);
+        }
         const event = this.detector.push(frame);
         if (event?.kind === 'speech_started' && this.speaking()) this.interrupt();
         if (event?.kind === 'turn_ended') this.lastAudible = event.lastAudibleAt ?? this.frame;
+    }
+
+    /** The venue's audio from `fromSample` (absolute) to now, at most 8 s, upsampled to 16 kHz. */
+    private turnAudio16k(fromSample: number): Float32Array {
+        const from = Math.max(fromSample, this.ringSamples - RING_SAMPLES, 0);
+        const pcm = new Int16Array(this.ringSamples - from);
+        for (let i = 0; i < pcm.length; i += 1) pcm[i] = this.ring[(from + i) % RING_SAMPLES]!;
+        if (pcm.length < 2) return new Float32Array(0);
+        return Float32Array.from(upsampleLinear(pcm, 8000, 16000), (v) => v / 32768);
+    }
+
+    private onPause(event: SileroEvent): void {
+        if (this.closed || this.lineDown) return;
+        if (event.kind === 'speech_started') {
+            this.smartComplete = false;
+            this.cancelSmart();
+            if (this.turnStartSample === null) {
+                this.turnStartSample = Math.max(0, (event.atFrame + 1) * 160 - 512 - SMART_TURN.prefixMs * 8);
+            }
+            return;
+        }
+        const model = smartTurnLoaded();
+        if (model === null || this.turnStartSample === null || this.early !== null) return;
+        const seq = ++this.smartSeq;
+        const startedAt = Date.now();
+        void model.complete(this.turnAudio16k(this.turnStartSample)).then((p) => {
+            // A newer pause or new speech since: this reading is stale.
+            if (seq !== this.smartSeq || this.closed || this.lineDown || this.pause?.inSpeech) return;
+            this.log(`smart_turn p=${p.toFixed(2)} ms=${Date.now() - startedAt}`);
+            if (p < SMART_TURN.threshold) return;
+            this.smartComplete = true;
+            this.armSmart();
+        }, () => {});
+    }
+
+    /** End the turn on the interim once it has stood `interimSettleMs` with Smart Turn's yes. */
+    private armSmart(): void {
+        this.cancelSmart();
+        const text = this.interimText;
+        this.smartTimer = this.setTimer(() => {
+            this.smartTimer = null;
+            if (!this.smartComplete || this.closed || this.lineDown || this.early !== null) return;
+            if (text === '' || this.interimText !== text) return;
+            if (keywordIntent(text) === 'confirm' || !this.foreground.heard()) return;
+            this.cancelSettle();
+            this.smartComplete = false;
+            this.early = earlyTurn(text);
+            this.expectShort = false;
+            this.log('turn_end smart');
+            this.emitTurn(text, true);
+        }, SMART_TURN.interimSettleMs);
+    }
+
+    private cancelSmart(): void {
+        if (this.smartTimer === null) return;
+        this.clearTimer(this.smartTimer);
+        this.smartTimer = null;
     }
 
     speak(sentences: readonly Sentence[]): Promise<SpokenResult> {
@@ -221,6 +323,8 @@ export class CascadeBridge implements SpeechBridge {
     async hangup(): Promise<void> {
         if (this.closed) return;
         this.closed = true;
+        this.pause?.close();
+        this.cancelSmart();
         this.cancelSettle();
         this.stt.close();
         this.abandon();
@@ -320,6 +424,10 @@ export class CascadeBridge implements SpeechBridge {
     private onFinal(text: string): void {
         if (this.closed || this.lineDown) return;
         this.cancelSettle();
+        this.cancelSmart();
+        this.smartComplete = false;
+        this.smartSeq += 1;
+        this.turnStartSample = null;
         this.interimText = '';
         const early = this.early;
         this.early = null;
@@ -341,6 +449,7 @@ export class CascadeBridge implements SpeechBridge {
         if (!this.earlyEnabled || text === this.interimText) return;
         this.interimText = text;
         this.cancelSettle();
+        if (this.smartComplete && this.early === null) this.armSmart();
         if (this.early !== null) {
             if (continues(this.early, text)) return;
             // The recogniser started a new utterance without finalising the last one.
@@ -379,6 +488,7 @@ export class CascadeBridge implements SpeechBridge {
     }
 
     private emitTurn(text: string, early: boolean): void {
+        if (early) this.turnStartSample = null;
         const lastAudibleFrame = this.lastAudible >= 0 ? this.lastAudible : Math.max(0, this.frame);
         this.emit('callerTurn', {
             text,
