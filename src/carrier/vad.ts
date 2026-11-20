@@ -104,7 +104,7 @@ export interface TurnEvent {
  * toward a start, or holds a turn open, only when it is also that many dB over the 20th percentile
  * of the last 3 s of frame energy. Without it, the corpus bed (RMS ~820) sits over the end
  * threshold (600) for good: after the venue's first word the detector never ends a turn, so it
- * never starts another, and no later barge-in fires (scripts/compare-vad.mjs on spike/silero-vad).
+ * never starts another, and no later barge-in fires (scripts/spike-floor-vad.mjs).
  */
 export interface TurnDetectorOptions {
     floorMarginDb?: number | null;

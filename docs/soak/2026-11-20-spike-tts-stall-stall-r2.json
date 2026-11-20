@@ -1,0 +1,1055 @@
+{
+  "startedAt": "2026-11-20T08:45:25.942Z",
+  "target": {
+    "dev": null,
+    "local": "node src/server/main.ts on the soak machine, mock seam, real Google STT/Gemini/TTS via ADC"
+  },
+  "pins": {
+    "stt": "telephony (us)",
+    "intent_model": "gemini-3.5-flash-lite"
+  },
+  "config": {
+    "$comment": "Every threshold of the loopback soak (TASK-3749 step 1: thresholds live in the harness config, not in code). Read by scripts/soak-corpus.mjs.",
+    "gate": {
+      "p50FirstAudioMs": 2000,
+      "p90FirstAudioMs": 4000,
+      "stretchP90FirstAudioMs": 2500,
+      "coldStartMs": 1000
+    },
+    "venue": {
+      "replyWaitMs": 8000,
+      "quietMs": 1500,
+      "endWaitMs": 6000
+    },
+    "disclosure": {
+      "minWordRecall": 0.8
+    },
+    "dev": {
+      "coldProbes": 1,
+      "warmProbes": 4
+    }
+  },
+  "dev": null,
+  "local": {
+    "listeningMs": 435,
+    "warmedMs": 2130,
+    "coldCallStartToFirstAudioMs": 1669
+  },
+  "coldStart": {
+    "devUpgradeMs": null,
+    "localStartToFirstAudioMs": 1669,
+    "estimateMs": 1669
+  },
+  "summary": {
+    "calls": 20,
+    "callsThatSpoke": 20,
+    "turns": 46,
+    "unansweredTurns": 1,
+    "endedByServerTurns": 1,
+    "firstAudio": {
+      "p50": 1344,
+      "p90": 3432,
+      "p99": 8000,
+      "max": 8000
+    },
+    "startToFirstAudio": {
+      "p50": 3,
+      "p90": 6,
+      "p99": 1669,
+      "max": 1669
+    },
+    "longestSilence": {
+      "p50": 2480,
+      "p90": 7560,
+      "p99": 14020,
+      "max": 14020
+    },
+    "turnsOver2s": 12,
+    "turnsOver4s": 3,
+    "framesAfterStop": 0,
+    "coldStartMs": 1669,
+    "gate": {
+      "pass": false,
+      "failures": [
+        "cold start to the disclosure 1669 ms > 1000 ms"
+      ]
+    }
+  },
+  "disclosure": {
+    "checked": 20,
+    "minRecall": 0.95,
+    "belowThreshold": []
+  },
+  "stages": {
+    "endpointing_wire_ms": {
+      "n": 36,
+      "p50": 1012,
+      "p90": 2740,
+      "max": 5650
+    },
+    "endpointing_ms": {
+      "n": 50,
+      "p50": 1240,
+      "p90": 6706,
+      "max": 22852
+    },
+    "intent_ms": {
+      "n": 50,
+      "p50": 369,
+      "p90": 833,
+      "max": 914
+    },
+    "seam_ms": {
+      "n": 50,
+      "p50": 0,
+      "p90": 2,
+      "max": 53
+    },
+    "synthesis_ms": {
+      "n": 50,
+      "p50": 0,
+      "p90": 984,
+      "max": 11702
+    },
+    "queue_ms": {
+      "n": 50,
+      "p50": 0,
+      "p90": 1,
+      "max": 1
+    },
+    "after_final_ms": {
+      "n": 50,
+      "p50": 546,
+      "p90": 987,
+      "max": 12607
+    },
+    "runtime_total_ms": {
+      "n": 50,
+      "p50": 1727,
+      "p90": 18155,
+      "max": 23839
+    }
+  },
+  "intentSources": {
+    "model": 11,
+    "keyword": 21,
+    "fallback": 18
+  },
+  "intentProbe": {
+    "model": "gemini-3.5-flash-lite",
+    "runtimeTimeoutMs": 900,
+    "calls": 36,
+    "answered": 36,
+    "p50": 760,
+    "p90": 1117,
+    "p99": 1700,
+    "max": 1700,
+    "withinRuntimeTimeout": 23,
+    "failures": []
+  },
+  "calls": [
+    {
+      "id": "plain",
+      "scenario": "happy",
+      "cold": true,
+      "startToFirstAudioMs": 1669,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        1549,
+        1084
+      ],
+      "turnsPlayed": 2,
+      "longestSilenceMs": 1720,
+      "closedBy": "server",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 1346,
+          "intent_ms": 444,
+          "intent_source": "model",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 1,
+          "runtime_total_ms": 1791,
+          "after_final_ms": 445,
+          "endpointing_wire_ms": 1104
+        },
+        {
+          "endpointing_ms": 1244,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 0,
+          "synthesis_ms": 1,
+          "queue_ms": 0,
+          "runtime_total_ms": 1245,
+          "after_final_ms": 1,
+          "endpointing_wire_ms": 1083
+        }
+      ]
+    },
+    {
+      "id": "who-pays",
+      "scenario": "happy",
+      "cold": false,
+      "startToFirstAudioMs": 6,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        1312,
+        337,
+        1227
+      ],
+      "turnsPlayed": 3,
+      "longestSilenceMs": 1720,
+      "closedBy": "server",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 968,
+          "intent_ms": 440,
+          "intent_source": "fallback",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 1408,
+          "after_final_ms": 440,
+          "endpointing_wire_ms": 872
+        },
+        {
+          "endpointing_ms": 22722,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 1,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 22723,
+          "after_final_ms": 1,
+          "endpointing_wire_ms": 336
+        },
+        {
+          "endpointing_ms": 1293,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 0,
+          "synthesis_ms": 1,
+          "queue_ms": 0,
+          "runtime_total_ms": 1294,
+          "after_final_ms": 1,
+          "endpointing_wire_ms": 1226
+        }
+      ]
+    },
+    {
+      "id": "who-pays-after-comp-clause",
+      "scenario": "comp-known",
+      "cold": false,
+      "startToFirstAudioMs": 3,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        1474,
+        618,
+        3825
+      ],
+      "turnsPlayed": 3,
+      "longestSilenceMs": 4100,
+      "closedBy": "server",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 1050,
+          "intent_ms": 492,
+          "intent_source": "model",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 1542,
+          "after_final_ms": 492,
+          "endpointing_wire_ms": 982
+        },
+        {
+          "endpointing_ms": 21834,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 1,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 21835,
+          "after_final_ms": 1,
+          "endpointing_wire_ms": 617
+        },
+        {
+          "endpointing_ms": 4032,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 4032,
+          "after_final_ms": 0,
+          "endpointing_wire_ms": 3825
+        }
+      ]
+    },
+    {
+      "id": "two-questions-then-close",
+      "scenario": "happy",
+      "cold": false,
+      "startToFirstAudioMs": 5,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        1409,
+        725,
+        691
+      ],
+      "turnsPlayed": 3,
+      "longestSilenceMs": 1720,
+      "closedBy": "server",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 1246,
+          "intent_ms": 369,
+          "intent_source": "fallback",
+          "seam_ms": 0,
+          "synthesis_ms": 1,
+          "queue_ms": 0,
+          "runtime_total_ms": 1616,
+          "after_final_ms": 370,
+          "endpointing_wire_ms": 1039
+        },
+        {
+          "endpointing_ms": 22261,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 0,
+          "synthesis_ms": 1,
+          "queue_ms": 0,
+          "runtime_total_ms": 22262,
+          "after_final_ms": 1,
+          "endpointing_wire_ms": 724
+        },
+        {
+          "endpointing_ms": 6706,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 2,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 6708,
+          "after_final_ms": 2,
+          "endpointing_wire_ms": 689
+        }
+      ]
+    },
+    {
+      "id": "unknown-question",
+      "scenario": "happy",
+      "cold": false,
+      "startToFirstAudioMs": 3,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        545,
+        2980
+      ],
+      "turnsPlayed": 2,
+      "longestSilenceMs": 7560,
+      "closedBy": "client",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 65,
+          "intent_ms": 358,
+          "intent_source": "model",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 423,
+          "after_final_ms": 358,
+          "endpointing_wire_ms": 187
+        },
+        {
+          "endpointing_ms": 1126,
+          "intent_ms": 900,
+          "intent_source": "fallback",
+          "seam_ms": 2,
+          "synthesis_ms": 1020,
+          "queue_ms": 0,
+          "runtime_total_ms": 3048,
+          "after_final_ms": 1922,
+          "endpointing_wire_ms": 1058
+        }
+      ]
+    },
+    {
+      "id": "wants-to-cancel",
+      "scenario": "happy",
+      "cold": false,
+      "startToFirstAudioMs": 2,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        1399,
+        355
+      ],
+      "turnsPlayed": 2,
+      "longestSilenceMs": 7540,
+      "closedBy": "client",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 902,
+          "intent_ms": 555,
+          "intent_source": "fallback",
+          "seam_ms": 0,
+          "synthesis_ms": 1,
+          "queue_ms": 0,
+          "runtime_total_ms": 1458,
+          "after_final_ms": 556
+        },
+        {
+          "endpointing_ms": 22852,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 3,
+          "synthesis_ms": 984,
+          "queue_ms": 0,
+          "runtime_total_ms": 23839,
+          "after_final_ms": 987
+        },
+        {
+          "endpointing_ms": 1226,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 2,
+          "synthesis_ms": 2909,
+          "queue_ms": 1,
+          "runtime_total_ms": 4138,
+          "after_final_ms": 2912
+        }
+      ]
+    },
+    {
+      "id": "stop-calling",
+      "scenario": "stop-calling",
+      "cold": false,
+      "startToFirstAudioMs": 2,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        1562,
+        1818
+      ],
+      "turnsPlayed": 2,
+      "longestSilenceMs": 2180,
+      "closedBy": "server",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 1096,
+          "intent_ms": 563,
+          "intent_source": "fallback",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 1,
+          "runtime_total_ms": 1660,
+          "after_final_ms": 564,
+          "endpointing_wire_ms": 998
+        },
+        {
+          "endpointing_ms": 1078,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 3,
+          "synthesis_ms": 945,
+          "queue_ms": 0,
+          "runtime_total_ms": 2026,
+          "after_final_ms": 948,
+          "endpointing_wire_ms": 870
+        }
+      ]
+    },
+    {
+      "id": "wrong-number",
+      "scenario": "wrong-number",
+      "cold": false,
+      "startToFirstAudioMs": 2,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        1283,
+        661
+      ],
+      "turnsPlayed": 2,
+      "longestSilenceMs": 1720,
+      "closedBy": "server",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 59,
+          "intent_ms": 562,
+          "intent_source": "fallback",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 1,
+          "runtime_total_ms": 622,
+          "after_final_ms": 563,
+          "endpointing_wire_ms": 720
+        },
+        {
+          "endpointing_ms": 908,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 2,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 910,
+          "after_final_ms": 2,
+          "endpointing_wire_ms": 659
+        }
+      ]
+    },
+    {
+      "id": "voicemail",
+      "scenario": "voicemail",
+      "cold": false,
+      "startToFirstAudioMs": 3,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        360
+      ],
+      "turnsPlayed": 1,
+      "longestSilenceMs": 1720,
+      "closedBy": "server",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 60,
+          "intent_ms": 240,
+          "intent_source": "fallback",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 300,
+          "after_final_ms": 240
+        },
+        {
+          "endpointing_ms": 1342,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 2,
+          "synthesis_ms": 603,
+          "queue_ms": 1,
+          "runtime_total_ms": 1948,
+          "after_final_ms": 606
+        }
+      ]
+    },
+    {
+      "id": "phone-menu",
+      "scenario": "phone-menu",
+      "cold": false,
+      "startToFirstAudioMs": 6,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        322,
+        358
+      ],
+      "turnsPlayed": 2,
+      "longestSilenceMs": 1720,
+      "closedBy": "server",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 52,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 2,
+          "synthesis_ms": -1,
+          "queue_ms": 0,
+          "runtime_total_ms": 53,
+          "after_final_ms": 1,
+          "endpointing_wire_ms": 321
+        },
+        {
+          "endpointing_ms": 5533,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 0,
+          "synthesis_ms": 1,
+          "queue_ms": 1,
+          "runtime_total_ms": 5535,
+          "after_final_ms": 2,
+          "endpointing_wire_ms": 356
+        }
+      ]
+    },
+    {
+      "id": "they-interrupt",
+      "scenario": "happy",
+      "cold": false,
+      "startToFirstAudioMs": 3,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        1558,
+        2672,
+        1341
+      ],
+      "turnsPlayed": 3,
+      "longestSilenceMs": 3040,
+      "closedBy": "server",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 1061,
+          "intent_ms": 545,
+          "intent_source": "fallback",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 1,
+          "runtime_total_ms": 1607,
+          "after_final_ms": 546,
+          "endpointing_wire_ms": 1012
+        },
+        {
+          "endpointing_ms": 1853,
+          "intent_ms": 914,
+          "intent_source": "fallback",
+          "seam_ms": 53,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 2820,
+          "after_final_ms": 967,
+          "endpointing_wire_ms": 1705
+        },
+        {
+          "endpointing_ms": 1448,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 1448,
+          "after_final_ms": 0,
+          "endpointing_wire_ms": 1341
+        }
+      ]
+    },
+    {
+      "id": "talks-over-disclosure-200ms",
+      "scenario": "happy",
+      "cold": false,
+      "startToFirstAudioMs": 7,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        863,
+        null
+      ],
+      "turnsPlayed": 2,
+      "longestSilenceMs": 14020,
+      "closedBy": "client",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 60,
+          "intent_ms": 547,
+          "intent_source": "fallback",
+          "seam_ms": 0,
+          "synthesis_ms": 1,
+          "queue_ms": 0,
+          "runtime_total_ms": 608,
+          "after_final_ms": 548
+        },
+        {
+          "endpointing_ms": 15021,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 0,
+          "synthesis_ms": 3134,
+          "queue_ms": 0,
+          "runtime_total_ms": 18155,
+          "after_final_ms": 3134
+        }
+      ]
+    },
+    {
+      "id": "talks-over-most-of-disclosure",
+      "scenario": "happy",
+      "cold": false,
+      "startToFirstAudioMs": 2,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        331,
+        2907
+      ],
+      "turnsPlayed": 2,
+      "longestSilenceMs": 3180,
+      "closedBy": "server",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 44,
+          "intent_ms": 551,
+          "intent_source": "fallback",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 595,
+          "after_final_ms": 551
+        },
+        {
+          "endpointing_ms": 1228,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 1,
+          "synthesis_ms": 1383,
+          "queue_ms": 0,
+          "runtime_total_ms": 2612,
+          "after_final_ms": 1384
+        },
+        {
+          "endpointing_ms": 3035,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 1,
+          "runtime_total_ms": 3036,
+          "after_final_ms": 1
+        }
+      ]
+    },
+    {
+      "id": "credential-expires",
+      "scenario": "expired-token",
+      "cold": false,
+      "startToFirstAudioMs": 2,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        1344,
+        null
+      ],
+      "turnsPlayed": 2,
+      "longestSilenceMs": 1720,
+      "closedBy": "server",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 1141,
+          "intent_ms": 261,
+          "intent_source": "model",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 1402,
+          "after_final_ms": 261,
+          "endpointing_wire_ms": 1083
+        }
+      ]
+    },
+    {
+      "id": "booking-hello",
+      "scenario": "happy",
+      "cold": false,
+      "startToFirstAudioMs": 2,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        341
+      ],
+      "turnsPlayed": 1,
+      "longestSilenceMs": 7540,
+      "closedBy": "client",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 68,
+          "intent_ms": 558,
+          "intent_source": "fallback",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 626,
+          "after_final_ms": 558,
+          "endpointing_wire_ms": -217
+        }
+      ]
+    },
+    {
+      "id": "digits-party-size",
+      "scenario": "happy",
+      "cold": false,
+      "startToFirstAudioMs": 3,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        1633,
+        2108,
+        991
+      ],
+      "turnsPlayed": 3,
+      "longestSilenceMs": 2480,
+      "closedBy": "server",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 1247,
+          "intent_ms": 544,
+          "intent_source": "fallback",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 1791,
+          "after_final_ms": 544
+        },
+        {
+          "endpointing_ms": 6420,
+          "intent_ms": 903,
+          "intent_source": "fallback",
+          "seam_ms": 2,
+          "synthesis_ms": 11702,
+          "queue_ms": 0,
+          "runtime_total_ms": 19027,
+          "after_final_ms": 12607
+        },
+        {
+          "endpointing_ms": 1388,
+          "intent_ms": 808,
+          "intent_source": "model",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 2196,
+          "after_final_ms": 808
+        },
+        {
+          "endpointing_ms": 1078,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 1,
+          "runtime_total_ms": 1079,
+          "after_final_ms": 1
+        }
+      ]
+    },
+    {
+      "id": "digits-callback-number",
+      "scenario": "happy",
+      "cold": false,
+      "startToFirstAudioMs": 3,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        1423,
+        3432,
+        1165
+      ],
+      "turnsPlayed": 3,
+      "longestSilenceMs": 3760,
+      "closedBy": "server",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 1236,
+          "intent_ms": 435,
+          "intent_source": "model",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 1671,
+          "after_final_ms": 435,
+          "endpointing_wire_ms": 988
+        },
+        {
+          "endpointing_ms": 2838,
+          "intent_ms": 690,
+          "intent_source": "model",
+          "seam_ms": 2,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 3530,
+          "after_final_ms": 692,
+          "endpointing_wire_ms": 2740
+        },
+        {
+          "endpointing_ms": 1303,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 1303,
+          "after_final_ms": 0,
+          "endpointing_wire_ms": 1165
+        }
+      ]
+    },
+    {
+      "id": "digits-time",
+      "scenario": "happy",
+      "cold": false,
+      "startToFirstAudioMs": 2,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        349,
+        2064,
+        1121
+      ],
+      "turnsPlayed": 3,
+      "longestSilenceMs": 2100,
+      "closedBy": "server",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 68,
+          "intent_ms": 563,
+          "intent_source": "fallback",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 631,
+          "after_final_ms": 563,
+          "endpointing_wire_ms": -214
+        },
+        {
+          "endpointing_ms": 1490,
+          "intent_ms": 812,
+          "intent_source": "model",
+          "seam_ms": 0,
+          "synthesis_ms": 1,
+          "queue_ms": 0,
+          "runtime_total_ms": 2303,
+          "after_final_ms": 813,
+          "endpointing_wire_ms": 1251
+        },
+        {
+          "endpointing_ms": 1240,
+          "intent_ms": 0,
+          "intent_source": "keyword",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 1240,
+          "after_final_ms": 0,
+          "endpointing_wire_ms": 1121
+        }
+      ]
+    },
+    {
+      "id": "money-covered-amount",
+      "scenario": "comp-known",
+      "cold": false,
+      "startToFirstAudioMs": 2,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        1669,
+        4275,
+        2007
+      ],
+      "turnsPlayed": 3,
+      "longestSilenceMs": 7560,
+      "closedBy": "client",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 1161,
+          "intent_ms": 565,
+          "intent_source": "fallback",
+          "seam_ms": 0,
+          "synthesis_ms": 1,
+          "queue_ms": 0,
+          "runtime_total_ms": 1727,
+          "after_final_ms": 566,
+          "endpointing_wire_ms": 1103
+        },
+        {
+          "endpointing_ms": 3549,
+          "intent_ms": 833,
+          "intent_source": "model",
+          "seam_ms": 0,
+          "synthesis_ms": 1,
+          "queue_ms": 0,
+          "runtime_total_ms": 4383,
+          "after_final_ms": 834,
+          "endpointing_wire_ms": 3441
+        },
+        {
+          "endpointing_ms": 1198,
+          "intent_ms": 914,
+          "intent_source": "fallback",
+          "seam_ms": 3,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 2115,
+          "after_final_ms": 917,
+          "endpointing_wire_ms": 1090
+        }
+      ]
+    },
+    {
+      "id": "money-minimum-spend",
+      "scenario": "happy",
+      "cold": false,
+      "startToFirstAudioMs": 4,
+      "disclosurePlayedMs": 9140,
+      "disclosureRecall": 0.95,
+      "firstAudioMs": [
+        1453,
+        6267,
+        2164
+      ],
+      "turnsPlayed": 3,
+      "longestSilenceMs": 6260,
+      "closedBy": "server",
+      "framesAfterStop": 0,
+      "stages": [
+        {
+          "endpointing_ms": 1000,
+          "intent_ms": 550,
+          "intent_source": "fallback",
+          "seam_ms": 0,
+          "synthesis_ms": 1,
+          "queue_ms": 0,
+          "runtime_total_ms": 1551,
+          "after_final_ms": 551,
+          "endpointing_wire_ms": 902
+        },
+        {
+          "endpointing_ms": 5717,
+          "intent_ms": 617,
+          "intent_source": "model",
+          "seam_ms": 0,
+          "synthesis_ms": 0,
+          "queue_ms": 0,
+          "runtime_total_ms": 6334,
+          "after_final_ms": 617,
+          "endpointing_wire_ms": 5650
+        },
+        {
+          "endpointing_ms": 1346,
+          "intent_ms": 896,
+          "intent_source": "model",
+          "seam_ms": 0,
+          "synthesis_ms": -1,
+          "queue_ms": 1,
+          "runtime_total_ms": 2242,
+          "after_final_ms": 896,
+          "endpointing_wire_ms": 1268
+        }
+      ]
+    }
+  ]
+}

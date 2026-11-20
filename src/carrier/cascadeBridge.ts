@@ -242,10 +242,11 @@ export class CascadeBridge implements SpeechBridge {
         }
         const generation = this.generation;
         const queuedAt = Date.now();
+        const count = sentences.length;
         const behind = this.playing !== null ? (this.playing.protected ? 'disclosure' : 'sentence') : 'none';
         const run = this.chain.then(() => {
             // SPIKE it-22 (stall): how long this reply waited for the sentences ahead of it.
-            this.log(`speak_wait ms=${Date.now() - queuedAt} behind=${behind} sentences=${sentences.length} protect=${protect}`);
+            this.log(`speak_wait ms=${Date.now() - queuedAt} behind=${behind} sentences=${count} protect=${protect}`);
             return this.play(sentences, generation, protect);
         });
         this.chain = run.catch(() => {});

@@ -112,6 +112,8 @@ export function createTts(options: TtsOptions): Tts {
     const timeoutFor = (text: string): number => Math.max(timeoutMs, Math.round(1500 + 12 * text.length));
     async function request(text: string): Promise<Buffer> {
         const ceiling = timeoutFor(text);
+        // A count, never the words: the log carries only this number.
+        const chars = text.length;
         const t0 = Date.now();
         const token = await options.tokens.token();
         const tToken = Date.now();
@@ -131,7 +133,7 @@ export function createTts(options: TtsOptions): Tts {
                 signal: controller.signal,
             });
         } catch (error) {
-            log(`tts_request failed token_ms=${tToken - t0} after_ms=${Date.now() - tToken} name=${(error as Error)?.name} chars=${text.length}`);
+            log(`tts_request failed token_ms=${tToken - t0} after_ms=${Date.now() - tToken} name=${(error as Error)?.name} chars=${chars}`);
             const detail = (error as Error)?.name === 'AbortError'
                 ? `no response in ${ceiling}ms`
                 : String((error as Error)?.message ?? error);
@@ -141,11 +143,11 @@ export function createTts(options: TtsOptions): Tts {
         }
         const tHeaders = Date.now();
         if (!response.ok) {
-            log(`tts_request status=${response.status} token_ms=${tToken - t0} headers_ms=${tHeaders - tToken} chars=${text.length}`);
+            log(`tts_request status=${response.status} token_ms=${tToken - t0} headers_ms=${tHeaders - tToken} chars=${chars}`);
             throw new TtsUnavailable(`HTTP ${response.status}`);
         }
         const payload = await response.json().catch(() => null) as { audioContent?: unknown } | null;
-        log(`tts_request status=200 token_ms=${tToken - t0} headers_ms=${tHeaders - tToken} body_ms=${Date.now() - tHeaders} chars=${text.length}`);
+        log(`tts_request status=200 token_ms=${tToken - t0} headers_ms=${tHeaders - tToken} body_ms=${Date.now() - tHeaders} chars=${chars}`);
         if (typeof payload?.audioContent !== 'string' || payload.audioContent === '') {
             throw new TtsUnavailable('a response with no audio');
         }
