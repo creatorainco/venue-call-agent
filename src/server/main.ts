@@ -45,6 +45,7 @@ import type { CascadeRuntime } from '../agent/cascade.ts';
 import { FIXED_PHRASES } from '../agent/phrases.ts';
 import { BACKEND_FIRST_SENTENCES } from '../agent/warmSentences.ts';
 import { liveCall } from '../carrier/call.ts';
+import { warmSilero } from '../speech/silero.ts';
 
 /**
  * Cloud Run allows ten seconds between SIGTERM and SIGKILL. A live call gets most of that to end
@@ -177,7 +178,7 @@ export function createWarmer(runtime: Promise<CascadeRuntime>, log: (line: strin
             const startedAt = Date.now();
             try {
                 // TLS to the hosts a call uses, in parallel with the token, the disclosure and the fixed phrases.
-                await Promise.all([rt.preconnect?.(), rt.tts.prerender(WARM_PHRASES)]);
+                await Promise.all([rt.preconnect?.(), rt.tts.prerender(WARM_PHRASES), warmSilero()]);
                 warm = true;
                 log(`cascade_warm ms=${Date.now() - startedAt} attempt=${n}`);
             } catch (error) {

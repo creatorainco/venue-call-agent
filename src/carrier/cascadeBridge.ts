@@ -47,6 +47,8 @@ import { TurnDetector } from './vad.ts';
 import type { VadSettings } from './vad.ts';
 import { continues, earlySettleMs, earlyTurn, ForegroundSpeech, sameTurn } from '../speech/turnEnd.ts';
 import type { EarlyTurn } from '../speech/turnEnd.ts';
+import { SILERO_BARGE_IN, SileroStream, sileroLoaded } from '../speech/silero.ts';
+import type { SileroEvent } from '../speech/silero.ts';
 
 export interface CascadeBridgeOptions {
     tts: Pick<Tts, 'synthesize'>;
@@ -102,6 +104,8 @@ export class CascadeBridge implements SpeechBridge {
     private readonly gate: OutputGate;
     private readonly tts: Pick<Tts, 'synthesize'>;
     private readonly detector: TurnDetector;
+    /** SPIKE it-22 (I3P-09): Silero, when `VCA_SILERO_MODEL` loaded it, replaces `detector`. */
+    private readonly silero: SileroStream | null;
     private readonly stt: StreamingStt;
     private readonly onStage: NonNullable<CascadeBridgeOptions['onStage']>;
     private readonly handlers: { [K in keyof SpeechBridgeEvents]: Array<SpeechBridgeEvents[K]> } = {
@@ -150,6 +154,8 @@ export class CascadeBridge implements SpeechBridge {
         this.setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
         this.clearTimer = options.clearTimer ?? ((handle) => clearTimeout(handle as NodeJS.Timeout));
         this.detector = new TurnDetector(options.vad);
+        const model = sileroLoaded();
+        this.silero = model === null ? null : new SileroStream(model, SILERO_BARGE_IN, (event) => this.onSilero(event));
         this.stt = new StreamingStt({
             factory: options.speech,
             onFinal: (text) => this.onFinal(text),
@@ -188,9 +194,22 @@ export class CascadeBridge implements SpeechBridge {
         this.frame += 1;
         this.stt.push(frame);
         if (this.earlyEnabled) this.foreground.push(frame);
+        if (this.silero !== null) {
+            this.silero.push(frame);
+            return;
+        }
         const event = this.detector.push(frame);
         if (event?.kind === 'speech_started' && this.speaking()) this.interrupt();
         if (event?.kind === 'turn_ended') this.lastAudible = event.lastAudibleAt ?? this.frame;
+    }
+
+    private onSilero(event: SileroEvent): void {
+        if (this.closed) return;
+        if (event.kind === 'speech_started' && this.speaking()) {
+            this.log('barge_in silero');
+            this.interrupt();
+        }
+        if (event.kind === 'turn_ended') this.lastAudible = event.lastAudibleFrame ?? event.atFrame;
     }
 
     speak(sentences: readonly Sentence[]): Promise<SpokenResult> {
@@ -221,6 +240,7 @@ export class CascadeBridge implements SpeechBridge {
     async hangup(): Promise<void> {
         if (this.closed) return;
         this.closed = true;
+        this.silero?.close();
         this.cancelSettle();
         this.stt.close();
         this.abandon();
