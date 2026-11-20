@@ -3,10 +3,10 @@
  * unwrap. Every test injects `fetch`; nothing here talks to Google.
  */
 
-import { describe, test } from 'node:test';
+import { describe, mock, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { TTS_ENDPOINT, TtsRefused, TtsUnavailable, checkSynthesisInput, createTts, unwrapWav } from '../src/speech/tts.ts';
+import { TTS_ENDPOINT, TtsRefused, TtsUnavailable, checkSynthesisInput, createTts, synthesisCeilingMs, unwrapWav } from '../src/speech/tts.ts';
 import { TTS } from '../src/tuning/cascadeDefaults.ts';
 
 const tokens = { token: async () => 'adc-access-token' };
@@ -137,5 +137,45 @@ describe('the sha256 cache', () => {
         await tts.synthesize('Three.');
         await tts.synthesize('One.');
         assert.equal(bodies.length, 4, 'the oldest entry was evicted');
+    });
+});
+
+describe('the synthesis ceiling grows with the sentence (it-22, docs/soak/2026-11-20.md)', () => {
+    /** A vendor that answers after `ms` of (mocked) time, and gives up when the request is aborted. */
+    function slowVendor(ms: number) {
+        return (async (_url: string | URL | Request, init?: RequestInit) => new Promise<Response>((resolve, reject) => {
+            const timer = setTimeout(() => resolve(new Response(JSON.stringify({ audioContent: wav(AUDIO).toString('base64') }))), ms);
+            init?.signal?.addEventListener('abort', () => {
+                clearTimeout(timer);
+                reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+            });
+        })) as typeof fetch;
+    }
+
+    async function renderAfter(text: string, vendorMs: number): Promise<Buffer> {
+        mock.timers.enable({ apis: ['setTimeout'] });
+        try {
+            const pending = createTts({ tokens, fetchImpl: slowVendor(vendorMs) }).synthesize(text);
+            pending.catch(() => {});
+            // Let the token await settle so the ceiling and the vendor timers are both armed.
+            await new Promise((resolve) => setImmediate(resolve));
+            mock.timers.tick(vendorMs);
+            return await pending;
+        } finally {
+            mock.timers.reset();
+        }
+    }
+
+    test('a 498-character script that takes 4.9 s renders (a flat 4 s ceiling aborted it on every call)', async () => {
+        const script = 'A'.repeat(497) + '.';
+        assert.equal(synthesisCeilingMs(script), 7476);
+        assert.deepEqual(await renderAfter(script, 4900), AUDIO);
+    });
+
+    test('control: a short sentence keeps the flat 4 s, and a 4.9 s vendor still fails it', async () => {
+        const sentence = 'A'.repeat(99) + '.';
+        assert.equal(synthesisCeilingMs(sentence), TTS.timeoutMs);
+        assert.equal(synthesisCeilingMs('A'.repeat(208)), TTS.timeoutMs, '208 characters is the last that keeps 4 s');
+        await assert.rejects(renderAfter(sentence, 4900), (error: unknown) => error instanceof TtsUnavailable && /no response in 4000ms/.test(error.message));
     });
 });
