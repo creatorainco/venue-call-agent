@@ -23,7 +23,7 @@ const waitWarm = !argv.includes('--no-warm');
 function once(port) {
     return new Promise((resolve) => {
         const t0 = performance.now();
-        const child = spawn(process.execPath, ['--import', './scripts/soak-local-quota.mjs', 'src/server/main.ts'], {
+        const child = spawn(process.execPath, ['--import', './scripts/soak-local-quota.mjs', opt('entry', 'src/server/main.ts')], {
             env: { ...process.env, PORT: String(port), CREATORAIN_API_BASE_URL: 'http://127.0.0.1:9', ...extra },
             stdio: ['ignore', 'ignore', 'pipe'],
         });

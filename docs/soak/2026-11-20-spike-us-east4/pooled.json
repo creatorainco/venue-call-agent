@@ -1,0 +1,82 @@
+[
+ {
+  "probe": "seam_call_context_forged",
+  "region": "us-central1",
+  "n_warm": 38,
+  "tcp_min_ms": 28.8,
+  "warm_p50": 31.5,
+  "warm_p90": 32.1,
+  "warm_max": 32.5,
+  "cold_new_conn_median": 106.7
+ },
+ {
+  "probe": "seam_call_context_forged",
+  "region": "us-east4",
+  "n_warm": 38,
+  "tcp_min_ms": 4.4,
+  "warm_p50": 6.5,
+  "warm_p90": 7.8,
+  "warm_max": 52.6,
+  "cold_new_conn_median": 63.4
+ },
+ {
+  "probe": "stt_v2_recognize_us",
+  "region": "us-central1",
+  "n_warm": 38,
+  "tcp_min_ms": 2.6,
+  "warm_p50": 765.5,
+  "warm_p90": 846.6,
+  "warm_max": 910.6,
+  "cold_new_conn_median": 807.2
+ },
+ {
+  "probe": "stt_v2_recognize_us",
+  "region": "us-east4",
+  "n_warm": 38,
+  "tcp_min_ms": 2.4,
+  "warm_p50": 756.5,
+  "warm_p90": 984.6,
+  "warm_max": 1043.3,
+  "cold_new_conn_median": 743.4
+ },
+ {
+  "probe": "tts_chirp3_aoede_mulaw8k",
+  "region": "us-central1",
+  "n_warm": 38,
+  "tcp_min_ms": 3.3,
+  "warm_p50": 474.0,
+  "warm_p90": 542.1,
+  "warm_max": 623.6,
+  "cold_new_conn_median": 581.8
+ },
+ {
+  "probe": "tts_chirp3_aoede_mulaw8k",
+  "region": "us-east4",
+  "n_warm": 38,
+  "tcp_min_ms": 2.7,
+  "warm_p50": 461.3,
+  "warm_p90": 539.7,
+  "warm_max": 1310.8,
+  "cold_new_conn_median": 576.1
+ },
+ {
+  "probe": "vertex_flash_lite_global",
+  "region": "us-central1",
+  "n_warm": 38,
+  "tcp_min_ms": 2.9,
+  "warm_p50": 485.1,
+  "warm_p90": 602.0,
+  "warm_max": 6420.5,
+  "cold_new_conn_median": 542.7
+ },
+ {
+  "probe": "vertex_flash_lite_global",
+  "region": "us-east4",
+  "n_warm": 38,
+  "tcp_min_ms": 2.1,
+  "warm_p50": 631.6,
+  "warm_p90": 902.3,
+  "warm_max": 1160.0,
+  "cold_new_conn_median": 489.9
+ }
+]
