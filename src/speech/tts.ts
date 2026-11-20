@@ -48,6 +48,8 @@ export interface TtsOptions {
     timeoutMs?: number;
     maxInputBytes?: number;
     cacheEntries?: number;
+    /** SPIKE it-22 (stall): one line per request, numbers only, never the text. */
+    log?: (line: string) => void;
 }
 
 export interface Tts {
@@ -99,8 +101,11 @@ export function createTts(options: TtsOptions): Tts {
 
     const keyOf = (text: string) => createHash('sha256').update(`${voice}\n${text}`).digest('hex');
 
+    const log = options.log ?? (() => {});
     async function request(text: string): Promise<Buffer> {
+        const t0 = Date.now();
         const token = await options.tokens.token();
+        const tToken = Date.now();
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
         let response: Response;
@@ -117,6 +122,7 @@ export function createTts(options: TtsOptions): Tts {
                 signal: controller.signal,
             });
         } catch (error) {
+            log(`tts_request failed token_ms=${tToken - t0} after_ms=${Date.now() - tToken} name=${(error as Error)?.name} chars=${text.length}`);
             const detail = (error as Error)?.name === 'AbortError'
                 ? `no response in ${timeoutMs}ms`
                 : String((error as Error)?.message ?? error);
@@ -124,8 +130,13 @@ export function createTts(options: TtsOptions): Tts {
         } finally {
             clearTimeout(timer);
         }
-        if (!response.ok) throw new TtsUnavailable(`HTTP ${response.status}`);
+        const tHeaders = Date.now();
+        if (!response.ok) {
+            log(`tts_request status=${response.status} token_ms=${tToken - t0} headers_ms=${tHeaders - tToken} chars=${text.length}`);
+            throw new TtsUnavailable(`HTTP ${response.status}`);
+        }
         const payload = await response.json().catch(() => null) as { audioContent?: unknown } | null;
+        log(`tts_request status=200 token_ms=${tToken - t0} headers_ms=${tHeaders - tToken} body_ms=${Date.now() - tHeaders} chars=${text.length}`);
         if (typeof payload?.audioContent !== 'string' || payload.audioContent === '') {
             throw new TtsUnavailable('a response with no audio');
         }
@@ -138,7 +149,10 @@ export function createTts(options: TtsOptions): Tts {
         checkSynthesisInput(text, maxInputBytes);
         const key = keyOf(text);
         const hit = cache.get(key);
-        if (hit) return hit;
+        if (hit) {
+            log('tts_cache hit');
+            return hit;
+        }
         const pending = request(text);
         cache.set(key, pending);
         // A failure is not cached: the next call for the same sentence tries again.

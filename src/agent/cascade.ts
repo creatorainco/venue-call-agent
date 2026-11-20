@@ -53,7 +53,7 @@ export async function startCascade(clients: CascadeClients = {}): Promise<Cascad
     const log = clients.log ?? (() => {});
     const fetchOpt = clients.fetchImpl ? { fetchImpl: clients.fetchImpl } : {};
     const intents = clients.intents ?? createVertexClassifier({ tokens, log, ...fetchOpt });
-    const tts = clients.tts ?? createTts({ tokens, ...fetchOpt });
+    const tts = clients.tts ?? createTts({ tokens, log, ...fetchOpt });
     // The recogniser's library loads while the project id is read, not after it (PERF-A).
     const speech = clients.speech ?? await (async () => {
         const [projectId] = await Promise.all([tokens.projectId(), import('@google-cloud/speech')]);
