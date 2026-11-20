@@ -1,0 +1,612 @@
+{
+  "startedAt": "2026-11-20T05:55:56.848Z",
+  "spike": "conversationrelay-loopback",
+  "intent_model": "gemini-3.5-flash-lite",
+  "intent_timeout_ms": 900,
+  "transcript": "heard",
+  "summary": {
+    "calls": 20,
+    "turns": 45,
+    "silentTurns": 1,
+    "setupToFirstText": {
+      "n": 20,
+      "p50": 1,
+      "p90": 2,
+      "p99": 5,
+      "max": 5
+    },
+    "promptToFirstText": {
+      "n": 44,
+      "p50": 607,
+      "p90": 906,
+      "p99": 914,
+      "max": 914
+    },
+    "promptToLastText": {
+      "n": 30,
+      "p50": 741,
+      "p90": 907,
+      "p99": 914,
+      "max": 914
+    },
+    "loopbackRtt": {
+      "n": 100,
+      "p50": 0.06,
+      "p90": 0.13,
+      "p99": 0.19,
+      "max": 1.2
+    }
+  },
+  "calls": [
+    {
+      "id": "plain",
+      "scenario": "happy",
+      "setupToFirstTextMs": 5,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 619,
+          "lastTextMs": 619,
+          "tokens": 4
+        },
+        {
+          "turn": 1,
+          "firstTextMs": 0,
+          "lastTextMs": null,
+          "tokens": 1
+        }
+      ],
+      "ended": "agent_end",
+      "rttMs": [
+        1.2,
+        0.13,
+        0.1,
+        0.07,
+        0.1
+      ]
+    },
+    {
+      "id": "who-pays",
+      "scenario": "happy",
+      "setupToFirstTextMs": 2,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 813,
+          "lastTextMs": 813,
+          "tokens": 4
+        },
+        {
+          "turn": 1,
+          "firstTextMs": 1,
+          "lastTextMs": 1,
+          "tokens": 1
+        },
+        {
+          "turn": 2,
+          "firstTextMs": 1,
+          "lastTextMs": null,
+          "tokens": 1
+        }
+      ],
+      "ended": "agent_end",
+      "rttMs": [
+        0.12,
+        0.05,
+        0.04,
+        0.05,
+        0.04
+      ]
+    },
+    {
+      "id": "who-pays-after-comp-clause",
+      "scenario": "comp-known",
+      "setupToFirstTextMs": 2,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 782,
+          "lastTextMs": 782,
+          "tokens": 4
+        },
+        {
+          "turn": 1,
+          "firstTextMs": 1,
+          "lastTextMs": 1,
+          "tokens": 1
+        },
+        {
+          "turn": 2,
+          "firstTextMs": 1,
+          "lastTextMs": null,
+          "tokens": 1
+        }
+      ],
+      "ended": "agent_end",
+      "rttMs": [
+        0.14,
+        0.07,
+        0.06,
+        0.06,
+        0.06
+      ]
+    },
+    {
+      "id": "two-questions-then-close",
+      "scenario": "happy",
+      "setupToFirstTextMs": 2,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 700,
+          "lastTextMs": null,
+          "tokens": 1
+        }
+      ],
+      "ended": "agent_end",
+      "rttMs": [
+        0.14,
+        0.07,
+        0.1,
+        0.1,
+        0.06
+      ]
+    },
+    {
+      "id": "unknown-question",
+      "scenario": "happy",
+      "setupToFirstTextMs": 1,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 810,
+          "lastTextMs": 810,
+          "tokens": 4
+        },
+        {
+          "turn": 1,
+          "firstTextMs": 811,
+          "lastTextMs": 811,
+          "tokens": 1
+        }
+      ],
+      "ended": null,
+      "rttMs": [
+        0.12,
+        0.07,
+        0.05,
+        0.05,
+        0.06
+      ]
+    },
+    {
+      "id": "wants-to-cancel",
+      "scenario": "happy",
+      "setupToFirstTextMs": 1,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 576,
+          "lastTextMs": 576,
+          "tokens": 4
+        },
+        {
+          "turn": 1,
+          "firstTextMs": 2,
+          "lastTextMs": 2,
+          "tokens": 1
+        }
+      ],
+      "ended": null,
+      "rttMs": [
+        0.15,
+        0.06,
+        0.1,
+        0.11,
+        0.07
+      ]
+    },
+    {
+      "id": "stop-calling",
+      "scenario": "stop-calling",
+      "setupToFirstTextMs": 1,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 116,
+          "lastTextMs": 116,
+          "tokens": 4
+        },
+        {
+          "turn": 1,
+          "firstTextMs": 1,
+          "lastTextMs": null,
+          "tokens": 1
+        }
+      ],
+      "ended": "agent_end",
+      "rttMs": [
+        0.13,
+        0.06,
+        0.09,
+        0.1,
+        0.06
+      ]
+    },
+    {
+      "id": "wrong-number",
+      "scenario": "wrong-number",
+      "setupToFirstTextMs": 1,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 708,
+          "lastTextMs": 708,
+          "tokens": 4
+        },
+        {
+          "turn": 1,
+          "firstTextMs": 1,
+          "lastTextMs": null,
+          "tokens": 1
+        }
+      ],
+      "ended": "agent_end",
+      "rttMs": [
+        0.12,
+        0.07,
+        0.07,
+        0.07,
+        0.16
+      ]
+    },
+    {
+      "id": "voicemail",
+      "scenario": "voicemail",
+      "setupToFirstTextMs": 1,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 1,
+          "lastTextMs": null,
+          "tokens": 1
+        }
+      ],
+      "ended": "agent_end",
+      "rttMs": [
+        0.13,
+        0.06,
+        0.05,
+        0.05,
+        0.05
+      ]
+    },
+    {
+      "id": "phone-menu",
+      "scenario": "phone-menu",
+      "setupToFirstTextMs": 1,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 1,
+          "lastTextMs": 1,
+          "tokens": 1
+        },
+        {
+          "turn": 1,
+          "firstTextMs": 0,
+          "lastTextMs": null,
+          "tokens": 1
+        }
+      ],
+      "ended": "two attempts, no person",
+      "rttMs": [
+        0.11,
+        0.06,
+        0.15,
+        0.08,
+        0.07
+      ]
+    },
+    {
+      "id": "they-interrupt",
+      "scenario": "happy",
+      "setupToFirstTextMs": 1,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 744,
+          "lastTextMs": 744,
+          "tokens": 4
+        },
+        {
+          "turn": 1,
+          "firstTextMs": 680,
+          "lastTextMs": 680,
+          "tokens": 1
+        },
+        {
+          "turn": 2,
+          "firstTextMs": 1,
+          "lastTextMs": null,
+          "tokens": 1
+        }
+      ],
+      "ended": "agent_end",
+      "rttMs": [
+        0.14,
+        0.06,
+        0.07,
+        0.05,
+        0.05
+      ]
+    },
+    {
+      "id": "talks-over-disclosure-200ms",
+      "scenario": "happy",
+      "setupToFirstTextMs": 1,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 0,
+          "lastTextMs": 0,
+          "tokens": 4
+        },
+        {
+          "turn": 1,
+          "firstTextMs": 0,
+          "lastTextMs": null,
+          "tokens": 1
+        }
+      ],
+      "ended": "agent_end",
+      "rttMs": [
+        0.1,
+        0.05,
+        0.08,
+        0.05,
+        0.06
+      ]
+    },
+    {
+      "id": "talks-over-most-of-disclosure",
+      "scenario": "happy",
+      "setupToFirstTextMs": 1,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 0,
+          "lastTextMs": 0,
+          "tokens": 4
+        },
+        {
+          "turn": 1,
+          "firstTextMs": 626,
+          "lastTextMs": 626,
+          "tokens": 1
+        }
+      ],
+      "ended": null,
+      "rttMs": [
+        0.08,
+        0.05,
+        0.05,
+        0.05,
+        0.05
+      ]
+    },
+    {
+      "id": "credential-expires",
+      "scenario": "expired-token",
+      "setupToFirstTextMs": 1,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 741,
+          "lastTextMs": 741,
+          "tokens": 4
+        },
+        {
+          "turn": 1,
+          "firstTextMs": null,
+          "lastTextMs": null,
+          "tokens": 0
+        }
+      ],
+      "ended": null,
+      "rttMs": [
+        0.09,
+        0.06,
+        0.05,
+        0.05,
+        0.05
+      ]
+    },
+    {
+      "id": "booking-hello",
+      "scenario": "happy",
+      "setupToFirstTextMs": 3,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 906,
+          "lastTextMs": 906,
+          "tokens": 4
+        }
+      ],
+      "ended": null,
+      "rttMs": [
+        0.19,
+        0.08,
+        0.06,
+        0.05,
+        0.06
+      ]
+    },
+    {
+      "id": "digits-party-size",
+      "scenario": "happy",
+      "setupToFirstTextMs": 1,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 810,
+          "lastTextMs": 810,
+          "tokens": 4
+        },
+        {
+          "turn": 1,
+          "firstTextMs": 914,
+          "lastTextMs": 914,
+          "tokens": 1
+        },
+        {
+          "turn": 2,
+          "firstTextMs": 0,
+          "lastTextMs": null,
+          "tokens": 1
+        }
+      ],
+      "ended": "agent_end",
+      "rttMs": [
+        0.13,
+        0.06,
+        0.05,
+        0.05,
+        0.05
+      ]
+    },
+    {
+      "id": "digits-callback-number",
+      "scenario": "happy",
+      "setupToFirstTextMs": 1,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 903,
+          "lastTextMs": 903,
+          "tokens": 4
+        },
+        {
+          "turn": 1,
+          "firstTextMs": 911,
+          "lastTextMs": 911,
+          "tokens": 1
+        },
+        {
+          "turn": 2,
+          "firstTextMs": 0,
+          "lastTextMs": null,
+          "tokens": 1
+        }
+      ],
+      "ended": "agent_end",
+      "rttMs": [
+        0.12,
+        0.06,
+        0.05,
+        0.05,
+        0.05
+      ]
+    },
+    {
+      "id": "digits-time",
+      "scenario": "happy",
+      "setupToFirstTextMs": 1,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 826,
+          "lastTextMs": 826,
+          "tokens": 4
+        },
+        {
+          "turn": 1,
+          "firstTextMs": 914,
+          "lastTextMs": 914,
+          "tokens": 1
+        },
+        {
+          "turn": 2,
+          "firstTextMs": 0,
+          "lastTextMs": null,
+          "tokens": 1
+        }
+      ],
+      "ended": "agent_end",
+      "rttMs": [
+        0.09,
+        0.05,
+        0.05,
+        0.05,
+        0.05
+      ]
+    },
+    {
+      "id": "money-covered-amount",
+      "scenario": "comp-known",
+      "setupToFirstTextMs": 1,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 907,
+          "lastTextMs": 907,
+          "tokens": 4
+        },
+        {
+          "turn": 1,
+          "firstTextMs": 884,
+          "lastTextMs": 884,
+          "tokens": 1
+        },
+        {
+          "turn": 2,
+          "firstTextMs": 607,
+          "lastTextMs": 607,
+          "tokens": 1
+        }
+      ],
+      "ended": null,
+      "rttMs": [
+        0.07,
+        0.04,
+        0.03,
+        0.03,
+        0.03
+      ]
+    },
+    {
+      "id": "money-minimum-spend",
+      "scenario": "happy",
+      "setupToFirstTextMs": 1,
+      "turns": [
+        {
+          "turn": 0,
+          "firstTextMs": 836,
+          "lastTextMs": 836,
+          "tokens": 4
+        },
+        {
+          "turn": 1,
+          "firstTextMs": 696,
+          "lastTextMs": 696,
+          "tokens": 1
+        },
+        {
+          "turn": 2,
+          "firstTextMs": 1,
+          "lastTextMs": null,
+          "tokens": 1
+        }
+      ],
+      "ended": "agent_end",
+      "rttMs": [
+        0.12,
+        0.06,
+        0.05,
+        0.05,
+        0.05
+      ]
+    }
+  ]
+}
