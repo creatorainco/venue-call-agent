@@ -1,0 +1,869 @@
+{
+  "bed": {
+    "bed": {
+      "seconds": 30,
+      "energyFalseStarts": 1,
+      "sileroFalseStarts": 2,
+      "energySpeechShare": 0.975,
+      "sileroSpeechShare": 0.965
+    },
+    "bed+6dB": {
+      "seconds": 30,
+      "energyFalseStarts": 1,
+      "sileroFalseStarts": 2,
+      "energySpeechShare": 0.995,
+      "sileroSpeechShare": 0.97
+    },
+    "bed+10dB": {
+      "seconds": 30,
+      "energyFalseStarts": 1,
+      "sileroFalseStarts": 2,
+      "energySpeechShare": 0.999,
+      "sileroSpeechShare": 0.971
+    }
+  },
+  "clips": [
+    {
+      "file": "plain-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 2230,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 80,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 160,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "plain-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 3030,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "who-pays-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 720,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 40,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 120,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "who-pays-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 2470,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 120,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "who-pays-3.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1650,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "who-pays-after-comp-clause-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 610,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 20,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 100,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "who-pays-after-comp-clause-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1200,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": 820,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "who-pays-after-comp-clause-3.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1090,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 120,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "two-questions-then-close-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1050,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 100,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "two-questions-then-close-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1440,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 20,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 100,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "two-questions-then-close-3.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1440,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 100,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "unknown-question-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1260,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 40,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 100,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "unknown-question-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 2270,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 100,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "wants-to-cancel-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 600,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 20,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 100,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "wants-to-cancel-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 3790,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 1,
+        "startLagMs": null,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "stop-calling-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 580,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 120,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "stop-calling-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 3450,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 100,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "wrong-number-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 680,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 20,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 100,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "wrong-number-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 3190,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 120,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "voicemail-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 5390,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 120,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "phone-menu-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 5360,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "phone-menu-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 5050,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": 850,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "they-interrupt-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 610,
+      "energy": {
+        "falseStartsBefore": 1,
+        "startLagMs": null,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "they-interrupt-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 3630,
+      "energy": {
+        "falseStartsBefore": 1,
+        "startLagMs": null,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 1,
+        "startLagMs": null,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "they-interrupt-3.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1740,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "talks-over-disclosure-200ms-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1730,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 20,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 100,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "talks-over-disclosure-200ms-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1780,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "talks-over-most-of-disclosure-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 9690,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 20,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 100,
+        "endLagMs": 910,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "talks-over-most-of-disclosure-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1830,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 20,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "credential-expires-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 800,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 120,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "credential-expires-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1620,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "booking-hello-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1990,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 100,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "digits-party-size-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 2280,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 40,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 120,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "digits-party-size-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 4130,
+      "energy": {
+        "falseStartsBefore": 1,
+        "startLagMs": null,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "digits-party-size-3.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 2870,
+      "energy": {
+        "falseStartsBefore": 1,
+        "startLagMs": null,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 100,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "digits-callback-number-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 890,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": 750,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "digits-callback-number-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 5320,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 20,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "digits-callback-number-3.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1100,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "digits-time-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1700,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 20,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 100,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "digits-time-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 5100,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "digits-time-3.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1380,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "money-covered-amount-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 520,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 20,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 100,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "money-covered-amount-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 3470,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 40,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 100,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "money-covered-amount-3.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1210,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "money-minimum-spend-1.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1660,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 40,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 100,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "money-minimum-spend-2.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 7450,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    },
+    {
+      "file": "money-minimum-spend-3.ulaw",
+      "speech_start_ms": 200,
+      "speech_end_ms": 1200,
+      "energy": {
+        "falseStartsBefore": 0,
+        "startLagMs": 0,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      },
+      "silero": {
+        "falseStartsBefore": 0,
+        "startLagMs": 60,
+        "endLagMs": null,
+        "midTurnEnds": 0
+      }
+    }
+  ],
+  "summary": {
+    "energy": {
+      "clips": 47,
+      "missed": 0,
+      "falseStartsBeforeSpeech": 4,
+      "midTurnEnds": 0,
+      "startLagP50": 0,
+      "startLagP90": 60,
+      "endLagP50": null,
+      "endLagP90": null,
+      "bedFalseStarts": {
+        "bed": 1,
+        "bed+6dB": 1,
+        "bed+10dB": 1
+      },
+      "bedShareCalledSpeech": {
+        "bed": 0.975,
+        "bed+6dB": 0.995,
+        "bed+10dB": 0.999
+      }
+    },
+    "silero": {
+      "clips": 47,
+      "missed": 0,
+      "falseStartsBeforeSpeech": 2,
+      "midTurnEnds": 0,
+      "startLagP50": 100,
+      "startLagP90": 120,
+      "endLagP50": 820,
+      "endLagP90": 910,
+      "bedFalseStarts": {
+        "bed": 2,
+        "bed+6dB": 2,
+        "bed+10dB": 2
+      },
+      "bedShareCalledSpeech": {
+        "bed": 0.965,
+        "bed+6dB": 0.97,
+        "bed+10dB": 0.971
+      }
+    },
+    "sileroRealTimeFactor": 0.0035
+  }
+}
