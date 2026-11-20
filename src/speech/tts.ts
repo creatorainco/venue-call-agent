@@ -102,12 +102,21 @@ export function createTts(options: TtsOptions): Tts {
     const keyOf = (text: string) => createHash('sha256').update(`${voice}\n${text}`).digest('hex');
 
     const log = options.log ?? (() => {});
+    /**
+     * SPIKE it-22 (stall fix): the ceiling grows with the sentence. Chirp 3 HD took 4.9 s for the
+     * mock's 498-character voicemail script on both tries (scripts/spike-tts-time.mjs), so under a
+     * flat 4 s it never rendered: `prerender_failed` on every call, and `internal_error
+     * TtsUnavailable` on a call that needed it. 12 ms a character over the base, from ~1 s per
+     * 100 characters measured, with headroom; short sentences keep the base.
+     */
+    const timeoutFor = (text: string): number => Math.max(timeoutMs, Math.round(1500 + 12 * text.length));
     async function request(text: string): Promise<Buffer> {
+        const ceiling = timeoutFor(text);
         const t0 = Date.now();
         const token = await options.tokens.token();
         const tToken = Date.now();
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        const timer = setTimeout(() => controller.abort(), ceiling);
         let response: Response;
         try {
             requests++;
@@ -124,7 +133,7 @@ export function createTts(options: TtsOptions): Tts {
         } catch (error) {
             log(`tts_request failed token_ms=${tToken - t0} after_ms=${Date.now() - tToken} name=${(error as Error)?.name} chars=${text.length}`);
             const detail = (error as Error)?.name === 'AbortError'
-                ? `no response in ${timeoutMs}ms`
+                ? `no response in ${ceiling}ms`
                 : String((error as Error)?.message ?? error);
             throw new TtsUnavailable(detail);
         } finally {

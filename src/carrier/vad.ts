@@ -99,6 +99,18 @@ export interface TurnEvent {
  *
  * Stateful and single-call. Construct one per leg.
  */
+/**
+ * SPIKE it-22 (stall fix): a floor that follows the room. With `floorMarginDb` set, a frame counts
+ * toward a start, or holds a turn open, only when it is also that many dB over the 20th percentile
+ * of the last 3 s of frame energy. Without it, the corpus bed (RMS ~820) sits over the end
+ * threshold (600) for good: after the venue's first word the detector never ends a turn, so it
+ * never starts another, and no later barge-in fires (scripts/compare-vad.mjs on spike/silero-vad).
+ */
+export interface TurnDetectorOptions {
+    floorMarginDb?: number | null;
+}
+const FLOOR_FRAMES = 150;
+
 export class TurnDetector {
     // No `constructor(private readonly settings)`. A parameter property typechecks and throws
     // ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX at runtime under Node's type stripping.
@@ -108,6 +120,9 @@ export class TurnDetector {
     private readonly startRun: number;
     private readonly silenceFrames: number;
     private readonly prefixFrames: number;
+    private readonly floorGain: number | null;
+    private readonly recent: number[] = [];
+    private floor = 0;
 
     private frame = -1;
     private speechRun = 0;
@@ -118,8 +133,9 @@ export class TurnDetector {
     /** Every frame's RMS, kept so a sweep can re-score without regenerating audio. */
     readonly energy: number[] = [];
 
-    constructor(settings: VadSettings) {
+    constructor(settings: VadSettings, options: TurnDetectorOptions = {}) {
         this.settings = settings;
+        this.floorGain = options.floorMarginDb == null ? null : 10 ** (options.floorMarginDb / 20);
         this.startThreshold = START_THRESHOLD[settings.startOfSpeechSensitivity];
         this.endThreshold = this.startThreshold * END_FRACTION[settings.endOfSpeechSensitivity];
         // Belt and braces: the invariant is now structural, so if it ever breaks again it broke
@@ -140,9 +156,21 @@ export class TurnDetector {
         this.frame += 1;
         const rms = frameEnergy(frame);
         this.energy.push(rms);
+        let startAt = this.startThreshold;
+        let endAt = this.endThreshold;
+        if (this.floorGain !== null) {
+            this.recent.push(rms);
+            if (this.recent.length > FLOOR_FRAMES) this.recent.shift();
+            if (this.frame % 5 === 0 || this.recent.length < 5) {
+                const sorted = [...this.recent].sort((a, b) => a - b);
+                this.floor = sorted[Math.floor(sorted.length * 0.2)] ?? 0;
+            }
+            startAt = Math.max(startAt, this.floor * this.floorGain);
+            endAt = Math.max(endAt, this.floor * this.floorGain);
+        }
 
         if (!this.inSpeech) {
-            if (rms >= this.startThreshold) {
+            if (rms >= startAt) {
                 this.speechRun += 1;
                 if (this.speechRun >= this.startRun) {
                     this.inSpeech = true;
@@ -161,7 +189,7 @@ export class TurnDetector {
             return null;
         }
 
-        if (rms >= this.endThreshold) {
+        if (rms >= endAt) {
             this.silenceRun = 0;
             this.lastAudible = this.frame;
             return null;

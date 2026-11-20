@@ -59,6 +59,8 @@ export interface CascadeBridgeOptions {
      * written to the gate (`first_frame_out`): the stage timings (I3P-03). The id, never the text.
      */
     onStage?: (id: string, stage: 'tts_first_byte' | 'first_frame_out') => void;
+    /** SPIKE it-22: barge-in floor margin in dB over the room; null for the fixed thresholds. */
+    bargeInFloorDb?: number | null;
     /** End a turn on a still interim (`src/speech/turnEnd.ts`). Default true. */
     earlyTurnEnd?: boolean;
     /**
@@ -149,7 +151,8 @@ export class CascadeBridge implements SpeechBridge {
         this.onSpeculate = options.onSpeculate ?? (() => {});
         this.setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
         this.clearTimer = options.clearTimer ?? ((handle) => clearTimeout(handle as NodeJS.Timeout));
-        this.detector = new TurnDetector(options.vad);
+        // SPIKE it-22 (stall fix): barge-in over a floor that follows the room, 9 dB as ForegroundSpeech.
+        this.detector = new TurnDetector(options.vad, { floorMarginDb: options.bargeInFloorDb === undefined ? TURN_END.foregroundMarginDb : options.bargeInFloorDb });
         this.stt = new StreamingStt({
             factory: options.speech,
             onFinal: (text) => this.onFinal(text),
