@@ -338,7 +338,17 @@ export class CascadeBridge implements SpeechBridge {
             this.log('final_same_turn');
             return;
         }
-        if (early !== null) this.log('final_new_turn');
+        if (early !== null) {
+            this.log('final_new_turn');
+            // SPIKE it-22 (stall fix): the reply to the early half ("Hello?") is superseded by the
+            // whole turn ("Hello? Hello, who is this?"). Its sentences not yet on the leg are
+            // dropped, so the answer to the whole turn waits for one sentence at most, not for the
+            // whole opening (17 s in the silero-r2 soak, talks-over-disclosure-200ms).
+            if (this.speaking()) {
+                this.generation += 1;
+                this.log('superseded_early_reply');
+            }
+        }
         this.emitTurn(text, false);
     }
 
