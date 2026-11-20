@@ -129,6 +129,15 @@ export const TTS = {
      */
     maxInputBytes: 5000,
     timeoutMs: 4000,
+    /**
+     * The ceiling grows with the sentence: max(timeoutMs, timeoutBaseMs + timeoutPerCharMs a
+     * character). Chirp 3 HD took 4.9-5.1 s for the mock's 498-character voicemail script, so a
+     * flat 4 s aborted it on every call (`prerender_failed`, then `internal_error TtsUnavailable`
+     * on a call that needed it; docs/soak/2026-11-20.md). Measured about 1 s per 100 characters;
+     * 12 ms leaves headroom. Every sentence of 208 characters or fewer keeps the flat 4 s.
+     */
+    timeoutBaseMs: 1500,
+    timeoutPerCharMs: 12,
     /** Finished strings repeat across calls; the cache is bounded so it cannot grow unbounded. */
     cacheEntries: 256,
 } as const;

@@ -94,6 +94,17 @@ export interface TurnEvent {
     replayFrom?: number;
 }
 
+export interface TurnDetectorOptions {
+    /**
+     * Barge-in over a room floor. With it set, a frame starts a turn, or holds one open, only when
+     * it is also over `RoomFloor`'s level. Without it, a steady bed above the end threshold keeps a
+     * turn open for good: the corpus bed (RMS about 820) sits over the pinned end threshold (600),
+     * so after the venue's first word no turn ends, no turn starts again and barge-in never fires
+     * (docs/soak/2026-11-20.md). Null or absent keeps the fixed thresholds alone.
+     */
+    floor?: RoomFloorSettings | null;
+}
+
 /**
  * Feed it frames; it tells you when a turn started and when it ended.
  *
@@ -108,6 +119,7 @@ export class TurnDetector {
     private readonly startRun: number;
     private readonly silenceFrames: number;
     private readonly prefixFrames: number;
+    private readonly floor: RoomFloor | null;
 
     private frame = -1;
     private speechRun = 0;
@@ -118,8 +130,9 @@ export class TurnDetector {
     /** Every frame's RMS, kept so a sweep can re-score without regenerating audio. */
     readonly energy: number[] = [];
 
-    constructor(settings: VadSettings) {
+    constructor(settings: VadSettings, options: TurnDetectorOptions = {}) {
         this.settings = settings;
+        this.floor = options.floor ? new RoomFloor(options.floor) : null;
         this.startThreshold = START_THRESHOLD[settings.startOfSpeechSensitivity];
         this.endThreshold = this.startThreshold * END_FRACTION[settings.endOfSpeechSensitivity];
         // Belt and braces: the invariant is now structural, so if it ever breaks again it broke
@@ -140,9 +153,12 @@ export class TurnDetector {
         this.frame += 1;
         const rms = frameEnergy(frame);
         this.energy.push(rms);
+        const level = this.floor?.push(rms) ?? 0;
+        const startAt = Math.max(this.startThreshold, level);
+        const endAt = Math.max(this.endThreshold, level);
 
         if (!this.inSpeech) {
-            if (rms >= this.startThreshold) {
+            if (rms >= startAt) {
                 this.speechRun += 1;
                 if (this.speechRun >= this.startRun) {
                     this.inSpeech = true;
@@ -161,7 +177,7 @@ export class TurnDetector {
             return null;
         }
 
-        if (rms >= this.endThreshold) {
+        if (rms >= endAt) {
             this.silenceRun = 0;
             this.lastAudible = this.frame;
             return null;
@@ -219,4 +235,43 @@ export function frameEnergy(frame: Frame): number {
     let sum = 0;
     for (const sample of pcm) sum += sample * sample;
     return Math.sqrt(sum / pcm.length);
+}
+
+export interface RoomFloorSettings {
+    /** How many recent frames the floor is taken over. */
+    floorFrames: number;
+    /** Which percentile of those frames' energy is the room. */
+    floorPercentile: number;
+    /** How far over the room, in dB, a frame must be to be the voice at the phone. */
+    foregroundMarginDb: number;
+}
+
+/**
+ * The room behind the voice at the phone. The floor is a low percentile of the last `floorFrames`
+ * frames' energy, recomputed every 5 frames: it only has to follow the room. `push` returns the
+ * level a frame must reach to be over the room. One helper for `TurnDetector`'s barge-in floor and
+ * `ForegroundSpeech` (src/speech/turnEnd.ts), so the two cannot drift apart.
+ */
+export class RoomFloor {
+    readonly #settings: RoomFloorSettings;
+    readonly #gain: number;
+    readonly #energies: number[] = [];
+    #floor = 0;
+    #sinceFloor = 0;
+
+    constructor(settings: RoomFloorSettings) {
+        this.#settings = settings;
+        this.#gain = 10 ** (settings.foregroundMarginDb / 20);
+    }
+
+    push(energy: number): number {
+        this.#energies.push(energy);
+        if (this.#energies.length > this.#settings.floorFrames) this.#energies.shift();
+        if (++this.#sinceFloor >= 5 || this.#energies.length < 5) {
+            this.#sinceFloor = 0;
+            const sorted = [...this.#energies].sort((a, b) => a - b);
+            this.#floor = sorted[Math.floor(sorted.length * this.#settings.floorPercentile)] ?? 0;
+        }
+        return this.#floor * this.#gain;
+    }
 }

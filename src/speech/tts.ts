@@ -88,6 +88,14 @@ export function unwrapWav(audio: Buffer): Buffer {
     throw new TtsUnavailable('a WAV response with no data chunk');
 }
 
+/**
+ * How long one synthesis request may take: `TTS.timeoutMs` for a short sentence, more for a long
+ * one (`TTS.timeoutPerCharMs`). A long script under a flat ceiling never renders at all.
+ */
+export function synthesisCeilingMs(text: string, floorMs: number = TTS.timeoutMs): number {
+    return Math.max(floorMs, Math.round(TTS.timeoutBaseMs + TTS.timeoutPerCharMs * text.length));
+}
+
 export function createTts(options: TtsOptions): Tts {
     const voice = options.voice ?? TTS.voice;
     const doFetch = options.fetchImpl ?? fetch;
@@ -100,9 +108,10 @@ export function createTts(options: TtsOptions): Tts {
     const keyOf = (text: string) => createHash('sha256').update(`${voice}\n${text}`).digest('hex');
 
     async function request(text: string): Promise<Buffer> {
+        const ceiling = synthesisCeilingMs(text, timeoutMs);
         const token = await options.tokens.token();
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        const timer = setTimeout(() => controller.abort(), ceiling);
         let response: Response;
         try {
             requests++;
@@ -118,7 +127,7 @@ export function createTts(options: TtsOptions): Tts {
             });
         } catch (error) {
             const detail = (error as Error)?.name === 'AbortError'
-                ? `no response in ${timeoutMs}ms`
+                ? `no response in ${ceiling}ms`
                 : String((error as Error)?.message ?? error);
             throw new TtsUnavailable(detail);
         } finally {

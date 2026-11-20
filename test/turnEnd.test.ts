@@ -80,10 +80,10 @@ class FakeStream extends EventEmitter implements RecognizeStream {
 const roomFrame = (): Uint8Array => new Uint8Array(160).map((_, i) => (i % 2 ? 0xf0 : 0x70));
 const personFrame = (): Uint8Array => new Uint8Array(160).map((_, i) => (i % 2 ? 0x90 : 0x10));
 
-function rig(earlyTurnEnd = true, person = 1) {
+function rig(earlyTurnEnd = true, person = 1, tts: { synthesize: (text: string) => Promise<Buffer> } = { synthesize: async () => Buffer.alloc(0) }) {
     const stream = new FakeStream();
     const speech: SpeechStreamFactory = { recognizer: 'r', open: () => stream };
-    const leg = new FakeCallLeg({ turns: [], trailingSilenceMs: 1_000 });
+    const leg = new FakeCallLeg({ turns: [], trailingSilenceMs: 10_000 });
     const gate = new OutputGate(leg, { isSpeech: (f) => isSpeechFrame(f, VAD), log: () => {} });
     gate.connect();
     let now = 0;
@@ -93,7 +93,7 @@ function rig(earlyTurnEnd = true, person = 1) {
     const speculated: string[] = [];
     const bridge = new CascadeBridge(gate, {
         onSpeculate: (text) => speculated.push(text),
-        tts: { synthesize: async () => Buffer.alloc(0) },
+        tts,
         speech,
         vad: VAD,
         earlyTurnEnd,
@@ -114,7 +114,7 @@ function rig(earlyTurnEnd = true, person = 1) {
             t.fn();
         }
     };
-    return { stream, bridge, turns, advance, lines, speculated };
+    return { stream, bridge, turns, advance, lines, speculated, leg };
 }
 
 describe('CascadeBridge ends a turn on a still interim', () => {
@@ -204,6 +204,71 @@ describe('CascadeBridge ends a turn on a still interim', () => {
         assert.equal(turns.length, 0);
         stream.final('hello');
         assert.deepEqual(turns.map((t) => t.text), ['hello']);
+    });
+});
+
+describe('the whole turn supersedes the reply to its early half (it-22, docs/soak/2026-11-20.md)', () => {
+    const tick = (): Promise<void> => new Promise((resolve) => { setImmediate(resolve); });
+    /** 10 frames of audio a sentence, so each one sits on the leg until its mark comes back. */
+    const audible = { synthesize: async () => Buffer.alloc(1_600, 0x10) };
+    const OPENING = [1, 2, 3, 4].map((n) => ({ id: `o${n}`, text: `Opening sentence ${n}.` }));
+
+    async function earlyHelloThenOpening() {
+        const r = rig(true, 1, audible);
+        // The gate lets no audio out before the disclosure: play it whole first.
+        let heard = false;
+        void r.bridge.speakDisclosure({ id: 'd', text: 'Disclosure sentence.' }).then(() => { heard = true; });
+        for (let i = 0; i < 60 && !heard; i++) {
+            await tick();
+            r.leg.advance();
+        }
+        assert.ok(heard, 'the disclosure played');
+        r.stream.interim('hello');
+        r.advance(TURN_END.shortSettleMs);
+        assert.deepEqual(r.turns.map((t) => t.text), ['hello']);
+        const opening = r.bridge.speak(OPENING);
+        await tick();
+        assert.deepEqual(r.bridge.synthesised.slice(1), ['Opening sentence 1.'], 'the first sentence is on the leg');
+        return { ...r, opening };
+    }
+
+    /** The mark of the sentence on the leg comes back: it was heard in full. */
+    async function markBack(r: { bridge: CascadeBridge; leg: FakeCallLeg }): Promise<void> {
+        const on = (): unknown => (r.bridge as unknown as { playing: unknown }).playing;
+        const playing = on();
+        assert.ok(playing, 'a sentence is on the leg');
+        for (let i = 0; i < 30 && on() === playing; i++) r.leg.advance();
+        assert.notEqual(on(), playing, 'its mark came back');
+        for (let i = 0; i < 5; i++) await tick();
+    }
+
+    it('a new-turn final while the agent speaks drops the queued rest of the early reply; the one playing finishes', async () => {
+        const r = await earlyHelloThenOpening();
+        r.stream.final("hello who's paying for the meal");
+        assert.deepEqual(r.turns.map((t) => t.text), ['hello', "hello who's paying for the meal"]);
+        assert.ok(r.lines.includes('superseded_early_reply'));
+        await markBack(r);
+        assert.deepEqual(r.bridge.synthesised.slice(1), ['Opening sentence 1.'], 'nothing after the sentence playing is rendered');
+        const result = await r.opening;
+        assert.deepEqual(result.sentences.map((s) => s.heardMs > 0), [true, false, false, false]);
+    });
+
+    it('control: a same-turn final supersedes nothing, and the whole opening plays', async () => {
+        const r = await earlyHelloThenOpening();
+        r.stream.final('Hello?');
+        assert.ok(!r.lines.includes('superseded_early_reply'));
+        for (let n = 0; n < OPENING.length; n++) await markBack(r);
+        const result = await r.opening;
+        assert.equal(r.bridge.synthesised.length, 1 + OPENING.length);
+        assert.equal(result.complete, true);
+    });
+
+    it('the speak_wait line says what a reply queued behind, with no text', async () => {
+        const r = await earlyHelloThenOpening();
+        void r.bridge.speak([{ id: 'r1', text: 'A reply.' }]);
+        for (let n = 0; n < OPENING.length; n++) await markBack(r);
+        assert.ok(r.lines.some((l) => /^speak_wait ms=\d+ behind=none sentences=4$/.test(l)), r.lines.join(' | '));
+        assert.ok(r.lines.some((l) => /^speak_wait ms=\d+ behind=sentence sentences=1$/.test(l)), r.lines.join(' | '));
     });
 });
 

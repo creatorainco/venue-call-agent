@@ -34,7 +34,7 @@
 import { keywordIntent } from '../agent/intent.ts';
 import type { Intent } from '../agent/intent.ts';
 import { TURN_END } from '../tuning/cascadeDefaults.ts';
-import { frameEnergy } from '../carrier/vad.ts';
+import { frameEnergy, RoomFloor } from '../carrier/vad.ts';
 
 export interface TurnEndSettings {
     cueSettleMs: number;
@@ -104,25 +104,17 @@ export function continues(early: EarlyTurn, interim: string): boolean {
  */
 export class ForegroundSpeech {
     readonly #settings: TurnEndSettings;
-    readonly #energies: number[] = [];
+    readonly #room: RoomFloor;
     readonly #foreground: boolean[] = [];
-    #floor = 0;
-    #sinceFloor = 0;
 
     constructor(settings: TurnEndSettings = TURN_END) {
         this.#settings = settings;
+        this.#room = new RoomFloor(settings);
     }
 
     push(frame: Uint8Array): void {
         const energy = frameEnergy(frame);
-        this.#energies.push(energy);
-        if (this.#energies.length > this.#settings.floorFrames) this.#energies.shift();
-        if (++this.#sinceFloor >= 5 || this.#energies.length < 5) {
-            this.#sinceFloor = 0;
-            const sorted = [...this.#energies].sort((a, b) => a - b);
-            this.#floor = sorted[Math.floor(sorted.length * this.#settings.floorPercentile)] ?? 0;
-        }
-        const over = energy > 0 && energy >= this.#floor * 10 ** (this.#settings.foregroundMarginDb / 20);
+        const over = energy > 0 && energy >= this.#room.push(energy);
         this.#foreground.push(over);
         if (this.#foreground.length > this.#settings.foregroundWindowFrames) this.#foreground.shift();
     }

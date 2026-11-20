@@ -44,7 +44,7 @@ import type { Sentence, SentenceOutcome, SpeechBridge, SpeechBridgeEvents, Spoke
 import type { Frame } from './leg.ts';
 import type { OutputGate } from './outputGate.ts';
 import { TurnDetector } from './vad.ts';
-import type { VadSettings } from './vad.ts';
+import type { RoomFloorSettings, VadSettings } from './vad.ts';
 import { continues, earlySettleMs, earlyTurn, ForegroundSpeech, sameTurn } from '../speech/turnEnd.ts';
 import type { EarlyTurn } from '../speech/turnEnd.ts';
 
@@ -59,6 +59,12 @@ export interface CascadeBridgeOptions {
      * written to the gate (`first_frame_out`): the stage timings (I3P-03). The id, never the text.
      */
     onStage?: (id: string, stage: 'tts_first_byte' | 'first_frame_out') => void;
+    /**
+     * Barge-in only over the room's floor (`RoomFloor`, src/carrier/vad.ts). Default `TURN_END`,
+     * the floor `ForegroundSpeech` uses; null keeps the fixed thresholds alone, which never end a
+     * turn in a bed louder than the end threshold.
+     */
+    bargeInFloor?: RoomFloorSettings | null;
     /** End a turn on a still interim (`src/speech/turnEnd.ts`). Default true. */
     earlyTurnEnd?: boolean;
     /**
@@ -149,7 +155,7 @@ export class CascadeBridge implements SpeechBridge {
         this.onSpeculate = options.onSpeculate ?? (() => {});
         this.setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
         this.clearTimer = options.clearTimer ?? ((handle) => clearTimeout(handle as NodeJS.Timeout));
-        this.detector = new TurnDetector(options.vad);
+        this.detector = new TurnDetector(options.vad, { floor: options.bargeInFloor === undefined ? TURN_END : options.bargeInFloor });
         this.stt = new StreamingStt({
             factory: options.speech,
             onFinal: (text) => this.onFinal(text),
@@ -238,7 +244,15 @@ export class CascadeBridge implements SpeechBridge {
             this.ids.add(id);
         }
         const generation = this.generation;
-        const run = this.chain.then(() => this.play(sentences, generation, protect));
+        // What the reply queued behind, and for how long: a slow reply is a wait or a slow render,
+        // and only this line tells them apart. Numbers and a tag, never the text.
+        const queuedAt = Date.now();
+        const behind = this.playing === null ? 'none' : this.playing.protected ? 'disclosure' : 'sentence';
+        const count = sentences.length;
+        const run = this.chain.then(() => {
+            this.log(`speak_wait ms=${Date.now() - queuedAt} behind=${behind} sentences=${count}`);
+            return this.play(sentences, generation, protect);
+        });
         this.chain = run.catch(() => {});
         return run;
     }
@@ -327,7 +341,17 @@ export class CascadeBridge implements SpeechBridge {
             this.log('final_same_turn');
             return;
         }
-        if (early !== null) this.log('final_new_turn');
+        if (early !== null) {
+            this.log('final_new_turn');
+            // The whole turn ("Hello? Hello, who is this?") supersedes the reply to its early half
+            // ("Hello?"). That reply's sentences not yet on the leg are dropped, so the answer
+            // waits for one sentence at most, not the whole opening (17.5 s in the 2026-11-20
+            // baseline soak). The sentence playing finishes; the disclosure is never dropped.
+            if (this.speaking()) {
+                this.generation += 1;
+                this.log('superseded_early_reply');
+            }
+        }
         this.emitTurn(text, false);
     }
 
