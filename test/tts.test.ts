@@ -178,4 +178,30 @@ describe('the synthesis ceiling grows with the sentence (it-22, docs/soak/2026-1
         assert.equal(synthesisCeilingMs('A'.repeat(208)), TTS.timeoutMs, '208 characters is the last that keeps 4 s');
         await assert.rejects(renderAfter(sentence, 4900), (error: unknown) => error instanceof TtsUnavailable && /no response in 4000ms/.test(error.message));
     });
+
+    test('the ceiling stops at TTS.timeoutMaxMs: a 5,000-character sentence fails at 10 s, not 61 s', async () => {
+        const longest = 'A'.repeat(TTS.maxInputBytes - 1) + '.';
+        assert.equal(TTS.timeoutMaxMs, 10_000);
+        assert.equal(synthesisCeilingMs(longest), TTS.timeoutMaxMs);
+        assert.equal(synthesisCeilingMs('A'.repeat(708)), 9996, '708 characters is the last under the cap');
+        await assert.rejects(renderAfter(longest, TTS.timeoutMaxMs + 500), (error: unknown) => error instanceof TtsUnavailable && /no response in 10000ms/.test(error.message));
+    });
+
+    test('the deadline holds after the headers: a body that never finishes fails at the ceiling', async () => {
+        mock.timers.enable({ apis: ['setTimeout'] });
+        try {
+            // Headers at once, then a body that never arrives and ignores the abort signal.
+            const stalled = (async () => ({ ok: true, status: 200, json: () => new Promise(() => {}) }) as unknown as Response) as typeof fetch;
+            let outcome: unknown = 'pending';
+            const pending = createTts({ tokens, fetchImpl: stalled }).synthesize('A stalled body.');
+            pending.then(() => { outcome = 'resolved'; }, (error: unknown) => { outcome = error; });
+            await new Promise((resolve) => setImmediate(resolve));
+            mock.timers.tick(TTS.timeoutMs);
+            for (let i = 0; i < 5; i++) await new Promise((resolve) => setImmediate(resolve));
+            assert.ok(outcome instanceof TtsUnavailable, `the request settled as ${String(outcome)}`);
+            assert.match((outcome as Error).message, /no response in 4000ms/);
+        } finally {
+            mock.timers.reset();
+        }
+    });
 });
