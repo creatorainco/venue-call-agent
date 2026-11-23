@@ -27,16 +27,27 @@ name: verify
 on:
   pull_request:
     branches: [main, dev]
+  # Push runs only on `dev`. That post-merge run is the one that checks the real venue-name list for
+  # a pull request that got no secrets (a fork or Dependabot). A push to `main` is not listed:
+  # deploy-main.yml already runs this gate on that exact commit through workflow_call, so a push
+  # trigger here ran it twice (TASK-3265).
   push:
-    branches: [main, dev]
+    branches: [dev]
   workflow_dispatch:
   # deploy-main.yml calls this as a job its deploy `needs`, so production deploys only a commit this
   # gate passed, whatever branch protection allowed (enforce_admins is off).
   workflow_call:
 
+# A newer commit on a pull request cancels that pull request's older, now-stale run. Push and
+# workflow_call runs (dev after a merge, main inside the deploy) are never cancelled.
+concurrency:
+  group: verify-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
