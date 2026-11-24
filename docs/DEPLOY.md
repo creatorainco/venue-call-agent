@@ -252,7 +252,7 @@ Each identity holds only what its one job needs, granted on the narrowest resour
 |---|---|---|---|
 | this repository, via the pool | `roles/iam.workloadIdentityUser` | the dispatch account | lets a `dev` push act as that account and nothing else |
 | the dispatch account | `cloudbuild.builds.create` (the project's custom build-starter role) | the project | starts a build; cannot change one |
-| the dispatch account | `roles/cloudbuild.builds.viewer` | the project | reads the build's status, so the workflow fails when the deploy does (`--suppress-logs`: it cannot read the log itself) |
+| the dispatch account | `roles/cloudbuild.builds.viewer` | the project | reads build status. The workflow starts the build with `--async` and ends (TASK-2369, CI cost), so a failed deploy shows in Cloud Build at the link the step prints, not as a red run |
 | the dispatch account | `roles/iam.serviceAccountUser` | `venue-call-build@` only | names the build identity on the build |
 | `venue-call-build@` | `roles/artifactregistry.writer` | the one repository | pushes the image |
 | `venue-call-build@` | `roles/run.developer` | the one service | deploys a revision; **cannot** change who may invoke it |
