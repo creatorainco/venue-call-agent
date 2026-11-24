@@ -54,7 +54,7 @@ jobs:
     # A manual run from any other branch would be refused by the federation anyway; say so here first.
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 5
     steps:
       # Only cloudbuild-prod.yaml is read from the checkout; the build fetches the commit itself.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -68,9 +68,11 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
-      # --suppress-logs: the dispatch account cannot read Cloud Logging, so gcloud polls the build's
-      # status instead of tailing its log, and exits non-zero when the build fails. The step log
-      # carries the console link to the full build log.
+      # --async (TASK-2369, CI cost): the job starts the build and ends, so GitHub bills about one
+      # minute. It used to wait for the build, and every minute the build sat in the Cloud Build
+      # queue or ran was billed (run 45267084394: 25 min, then cancelled at the job limit). The
+      # build's own result is in Cloud Build: open the console link this step prints. Two deploys
+      # started within a few minutes of each other now run side by side; the later finish wins.
       - name: build, push and deploy venue-call-agent
         env:
           SHA: ${{ github.sha }}
@@ -80,4 +82,9 @@ jobs:
             --project=creatorain-27e9e \
             --region=us-central1 \
             --substitutions="_COMMIT_SHA=${SHA}" \
-            --suppress-logs
+            --async --format='value(id)' > "$RUNNER_TEMP/build-id"
+          id=$(cat "$RUNNER_TEMP/build-id")
+          [ -n "$id" ] || { echo "::error::Cloud Build returned no build id."; exit 1; }
+          url="https://console.cloud.google.com/cloud-build/builds;region=us-central1/$id?project=creatorain-27e9e"
+          echo "Started Cloud Build $id for venue-call-agent on $SHA. Result and log: $url"
+          echo "Started Cloud Build [$id]($url) for venue-call-agent on $SHA." >> "$GITHUB_STEP_SUMMARY"
